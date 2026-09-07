@@ -1,0 +1,9 @@
+# Ensure OpenRouter is a live llm-pi-ai route for SDK workers.
+# (Without this, llm-pi-ai can mount dormant and initialize fails with
+# "no adapter registered for provider openrouter".)
+- id: llm-pi-ai
+  name: '@deepseek-ai/dsh-llm-pi-ai'
+  config:
+    providers:
+      openrouter:
+        apiKeyEnv: OPENROUTER_API_KEY

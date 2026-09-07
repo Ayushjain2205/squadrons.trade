@@ -1,4 +1,10 @@
-import "dotenv/config";
+import { config as loadEnv } from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const hostRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+loadEnv({ path: path.join(hostRoot, ".env") });
+
 import { runDshSmoke } from "./runner.js";
 
 const prompt = process.argv.slice(2).join(" ") || undefined;

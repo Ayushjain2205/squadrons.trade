@@ -1,8 +1,9 @@
 import { mkdir } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { DeepSeekHarness } from "@deepseek-ai/dsh-sdk-client";
 import { hostRoot } from "../db.js";
-import { OBSERVE_PATCH_PATH } from "./prompt.js";
+import { LLM_PATCH_PATH, OBSERVE_PATCH_PATH } from "./prompt.js";
 
 export type DshTurnResult = {
   sessionId: string;
@@ -20,9 +21,15 @@ export type DshTurnOptions = {
   sessionId?: string | null;
   provider?: string;
   model?: string;
-  /** Extra Cordis patches (defaults to Squadrons observe patch). */
+  /** Extra Cordis patches beyond the Squadrons LLM patch. */
   patches?: string[];
+  /** When false, skip the observe-mode tool lockdown (smoke only). */
+  observeMode?: boolean;
 };
+
+function defaultDshHome(): string {
+  return process.env.DSH_HOME || path.join(os.homedir(), ".dsh");
+}
 
 /**
  * Spawns one `dsh --profile sdk` worker for a workspace, runs a prompt turn, then closes.
@@ -33,12 +40,26 @@ export async function runDshTurn(
   const provider = options.provider ?? process.env.DSH_PROVIDER ?? "openrouter";
   const model =
     options.model ?? process.env.DSH_MODEL ?? "deepseek/deepseek-v4-flash";
-  const patches = options.patches ?? [OBSERVE_PATCH_PATH];
+
+  if (provider === "openrouter" && !process.env.OPENROUTER_API_KEY) {
+    throw new Error(
+      "OPENROUTER_API_KEY is not set. Add it to apps/host/.env (or export it) so dsh can use OpenRouter.",
+    );
+  }
+
+  const patches = [
+    LLM_PATCH_PATH,
+    ...(options.observeMode === false
+      ? []
+      : [OBSERVE_PATCH_PATH]),
+    ...(options.patches ?? []),
+  ];
 
   await mkdir(options.workspace, { recursive: true });
 
   await using harness = new DeepSeekHarness({
     profile: "sdk",
+    dshHome: defaultDshHome(),
     cwd: options.workspace,
     provider,
     model,
@@ -76,6 +97,6 @@ export async function runDshSmoke(options: {
   return runDshTurn({
     workspace,
     prompt: options.prompt ?? "Reply with exactly: squadrons-dsh-ok",
-    patches: [],
+    observeMode: false,
   });
 }

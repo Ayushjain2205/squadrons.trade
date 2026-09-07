@@ -1,4 +1,11 @@
-import "dotenv/config";
+import { config as loadEnv } from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+// Load apps/host/.env even if the process was started from the monorepo root.
+const hostRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+loadEnv({ path: path.join(hostRoot, ".env") });
+
 import cors from "cors";
 import express from "express";
 import {

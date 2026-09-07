@@ -10,6 +10,12 @@ export const OBSERVE_PATCH_PATH = path.resolve(
   "../../dsh/squadrons.observe.cordis.yml",
 );
 
+/** Absolute path to the OpenRouter llm-pi-ai Cordis patch. */
+export const LLM_PATCH_PATH = path.resolve(
+  here,
+  "../../dsh/squadrons.llm.cordis.yml",
+);
+
 export const GOAL_COMPLETE_MARKER = "[[GOAL_COMPLETE]]";
 
 export function buildAgentTurnPrompt(agent: Agent, userText: string): string {
