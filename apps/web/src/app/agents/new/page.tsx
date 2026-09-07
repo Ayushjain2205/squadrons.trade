@@ -1,5 +1,4 @@
-"use client";
-
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { AGENT_AVATARS, type AvatarId } from "@squadrons/shared";
@@ -36,12 +35,12 @@ export default function NewAgentPage() {
   return (
     <AppShell
       action={
-        <a
+        <Link
           href="/"
           className="text-sm text-[var(--muted)] transition hover:text-[var(--ink)]"
         >
           Cancel
-        </a>
+        </Link>
       }
     >
       <form onSubmit={onSubmit} className="rise mx-auto max-w-xl space-y-8">

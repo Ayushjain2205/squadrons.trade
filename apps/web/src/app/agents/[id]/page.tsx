@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AgentOrb } from "@/components/AgentOrb";
 import { AppShell } from "@/components/AppShell";
@@ -23,12 +24,12 @@ export default async function AgentDetailPage({ params }: PageProps) {
   return (
     <AppShell
       action={
-        <a
+        <Link
           href="/"
           className="text-sm text-[var(--muted)] transition hover:text-[var(--ink)]"
         >
           All agents
-        </a>
+        </Link>
       }
     >
       <div className="rise space-y-10">
