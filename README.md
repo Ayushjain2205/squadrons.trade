@@ -46,12 +46,28 @@ pnpm dev:host
 
 ## Step 1 — dsh smoke
 
-Requires a working `sdk` profile (`dsh --profile sdk --help`) and `OPENROUTER_API_KEY` in `apps/host/.env`.
+Requires a working `sdk` profile (`dsh --profile sdk --help`).
 
 ```bash
-cp apps/host/.env.example apps/host/.env
-# put OPENROUTER_API_KEY in apps/host/.env
-
 pnpm --filter @squadrons/host dsh:smoke
 # or: curl -X POST http://localhost:8787/v1/dsh/smoke -H 'content-type: application/json' -d '{"prompt":"say hi"}'
+```
+
+## Step 2 — agents + workspaces
+
+Local-dev user defaults to `local-dev` (override with `X-User-Id`).
+
+```bash
+# create
+curl -s -X POST http://localhost:8787/v1/agents \
+  -H 'content-type: application/json' \
+  -d '{"name":"Base Scout","avatarId":"01","description":"Scouts LP opportunities on Base"}'
+
+# list
+curl -s http://localhost:8787/v1/agents
+
+# run one dsh turn in that agent's workspace
+curl -s -X POST http://localhost:8787/v1/agents/<id>/run \
+  -H 'content-type: application/json' \
+  -d '{"prompt":"Say hello and name the chain Base."}'
 ```

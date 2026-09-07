@@ -1,12 +1,9 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { DeepSeekHarness } from "@deepseek-ai/dsh-sdk-client";
+import { hostRoot } from "../db.js";
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const hostRoot = path.resolve(here, "../..");
-
-export type DshSmokeResult = {
+export type DshTurnResult = {
   sessionId: string;
   finalResponse: string;
   eventCount: number;
@@ -16,51 +13,64 @@ export type DshSmokeResult = {
   model: string;
 };
 
-export type DshSmokeOptions = {
-  prompt?: string;
-  workspace?: string;
+export type DshTurnOptions = {
+  prompt: string;
+  workspace: string;
+  sessionId?: string | null;
   provider?: string;
   model?: string;
 };
 
 /**
- * Spawns one `dsh --profile sdk` worker, runs a single prompt turn, then closes.
- * This is the step-1 heart check: host ↔ dsh JSON-RPC over stdio.
+ * Spawns one `dsh --profile sdk` worker for a workspace, runs a prompt turn, then closes.
+ * Pass sessionId to continue an existing dsh session when possible.
  */
-export async function runDshSmoke(
-  options: DshSmokeOptions = {},
-): Promise<DshSmokeResult> {
-  const workspace =
-    options.workspace ??
-    path.join(hostRoot, "data", "tenants", "smoke", `run-${Date.now()}`);
+export async function runDshTurn(
+  options: DshTurnOptions,
+): Promise<DshTurnResult> {
   const provider = options.provider ?? process.env.DSH_PROVIDER ?? "openrouter";
   const model =
     options.model ?? process.env.DSH_MODEL ?? "deepseek/deepseek-v4-flash";
-  const prompt =
-    options.prompt ??
-    "Reply with exactly: squadrons-dsh-ok";
 
-  await mkdir(workspace, { recursive: true });
+  await mkdir(options.workspace, { recursive: true });
 
   await using harness = new DeepSeekHarness({
     profile: "sdk",
-    cwd: workspace,
+    cwd: options.workspace,
     provider,
     model,
-    // Inherit host env so OPENROUTER_API_KEY reaches the child.
     env: { ...process.env },
     initializeTimeoutMs: 60_000,
   });
 
-  const result = await harness.run(prompt);
+  const runOptions =
+    options.sessionId != null && options.sessionId !== ""
+      ? { sessionId: options.sessionId }
+      : undefined;
+
+  const result = await harness.run(options.prompt, runOptions);
 
   return {
     sessionId: result.sessionId,
     finalResponse: result.finalResponse,
     eventCount: result.events.length,
     notificationCount: result.notifications.length,
-    workspace,
+    workspace: options.workspace,
     provider,
     model,
   };
+}
+
+/** Step-1 one-off smoke helper (ephemeral workspace). */
+export async function runDshSmoke(options: {
+  prompt?: string;
+  workspace?: string;
+} = {}): Promise<DshTurnResult> {
+  const workspace =
+    options.workspace ??
+    path.join(hostRoot, "data", "tenants", "smoke", `run-${Date.now()}`);
+  return runDshTurn({
+    workspace,
+    prompt: options.prompt ?? "Reply with exactly: squadrons-dsh-ok",
+  });
 }

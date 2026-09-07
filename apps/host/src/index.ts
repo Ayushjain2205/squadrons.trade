@@ -6,10 +6,19 @@ import {
   DEFAULT_POLICY,
   SUPPORTED_CHAINS,
 } from "@squadrons/shared";
+import {
+  agentErrorHandler,
+  registerAgentRoutes,
+} from "./agents/routes.js";
+import { AgentStore } from "./agents/store.js";
+import { openDatabase } from "./db.js";
 import { runDshSmoke } from "./dsh/runner.js";
 
 const port = Number(process.env.PORT ?? 8787);
 const host = process.env.HOST ?? "0.0.0.0";
+
+const db = openDatabase();
+const agents = new AgentStore(db);
 
 const app = express();
 app.use(cors({ origin: true }));
@@ -33,6 +42,8 @@ app.get("/v1/meta", (_req, res) => {
   });
 });
 
+registerAgentRoutes(app, agents);
+
 /**
  * Step 1 heart check: spawn dsh sdk worker, one prompt turn, return final text.
  * Local-dev only for now — no auth.
@@ -54,6 +65,8 @@ app.post("/v1/dsh/smoke", async (req, res) => {
     });
   }
 });
+
+app.use(agentErrorHandler);
 
 app.listen(port, host, () => {
   console.log(`squadrons-host listening on http://${host}:${port}`);

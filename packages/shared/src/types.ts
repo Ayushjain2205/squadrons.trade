@@ -14,6 +14,8 @@ export interface Agent {
   status: AgentStatus;
   spendMode: SpendMode;
   currentGoal: string | null;
+  /** Last dsh session id attached to this agent's workspace, if any. */
+  lastDshSessionId: string | null;
   createdAt: number;
   updatedAt: number;
 }
