@@ -57,6 +57,12 @@ export async function runDshTurn(
 
   await mkdir(options.workspace, { recursive: true });
 
+  // dsh discovers parent .env files; keep DSH_* out of dotenv-managed files.
+  // Provider/model are passed via DeepSeekHarness options, not child env.
+  const childEnv = { ...process.env };
+  delete childEnv.DSH_MODEL;
+  delete childEnv.DSH_PROVIDER;
+
   await using harness = new DeepSeekHarness({
     profile: "sdk",
     dshHome: defaultDshHome(),
@@ -64,7 +70,7 @@ export async function runDshTurn(
     provider,
     model,
     patches,
-    env: { ...process.env },
+    env: childEnv,
     initializeTimeoutMs: 60_000,
   });
 
