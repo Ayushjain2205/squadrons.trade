@@ -73,7 +73,7 @@ export class AgentStore {
       avatarId: input.avatarId as AvatarId,
       description,
       chainId,
-      status: "idle",
+      status: "needs_input",
       spendMode: "observe",
       currentGoal: null,
       lastDshSessionId: null,
@@ -141,6 +141,45 @@ export class AgentStore {
          WHERE id = @id AND user_id = @userId`,
       )
       .run({ id: agentId, userId, status, updatedAt });
+
+    return this.getForUser(userId, agentId);
+  }
+
+  setGoal(
+    userId: string,
+    agentId: string,
+    patch: {
+      currentGoal: string | null;
+      status: AgentStatus;
+      lastDshSessionId?: string | null;
+    },
+  ): Agent | null {
+    const existing = this.getForUser(userId, agentId);
+    if (!existing) return null;
+
+    const updatedAt = Date.now();
+    const lastDshSessionId =
+      patch.lastDshSessionId !== undefined
+        ? patch.lastDshSessionId
+        : existing.lastDshSessionId;
+
+    this.db
+      .prepare(
+        `UPDATE agents
+         SET current_goal = @currentGoal,
+             status = @status,
+             last_dsh_session_id = @lastDshSessionId,
+             updated_at = @updatedAt
+         WHERE id = @id AND user_id = @userId`,
+      )
+      .run({
+        id: agentId,
+        userId,
+        currentGoal: patch.currentGoal,
+        status: patch.status,
+        lastDshSessionId,
+        updatedAt,
+      });
 
     return this.getForUser(userId, agentId);
   }

@@ -2,6 +2,7 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { DeepSeekHarness } from "@deepseek-ai/dsh-sdk-client";
 import { hostRoot } from "../db.js";
+import { OBSERVE_PATCH_PATH } from "./prompt.js";
 
 export type DshTurnResult = {
   sessionId: string;
@@ -19,11 +20,12 @@ export type DshTurnOptions = {
   sessionId?: string | null;
   provider?: string;
   model?: string;
+  /** Extra Cordis patches (defaults to Squadrons observe patch). */
+  patches?: string[];
 };
 
 /**
  * Spawns one `dsh --profile sdk` worker for a workspace, runs a prompt turn, then closes.
- * Pass sessionId to continue an existing dsh session when possible.
  */
 export async function runDshTurn(
   options: DshTurnOptions,
@@ -31,6 +33,7 @@ export async function runDshTurn(
   const provider = options.provider ?? process.env.DSH_PROVIDER ?? "openrouter";
   const model =
     options.model ?? process.env.DSH_MODEL ?? "deepseek/deepseek-v4-flash";
+  const patches = options.patches ?? [OBSERVE_PATCH_PATH];
 
   await mkdir(options.workspace, { recursive: true });
 
@@ -39,6 +42,7 @@ export async function runDshTurn(
     cwd: options.workspace,
     provider,
     model,
+    patches,
     env: { ...process.env },
     initializeTimeoutMs: 60_000,
   });
@@ -61,7 +65,7 @@ export async function runDshTurn(
   };
 }
 
-/** Step-1 one-off smoke helper (ephemeral workspace). */
+/** Step-1 one-off smoke helper (ephemeral workspace, no observe patch). */
 export async function runDshSmoke(options: {
   prompt?: string;
   workspace?: string;
@@ -72,5 +76,6 @@ export async function runDshSmoke(options: {
   return runDshTurn({
     workspace,
     prompt: options.prompt ?? "Reply with exactly: squadrons-dsh-ok",
+    patches: [],
   });
 }

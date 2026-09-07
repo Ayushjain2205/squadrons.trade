@@ -2,10 +2,18 @@ import { mkdir } from "node:fs/promises";
 import type { Express, NextFunction, Request, Response } from "express";
 import type { CreateAgentInput } from "@squadrons/shared";
 import { runDshTurn } from "../dsh/runner.js";
+import {
+  buildAgentTurnPrompt,
+  stripGoalCompleteMarker,
+} from "../dsh/prompt.js";
+import type { MessageStore } from "./messages.js";
 import { agentWorkspacePath } from "./paths.js";
 import type { AgentStore } from "./store.js";
 
 const LOCAL_DEV_USER = "local-dev";
+
+const GOAL_INTAKE_PROMPT =
+  "I'm ready. What should I work on? Describe the goal in one or two sentences.";
 
 export function resolveUserId(req: Request): string {
   const header = req.header("x-user-id")?.trim();
@@ -15,6 +23,7 @@ export function resolveUserId(req: Request): string {
 export function registerAgentRoutes(
   app: Express,
   agents: AgentStore,
+  messages: MessageStore,
 ): void {
   app.post("/v1/agents", async (req, res, next) => {
     try {
@@ -30,10 +39,12 @@ export function registerAgentRoutes(
       const workspace = agentWorkspacePath(userId, agent.id);
       await mkdir(workspace, { recursive: true });
 
+      const intake = messages.append(agent.id, "assistant", GOAL_INTAKE_PROMPT);
+
       res.status(201).json({
         ok: true,
-        agent,
-        workspace,
+        agent: { ...agent, workspace },
+        messages: [intake],
       });
     } catch (error) {
       next(error);
@@ -72,11 +83,31 @@ export function registerAgentRoutes(
     });
   });
 
+  app.get("/v1/agents/:id/messages", (req, res) => {
+    const userId = resolveUserId(req);
+    const agentId = req.params.id;
+    if (!agentId) {
+      res.status(400).json({ ok: false, error: "missing agent id" });
+      return;
+    }
+
+    const agent = agents.getForUser(userId, agentId);
+    if (!agent) {
+      res.status(404).json({ ok: false, error: "agent not found" });
+      return;
+    }
+
+    res.json({
+      ok: true,
+      messages: messages.listByAgent(agent.id),
+    });
+  });
+
   /**
-   * Run one dsh turn in this agent's isolated workspace.
-   * Thin step-2 bridge — not full goal orchestration yet.
+   * Chat turn: append user message, run dsh in agent workspace, append reply.
+   * First user message while needs_input becomes the active goal.
    */
-  app.post("/v1/agents/:id/run", async (req, res, next) => {
+  app.post("/v1/agents/:id/messages", async (req, res, next) => {
     try {
       const userId = resolveUserId(req);
       const agentId = req.params.id;
@@ -85,39 +116,61 @@ export function registerAgentRoutes(
         return;
       }
 
-      const agent = agents.getForUser(userId, agentId);
+      let agent = agents.getForUser(userId, agentId);
       if (!agent) {
         res.status(404).json({ ok: false, error: "agent not found" });
         return;
       }
 
-      const prompt =
-        typeof req.body?.prompt === "string" ? req.body.prompt.trim() : "";
-      if (!prompt) {
-        res.status(400).json({ ok: false, error: "prompt is required" });
+      const content =
+        typeof req.body?.content === "string" ? req.body.content.trim() : "";
+      if (!content) {
+        res.status(400).json({ ok: false, error: "content is required" });
         return;
       }
 
-      const resume =
-        req.body?.resume === true || req.body?.resume === "true";
-      const workspace = agentWorkspacePath(userId, agent.id);
+      const userMessage = messages.append(agent.id, "user", content);
 
-      agents.setStatus(userId, agent.id, "working");
+      // Goal intake: first concrete instruction becomes the goal.
+      if (!agent.currentGoal) {
+        agent =
+          agents.setGoal(userId, agent.id, {
+            currentGoal: content,
+            status: "working",
+          }) ?? agent;
+      } else {
+        agents.setStatus(userId, agent.id, "working");
+        agent = agents.getForUser(userId, agent.id) ?? agent;
+      }
+
+      const workspace = agentWorkspacePath(userId, agent.id);
+      const prompt = buildAgentTurnPrompt(agent, content);
 
       let turn;
       try {
         turn = await runDshTurn({
           workspace,
           prompt,
-          sessionId: resume ? agent.lastDshSessionId : null,
+          sessionId: agent.lastDshSessionId,
         });
       } catch (error) {
         agents.setStatus(userId, agent.id, "paused");
         throw error;
       }
 
-      const updated = agents.updateAfterRun(userId, agent.id, {
-        status: "idle",
+      const { content: replyText, completed } = stripGoalCompleteMarker(
+        turn.finalResponse || "(no response)",
+      );
+
+      const assistantMessage = messages.append(
+        agent.id,
+        "assistant",
+        replyText || "(empty response)",
+      );
+
+      const updated = agents.setGoal(userId, agent.id, {
+        currentGoal: completed ? null : agent.currentGoal,
+        status: completed ? "idle" : "working",
         lastDshSessionId: turn.sessionId,
       });
 
@@ -126,7 +179,12 @@ export function registerAgentRoutes(
         agent: updated
           ? { ...updated, workspace }
           : { ...agent, workspace },
-        turn,
+        messages: [userMessage, assistantMessage],
+        turn: {
+          ...turn,
+          finalResponse: replyText,
+          goalCompleted: completed,
+        },
       });
     } catch (error) {
       next(error);
@@ -141,8 +199,7 @@ export function agentErrorHandler(
   _next: NextFunction,
 ): void {
   const message = error instanceof Error ? error.message : String(error);
-  const status =
-    /required|invalid|unsupported/i.test(message) ? 400 : 500;
+  const status = /required|invalid|unsupported/i.test(message) ? 400 : 500;
   if (status >= 500) console.error("[agents]", error);
   res.status(status).json({ ok: false, error: message });
 }

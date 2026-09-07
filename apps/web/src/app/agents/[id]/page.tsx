@@ -2,8 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AgentOrb } from "@/components/AgentOrb";
 import { AppShell } from "@/components/AppShell";
-import { getAgent } from "@/lib/host";
-import { AgentRunner } from "./AgentRunner";
+import { getAgent, listMessages } from "@/lib/host";
+import { AgentChat } from "./AgentChat";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +15,9 @@ export default async function AgentDetailPage({ params }: PageProps) {
   const { id } = await params;
 
   let agent;
+  let messages;
   try {
-    agent = await getAgent(id);
+    [agent, messages] = await Promise.all([getAgent(id), listMessages(id)]);
   } catch {
     notFound();
   }
@@ -32,11 +33,11 @@ export default async function AgentDetailPage({ params }: PageProps) {
         </Link>
       }
     >
-      <div className="rise space-y-10">
+      <div className="rise space-y-6">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
           <AgentOrb id={agent.avatarId} size={96} />
           <div className="min-w-0 flex-1 space-y-3">
-            <h1 className="font-[family-name:var(--font-display)] text-4xl tracking-[-0.03em]">
+            <h1 className="font-[family-name:var(--font-display)] text-4xl font-semibold tracking-[-0.03em]">
               {agent.name}
             </h1>
             <p className="max-w-2xl text-lg text-[var(--ink-soft)]">
@@ -56,10 +57,7 @@ export default async function AgentDetailPage({ params }: PageProps) {
           </div>
         </div>
 
-        <AgentRunner
-          agentId={agent.id}
-          initialSessionId={agent.lastDshSessionId}
-        />
+        <AgentChat agent={agent} initialMessages={messages} />
       </div>
     </AppShell>
   );

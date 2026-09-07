@@ -10,6 +10,7 @@ import {
   agentErrorHandler,
   registerAgentRoutes,
 } from "./agents/routes.js";
+import { MessageStore } from "./agents/messages.js";
 import { AgentStore } from "./agents/store.js";
 import { openDatabase } from "./db.js";
 import { runDshSmoke } from "./dsh/runner.js";
@@ -19,6 +20,7 @@ const host = process.env.HOST ?? "0.0.0.0";
 
 const db = openDatabase();
 const agents = new AgentStore(db);
+const messages = new MessageStore(db);
 
 const app = express();
 app.use(cors({ origin: true }));
@@ -42,12 +44,8 @@ app.get("/v1/meta", (_req, res) => {
   });
 });
 
-registerAgentRoutes(app, agents);
+registerAgentRoutes(app, agents, messages);
 
-/**
- * Step 1 heart check: spawn dsh sdk worker, one prompt turn, return final text.
- * Local-dev only for now — no auth.
- */
 app.post("/v1/dsh/smoke", async (req, res) => {
   const prompt =
     typeof req.body?.prompt === "string" && req.body.prompt.trim()

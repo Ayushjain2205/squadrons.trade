@@ -74,4 +74,6 @@ pnpm dev:web
 # open http://localhost:3000
 ```
 
-List agents, create with orb faces, open an agent and run a dsh turn.
+List agents, create with orb faces, open an agent and chat.
+
+Goal intake: new agents start in `needs_input`, ask what to do, first user message becomes the goal, agent can finish with `[[GOAL_COMPLETE]]` → idle. Observe-mode dsh patch disables shell/fs/subagents; keeps web/todo/goal/skill.

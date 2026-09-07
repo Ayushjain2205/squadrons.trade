@@ -6,14 +6,12 @@ const hostUrl =
 
 export type AgentWithWorkspace = Agent & { workspace: string };
 
-export type DshTurnResult = {
-  sessionId: string;
-  finalResponse: string;
-  eventCount: number;
-  notificationCount: number;
-  workspace: string;
-  provider: string;
-  model: string;
+export type AgentMessage = {
+  id: string;
+  agentId: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  createdAt: number;
 };
 
 async function hostFetch<T>(
@@ -71,14 +69,24 @@ export async function createAgent(
   return { ...data.agent, workspace: data.workspace };
 }
 
-export async function runAgent(
-  id: string,
-  prompt: string,
-  resume = false,
-): Promise<{ agent: AgentWithWorkspace; turn: DshTurnResult }> {
-  return hostFetch(`/v1/agents/${id}/run`, {
+export async function listMessages(agentId: string): Promise<AgentMessage[]> {
+  const data = await hostFetch<{ messages: AgentMessage[] }>(
+    `/v1/agents/${agentId}/messages`,
+  );
+  return data.messages;
+}
+
+export async function sendMessage(
+  agentId: string,
+  content: string,
+): Promise<{
+  agent: AgentWithWorkspace;
+  messages: AgentMessage[];
+  turn: { finalResponse: string; goalCompleted?: boolean; sessionId: string };
+}> {
+  return hostFetch(`/v1/agents/${agentId}/messages`, {
     method: "POST",
-    body: JSON.stringify({ prompt, resume }),
+    body: JSON.stringify({ content }),
   });
 }
 

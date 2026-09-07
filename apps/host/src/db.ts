@@ -43,5 +43,17 @@ function migrate(db: Database.Database): void {
 
     CREATE INDEX IF NOT EXISTS idx_agents_user_id
       ON agents (user_id, updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS messages (
+      id TEXT PRIMARY KEY,
+      agent_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_messages_agent_created
+      ON messages (agent_id, created_at ASC);
   `);
 }
