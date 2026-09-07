@@ -18,6 +18,7 @@ build
 data
 *.db
 *.db-*
+apps/host/data
 
 # OS / IDE
 .DS_Store

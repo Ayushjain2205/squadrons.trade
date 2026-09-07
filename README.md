@@ -43,3 +43,15 @@ pnpm dev:host
 
 - Web: http://localhost:3000
 - Host: http://localhost:8787
+
+## Step 1 — dsh smoke
+
+Requires a working `sdk` profile (`dsh --profile sdk --help`) and `OPENROUTER_API_KEY` in `apps/host/.env`.
+
+```bash
+cp apps/host/.env.example apps/host/.env
+# put OPENROUTER_API_KEY in apps/host/.env
+
+pnpm --filter @squadrons/host dsh:smoke
+# or: curl -X POST http://localhost:8787/v1/dsh/smoke -H 'content-type: application/json' -d '{"prompt":"say hi"}'
+```

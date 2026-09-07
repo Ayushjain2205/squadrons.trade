@@ -8,17 +8,21 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "echo \"no lint configured\""
+    "lint": "echo \"no lint configured\"",
+    "dsh:smoke": "tsx src/dsh/smoke-cli.ts"
   },
   "dependencies": {
+    "@deepseek-ai/dsh": "0.1.2-rc.1",
+    "@deepseek-ai/dsh-sdk-client": "0.1.2-rc.1",
     "@squadrons/shared": "workspace:*",
     "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
     "express": "^5.1.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
-    "@types/node": "^22.18.1",
+    "@types/node": "^22.20.1",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   }
