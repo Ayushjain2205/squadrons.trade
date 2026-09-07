@@ -58,16 +58,18 @@ pnpm --filter @squadrons/host dsh:smoke
 Local-dev user defaults to `local-dev` (override with `X-User-Id`).
 
 ```bash
-# create
 curl -s -X POST http://localhost:8787/v1/agents \
   -H 'content-type: application/json' \
   -d '{"name":"Base Scout","avatarId":"01","description":"Scouts LP opportunities on Base"}'
-
-# list
-curl -s http://localhost:8787/v1/agents
-
-# run one dsh turn in that agent's workspace
-curl -s -X POST http://localhost:8787/v1/agents/<id>/run \
-  -H 'content-type: application/json' \
-  -d '{"prompt":"Say hello and name the chain Base."}'
 ```
+
+## Step 3 — My Agents UI
+
+With host running on `:8787`:
+
+```bash
+pnpm dev:web
+# open http://localhost:3000
+```
+
+List agents, create with orb faces, open an agent and run a dsh turn.
