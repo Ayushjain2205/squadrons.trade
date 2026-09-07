@@ -131,7 +131,7 @@ export function AgentChat({
         />
         <div className="flex items-center justify-between gap-3">
           <p className="font-[family-name:var(--font-mono)] text-xs text-[var(--muted)]">
-            observe tools · web / todo / goal / skill
+            observe · get_wallet_balances · web / todo / goal / skill
           </p>
           <button
             type="submit"

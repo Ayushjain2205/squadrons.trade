@@ -76,4 +76,6 @@ pnpm dev:web
 
 List agents, create with orb faces, open an agent and chat.
 
-Goal intake: new agents start in `needs_input`, ask what to do, first user message becomes the goal, agent can finish with `[[GOAL_COMPLETE]]` → idle. Observe-mode dsh patch disables shell/fs/subagents; keeps web/todo/goal/skill.
+Goal intake: new agents start in `needs_input`, ask what to do, first user message becomes the goal, agent can finish with `[[GOAL_COMPLETE]]` → idle. Observe-mode dsh patch disables shell/fs/subagents; keeps web/todo/goal/skill plus **`get_wallet_balances`** (Base) from `packages/squadrons-defi`.
+
+Optional: set `SQUADRONS_DEMO_WALLET` in `apps/host/.env` so the balances tool has a default address.
