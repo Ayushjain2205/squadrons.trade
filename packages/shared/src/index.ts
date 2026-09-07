@@ -1,3 +1,3 @@
-export * from "./avatars.js";
-export * from "./policy.js";
-export * from "./types.js";
+export * from "./avatars";
+export * from "./policy";
+export * from "./types";

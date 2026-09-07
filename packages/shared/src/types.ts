@@ -1,5 +1,5 @@
-import type { AvatarId } from "./avatars.js";
-import type { SupportedChainId } from "./policy.js";
+import type { AvatarId } from "./avatars";
+import type { SupportedChainId } from "./policy";
 
 export type AgentStatus = "idle" | "working" | "needs_input" | "paused";
 export type SpendMode = "observe" | "spend_enabled";

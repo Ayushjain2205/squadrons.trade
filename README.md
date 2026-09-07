@@ -30,6 +30,8 @@ cp apps/host/.env.example apps/host/.env
 cp apps/web/.env.example apps/web/.env.local
 ```
 
+`@squadrons/shared` is consumed from TypeScript source (Next transpiles it; host runs via `tsx`). No separate shared build step for local `pnpm dev`.
+
 ## Develop
 
 ```bash

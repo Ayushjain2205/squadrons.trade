@@ -6,9 +6,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "pnpm --filter @squadrons/shared build && pnpm -r --parallel --filter @squadrons/web --filter @squadrons/host --filter @squadrons/shared dev",
-    "dev:web": "pnpm --filter @squadrons/shared build && pnpm --filter @squadrons/web dev",
-    "dev:host": "pnpm --filter @squadrons/shared build && pnpm --filter @squadrons/host dev",
+    "dev": "pnpm -r --parallel --filter @squadrons/web --filter @squadrons/host dev",
+    "dev:web": "pnpm --filter @squadrons/web dev",
+    "dev:host": "pnpm --filter @squadrons/host dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint"
