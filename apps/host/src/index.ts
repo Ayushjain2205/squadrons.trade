@@ -22,6 +22,7 @@ import { ActivityStore } from "./agents/activity.js";
 import { ActivityHub } from "./agents/activity-hub.js";
 import { MessageStore } from "./agents/messages.js";
 import { AgentStore } from "./agents/store.js";
+import { UserStore } from "./auth/privy.js";
 import { openDatabase } from "./db.js";
 import { closeAllAgentRuntimes, runDshSmoke } from "./dsh/runner.js";
 
@@ -31,6 +32,7 @@ const host = process.env.HOST ?? "0.0.0.0";
 const db = openDatabase();
 const agents = new AgentStore(db);
 const messages = new MessageStore(db);
+const users = new UserStore(db);
 const activity = new ActivityHub(new ActivityStore(db));
 
 const app = express();
@@ -44,6 +46,7 @@ app.get("/health", (_req, res) => {
     chains: SUPPORTED_CHAINS,
     policy: DEFAULT_POLICY,
     openrouter: Boolean(process.env.OPENROUTER_API_KEY),
+    privy: Boolean(process.env.PRIVY_APP_ID && process.env.PRIVY_APP_SECRET),
   });
 });
 
@@ -56,7 +59,7 @@ app.get("/v1/meta", (_req, res) => {
   });
 });
 
-registerAgentRoutes(app, agents, messages, activity);
+registerAgentRoutes(app, agents, messages, activity, users);
 
 app.post("/v1/dsh/smoke", async (req, res) => {
   const prompt =

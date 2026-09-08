@@ -69,6 +69,13 @@ function migrate(db: Database.Database): void {
 
     CREATE INDEX IF NOT EXISTS idx_activity_agent_created
       ON activity (agent_id, created_at ASC);
+
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      wallet_address TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
 
   const columns = db

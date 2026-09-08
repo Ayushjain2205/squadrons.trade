@@ -2,31 +2,47 @@ import { mkdir } from "node:fs/promises";
 import type { Express, NextFunction, Request, Response } from "express";
 import type { CreateAgentInput, UpdateAgentInput } from "@squadrons/shared";
 import { isAvatarId, isOrbColorId, isSupportedChainId } from "@squadrons/shared";
-import { runDshTurn, invalidateAgentRuntime, abortAgentRuntime } from "../dsh/runner.js";
+import {
+  AuthError,
+  requireUser,
+  type UserStore,
+} from "../auth/privy.js";
+import {
+  abortAgentRuntime,
+  invalidateAgentRuntime,
+  runDshTurn,
+} from "../dsh/runner.js";
 import type { ActivityHub } from "./activity-hub.js";
 import type { MessageStore } from "./messages.js";
 import { agentWorkspacePath } from "./paths.js";
 import type { AgentStore } from "./store.js";
 
-const LOCAL_DEV_USER = "local-dev";
-
 const GREETING =
   "Hey — I'm ready when you are. What should we dig into?";
-
-export function resolveUserId(req: Request): string {
-  const header = req.header("x-user-id")?.trim();
-  return header && header.length > 0 ? header : LOCAL_DEV_USER;
-}
 
 export function registerAgentRoutes(
   app: Express,
   agents: AgentStore,
   messages: MessageStore,
   activity: ActivityHub,
+  users: UserStore,
 ): void {
+  app.get("/v1/me", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      res.json({
+        ok: true,
+        userId: user.id,
+        walletAddress: user.walletAddress,
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.post("/v1/agents", async (req, res, next) => {
     try {
-      const userId = resolveUserId(req);
+      const user = await requireUser(req, users);
       const body = req.body as Partial<CreateAgentInput> & {
         chainId?: number | string;
         colorId?: string;
@@ -49,7 +65,7 @@ export function registerAgentRoutes(
         }
         colorId = rawColor;
       }
-      const agent = agents.create(userId, {
+      const agent = agents.create(user.id, {
         name: String(body.name ?? ""),
         avatarId: body.avatarId as CreateAgentInput["avatarId"],
         colorId,
@@ -57,7 +73,7 @@ export function registerAgentRoutes(
         chainId: rawChain as CreateAgentInput["chainId"],
       });
 
-      const workspace = agentWorkspacePath(userId, agent.id);
+      const workspace = agentWorkspacePath(user.id, agent.id);
       await mkdir(workspace, { recursive: true });
 
       const greeting = messages.append(agent.id, "assistant", GREETING);
@@ -72,48 +88,56 @@ export function registerAgentRoutes(
     }
   });
 
-  app.get("/v1/agents", (req, res) => {
-    const userId = resolveUserId(req);
-    const list = agents.listByUser(userId).map((agent) => ({
-      ...agent,
-      workspace: agentWorkspacePath(userId, agent.id),
-    }));
-    res.json({ ok: true, agents: list });
-  });
-
-  app.get("/v1/agents/:id", (req, res) => {
-    const userId = resolveUserId(req);
-    const agentId = req.params.id;
-    if (!agentId) {
-      res.status(400).json({ ok: false, error: "missing agent id" });
-      return;
-    }
-
-    const agent = agents.getForUser(userId, agentId);
-    if (!agent) {
-      res.status(404).json({ ok: false, error: "agent not found" });
-      return;
-    }
-
-    res.json({
-      ok: true,
-      agent: {
-        ...agent,
-        workspace: agentWorkspacePath(userId, agent.id),
-      },
-    });
-  });
-
-  app.patch("/v1/agents/:id", async (req, res, next) => {
+  app.get("/v1/agents", async (req, res, next) => {
     try {
-      const userId = resolveUserId(req);
+      const user = await requireUser(req, users);
+      const list = agents.listByUser(user.id).map((agent) => ({
+        ...agent,
+        workspace: agentWorkspacePath(user.id, agent.id),
+      }));
+      res.json({ ok: true, agents: list });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/v1/agents/:id", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
       const agentId = req.params.id;
       if (!agentId) {
         res.status(400).json({ ok: false, error: "missing agent id" });
         return;
       }
 
-      const existing = agents.getForUser(userId, agentId);
+      const agent = agents.getForUser(user.id, agentId);
+      if (!agent) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+
+      res.json({
+        ok: true,
+        agent: {
+          ...agent,
+          workspace: agentWorkspacePath(user.id, agent.id),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/v1/agents/:id", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      const agentId = req.params.id;
+      if (!agentId) {
+        res.status(400).json({ ok: false, error: "missing agent id" });
+        return;
+      }
+
+      const existing = agents.getForUser(user.id, agentId);
       if (!existing) {
         res.status(404).json({ ok: false, error: "agent not found" });
         return;
@@ -173,7 +197,7 @@ export function registerAgentRoutes(
       const chainChanged =
         patch.chainId !== undefined && patch.chainId !== existing.chainId;
 
-      const agent = agents.updateSettings(userId, agentId, patch);
+      const agent = agents.updateSettings(user.id, agentId, patch);
       if (!agent) {
         res.status(404).json({ ok: false, error: "agent not found" });
         return;
@@ -187,7 +211,7 @@ export function registerAgentRoutes(
         ok: true,
         agent: {
           ...agent,
-          workspace: agentWorkspacePath(userId, agent.id),
+          workspace: agentWorkspacePath(user.id, agent.id),
         },
       });
     } catch (error) {
@@ -195,108 +219,120 @@ export function registerAgentRoutes(
     }
   });
 
-  app.get("/v1/agents/:id/messages", (req, res) => {
-    const userId = resolveUserId(req);
-    const agentId = req.params.id;
-    if (!agentId) {
-      res.status(400).json({ ok: false, error: "missing agent id" });
-      return;
-    }
-
-    const agent = agents.getForUser(userId, agentId);
-    if (!agent) {
-      res.status(404).json({ ok: false, error: "agent not found" });
-      return;
-    }
-
-    res.json({
-      ok: true,
-      messages: messages.listByAgent(agent.id),
-    });
-  });
-
-  app.get("/v1/agents/:id/activity", (req, res) => {
-    const userId = resolveUserId(req);
-    const agentId = req.params.id;
-    if (!agentId) {
-      res.status(400).json({ ok: false, error: "missing agent id" });
-      return;
-    }
-
-    const agent = agents.getForUser(userId, agentId);
-    if (!agent) {
-      res.status(404).json({ ok: false, error: "agent not found" });
-      return;
-    }
-
-    const limitRaw = Number(req.query.limit ?? 100);
-    const limit = Number.isFinite(limitRaw) ? limitRaw : 100;
-    res.json({
-      ok: true,
-      activity: activity.list(agent.id, limit),
-    });
-  });
-
-  /** Live activity stream (SSE). Client should load history via GET /activity first. */
-  app.get("/v1/agents/:id/events", (req, res) => {
-    const userId = resolveUserId(req);
-    const agentId = req.params.id;
-    if (!agentId) {
-      res.status(400).json({ ok: false, error: "missing agent id" });
-      return;
-    }
-
-    const agent = agents.getForUser(userId, agentId);
-    if (!agent) {
-      res.status(404).json({ ok: false, error: "agent not found" });
-      return;
-    }
-
-    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
-    res.setHeader("Cache-Control", "no-cache, no-transform");
-    res.setHeader("Connection", "keep-alive");
-    res.flushHeaders?.();
-
-    const write = (eventName: string, data: unknown) => {
-      res.write(`event: ${eventName}\ndata: ${JSON.stringify(data)}\n\n`);
-    };
-
-    write("ready", { agentId: agent.id });
-
-    const unsubscribe = activity.subscribe(agent.id, (event) => {
-      write("activity", event);
-    });
-
-    const heartbeat = setInterval(() => {
-      res.write(`: ping\n\n`);
-    }, 25_000);
-
-    const close = () => {
-      clearInterval(heartbeat);
-      unsubscribe();
-    };
-
-    req.on("close", close);
-  });
-
-  /** Halt a working agent by killing its dsh runtime; status → paused. */
-  app.post("/v1/agents/:id/pause", async (req, res, next) => {
+  app.get("/v1/agents/:id/messages", async (req, res, next) => {
     try {
-      const userId = resolveUserId(req);
+      const user = await requireUser(req, users);
       const agentId = req.params.id;
       if (!agentId) {
         res.status(400).json({ ok: false, error: "missing agent id" });
         return;
       }
 
-      const existing = agents.getForUser(userId, agentId);
+      const agent = agents.getForUser(user.id, agentId);
+      if (!agent) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+
+      res.json({
+        ok: true,
+        messages: messages.listByAgent(agent.id),
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/v1/agents/:id/activity", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      const agentId = req.params.id;
+      if (!agentId) {
+        res.status(400).json({ ok: false, error: "missing agent id" });
+        return;
+      }
+
+      const agent = agents.getForUser(user.id, agentId);
+      if (!agent) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+
+      const limitRaw = Number(req.query.limit ?? 100);
+      const limit = Number.isFinite(limitRaw) ? limitRaw : 100;
+      res.json({
+        ok: true,
+        activity: activity.list(agent.id, limit),
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /** Live activity stream (SSE). Client should load history via GET /activity first. */
+  app.get("/v1/agents/:id/events", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      const agentId = req.params.id;
+      if (!agentId) {
+        res.status(400).json({ ok: false, error: "missing agent id" });
+        return;
+      }
+
+      const agent = agents.getForUser(user.id, agentId);
+      if (!agent) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+
+      res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("Connection", "keep-alive");
+      res.flushHeaders?.();
+
+      const write = (eventName: string, data: unknown) => {
+        res.write(`event: ${eventName}\ndata: ${JSON.stringify(data)}\n\n`);
+      };
+
+      write("ready", { agentId: agent.id });
+
+      const unsubscribe = activity.subscribe(agent.id, (event) => {
+        write("activity", event);
+      });
+
+      const heartbeat = setInterval(() => {
+        res.write(`: ping\n\n`);
+      }, 25_000);
+
+      const close = () => {
+        clearInterval(heartbeat);
+        unsubscribe();
+      };
+
+      req.on("close", close);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /** Halt a working agent by killing its dsh runtime; status → paused. */
+  app.post("/v1/agents/:id/pause", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      const agentId = req.params.id;
+      if (!agentId) {
+        res.status(400).json({ ok: false, error: "missing agent id" });
+        return;
+      }
+
+      const existing = agents.getForUser(user.id, agentId);
       if (!existing) {
         res.status(404).json({ ok: false, error: "agent not found" });
         return;
       }
 
       await abortAgentRuntime(existing.id);
-      const agent = agents.setStatus(userId, existing.id, "paused");
+      const agent = agents.setStatus(user.id, existing.id, "paused");
       activity.publish({
         agentId: existing.id,
         kind: "info",
@@ -308,12 +344,12 @@ export function registerAgentRoutes(
         agent: agent
           ? {
               ...agent,
-              workspace: agentWorkspacePath(userId, agent.id),
+              workspace: agentWorkspacePath(user.id, agent.id),
             }
           : {
               ...existing,
               status: "paused" as const,
-              workspace: agentWorkspacePath(userId, existing.id),
+              workspace: agentWorkspacePath(user.id, existing.id),
             },
       });
     } catch (error) {
@@ -324,14 +360,14 @@ export function registerAgentRoutes(
   /** Chat turn: append user message, run dsh, append reply. */
   app.post("/v1/agents/:id/messages", async (req, res, next) => {
     try {
-      const userId = resolveUserId(req);
+      const user = await requireUser(req, users);
       const agentId = req.params.id;
       if (!agentId) {
         res.status(400).json({ ok: false, error: "missing agent id" });
         return;
       }
 
-      let agent = agents.getForUser(userId, agentId);
+      let agent = agents.getForUser(user.id, agentId);
       if (!agent) {
         res.status(404).json({ ok: false, error: "agent not found" });
         return;
@@ -349,10 +385,10 @@ export function registerAgentRoutes(
         (m) => m.id !== userMessage.id,
       );
 
-      agents.setStatus(userId, agent.id, "working");
-      agent = agents.getForUser(userId, agent.id) ?? agent;
+      agents.setStatus(user.id, agent.id, "working");
+      agent = agents.getForUser(user.id, agent.id) ?? agent;
 
-      const workspace = agentWorkspacePath(userId, agent.id);
+      const workspace = agentWorkspacePath(user.id, agent.id);
 
       let turn;
       try {
@@ -361,6 +397,7 @@ export function registerAgentRoutes(
           agent,
           userText: content,
           workspace,
+          walletAddress: user.walletAddress,
           history: priorMessages.map((m) => ({
             role: m.role,
             content: m.content,
@@ -370,10 +407,9 @@ export function registerAgentRoutes(
           },
         });
       } catch (error) {
-        // Pause closes the runtime mid-turn; status is already paused.
-        const current = agents.getForUser(userId, agent.id);
+        const current = agents.getForUser(user.id, agent.id);
         if (current?.status !== "paused") {
-          agents.setStatus(userId, agent.id, "paused");
+          agents.setStatus(user.id, agent.id, "paused");
           activity.publish({
             agentId: agent.id,
             kind: "error",
@@ -392,7 +428,7 @@ export function registerAgentRoutes(
         replyText || "(empty response)",
       );
 
-      const updated = agents.updateAfterRun(userId, agent.id, {
+      const updated = agents.updateAfterRun(user.id, agent.id, {
         status: "idle",
         lastDshSessionId: turn.sessionId,
       });
@@ -420,6 +456,10 @@ export function agentErrorHandler(
   res: Response,
   _next: NextFunction,
 ): void {
+  if (error instanceof AuthError) {
+    res.status(401).json({ ok: false, error: error.message });
+    return;
+  }
   const message = error instanceof Error ? error.message : String(error);
   const status =
     /required|invalid|unsupported|cannot|no settings/i.test(message)
