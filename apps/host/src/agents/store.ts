@@ -32,6 +32,13 @@ type AgentRow = {
   updated_at: number;
 };
 
+function normalizeStatus(raw: string): AgentStatus {
+  if (raw === "working") return "working";
+  if (raw === "paused") return "paused";
+  // Legacy needs_input / anything else → idle
+  return "idle";
+}
+
 function rowToAgent(row: AgentRow): Agent {
   if (!isAvatarId(row.avatar_id)) {
     throw new Error(`Corrupt agent avatar_id: ${row.avatar_id}`);
@@ -53,9 +60,8 @@ function rowToAgent(row: AgentRow): Agent {
     colorId,
     description: row.description,
     chainId: row.chain_id,
-    status: row.status as AgentStatus,
+    status: normalizeStatus(row.status),
     spendMode: row.spend_mode as SpendMode,
-    currentGoal: row.current_goal,
     lastDshSessionId: row.last_dsh_session_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -89,9 +95,8 @@ export class AgentStore {
       colorId,
       description,
       chainId,
-      status: "needs_input",
+      status: "idle",
       spendMode: "observe",
-      currentGoal: null,
       lastDshSessionId: null,
       createdAt: now,
       updatedAt: now,
@@ -105,7 +110,7 @@ export class AgentStore {
           created_at, updated_at
         ) VALUES (
           @id, @userId, @name, @avatarId, @colorId, @description, @chainId,
-          @status, @spendMode, @currentGoal, @lastDshSessionId,
+          @status, @spendMode, NULL, @lastDshSessionId,
           @createdAt, @updatedAt
         )`,
       )
@@ -119,7 +124,6 @@ export class AgentStore {
         chainId: agent.chainId,
         status: agent.status,
         spendMode: agent.spendMode,
-        currentGoal: agent.currentGoal,
         lastDshSessionId: agent.lastDshSessionId,
         createdAt: agent.createdAt,
         updatedAt: agent.updatedAt,
@@ -162,67 +166,24 @@ export class AgentStore {
     return this.getForUser(userId, agentId);
   }
 
-  setGoal(
-    userId: string,
-    agentId: string,
-    patch: {
-      currentGoal: string | null;
-      status: AgentStatus;
-      lastDshSessionId?: string | null;
-    },
-  ): Agent | null {
-    const existing = this.getForUser(userId, agentId);
-    if (!existing) return null;
-
-    const updatedAt = Date.now();
-    const lastDshSessionId =
-      patch.lastDshSessionId !== undefined
-        ? patch.lastDshSessionId
-        : existing.lastDshSessionId;
-
-    this.db
-      .prepare(
-        `UPDATE agents
-         SET current_goal = @currentGoal,
-             status = @status,
-             last_dsh_session_id = @lastDshSessionId,
-             updated_at = @updatedAt
-         WHERE id = @id AND user_id = @userId`,
-      )
-      .run({
-        id: agentId,
-        userId,
-        currentGoal: patch.currentGoal,
-        status: patch.status,
-        lastDshSessionId,
-        updatedAt,
-      });
-
-    return this.getForUser(userId, agentId);
-  }
-
   updateAfterRun(
     userId: string,
     agentId: string,
     patch: {
       status: AgentStatus;
       lastDshSessionId: string;
-      currentGoal?: string | null;
     },
   ): Agent | null {
     const existing = this.getForUser(userId, agentId);
     if (!existing) return null;
 
     const updatedAt = Date.now();
-    const currentGoal =
-      patch.currentGoal !== undefined ? patch.currentGoal : existing.currentGoal;
-
     this.db
       .prepare(
         `UPDATE agents
          SET status = @status,
              last_dsh_session_id = @lastDshSessionId,
-             current_goal = @currentGoal,
+             current_goal = NULL,
              updated_at = @updatedAt
          WHERE id = @id AND user_id = @userId`,
       )
@@ -231,7 +192,6 @@ export class AgentStore {
         userId,
         status: patch.status,
         lastDshSessionId: patch.lastDshSessionId,
-        currentGoal,
         updatedAt,
       });
 
@@ -263,23 +223,15 @@ export class AgentStore {
     if (!isOrbColorId(colorId)) throw new Error("invalid colorId");
 
     let chainId = existing.chainId;
-    let currentGoal = existing.currentGoal;
-    let status = existing.status;
 
     if (input.chainId !== undefined && input.chainId !== existing.chainId) {
       if (!isSupportedChainId(input.chainId)) {
         throw new Error("unsupported chainId");
       }
-      if (existing.status !== "idle" && existing.status !== "needs_input") {
-        throw new Error(
-          "cannot change chain while agent is working or paused",
-        );
+      if (existing.status === "working") {
+        throw new Error("cannot change chain while agent is working");
       }
       chainId = input.chainId;
-      if (currentGoal) {
-        currentGoal = null;
-        status = "needs_input";
-      }
     }
 
     const updatedAt = Date.now();
@@ -291,8 +243,7 @@ export class AgentStore {
              avatar_id = @avatarId,
              color_id = @colorId,
              chain_id = @chainId,
-             current_goal = @currentGoal,
-             status = @status,
+             current_goal = NULL,
              updated_at = @updatedAt
          WHERE id = @id AND user_id = @userId`,
       )
@@ -304,8 +255,6 @@ export class AgentStore {
         avatarId,
         colorId,
         chainId,
-        currentGoal,
-        status,
         updatedAt,
       });
 

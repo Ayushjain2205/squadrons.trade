@@ -73,10 +73,7 @@ export function AgentRail({
           <ul className="space-y-0.5">
             {filtered.map((agent) => {
               const active = agent.id === selectedId;
-              const preview =
-                agent.currentGoal?.trim() ||
-                agent.description.trim() ||
-                "No goal yet";
+              const preview = agent.description.trim() || "No description";
               return (
                 <li key={agent.id}>
                   <Link

@@ -31,7 +31,7 @@ export function AgentContextPanel({
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
         <p className="text-sm text-[var(--muted)]">
-          Select an agent to see its goal and status.
+          Select an agent to see status and details.
         </p>
       </div>
     );
@@ -79,21 +79,11 @@ export function AgentContextPanel({
 function AgentContextSummary({ agent }: { agent: AgentWithWorkspace }) {
   return (
     <>
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold tracking-[-0.01em] text-[var(--ink)]">
-          Goal
-        </h3>
-        <p className="text-sm leading-relaxed text-[var(--ink-soft)]">
-          {agent.currentGoal?.trim() ||
-            "No active goal — send a message to set one."}
-        </p>
-      </section>
-
-      <section className="mt-6 space-y-2">
+      <section className="space-y-2">
         <h3 className="text-sm font-semibold tracking-[-0.01em]">Status</h3>
         <div className="flex flex-wrap gap-2 text-xs font-medium uppercase tracking-wide">
           <span className="rounded-md bg-[var(--accent-dim)] px-2 py-1 text-[var(--accent)]">
-            {agent.status.replace("_", " ")}
+            {agent.status}
           </span>
           <span className="rounded-md bg-[var(--panel-2)] px-2 py-1 text-[var(--muted)]">
             {agent.spendMode === "observe" ? "observe" : "spend on"}
@@ -131,8 +121,7 @@ function AgentSettingsForm({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const chainLocked =
-    agent.status !== "idle" && agent.status !== "needs_input";
+  const chainLocked = agent.status === "working";
 
   useEffect(() => {
     setName(agent.name);
@@ -278,7 +267,7 @@ function AgentSettingsForm({
         </div>
         {chainLocked ? (
           <p className="text-xs leading-relaxed text-[var(--muted)]">
-            Chain can change when the agent is idle or waiting for input.
+            Chain can change when the agent is not working.
           </p>
         ) : chainId !== agent.chainId ? (
           <p className="text-xs leading-relaxed text-[var(--muted)]">

@@ -1,7 +1,8 @@
 import type { AvatarId, OrbColorId } from "./avatars";
 import type { SupportedChainId } from "./policy";
 
-export type AgentStatus = "idle" | "working" | "needs_input" | "paused";
+/** idle = waiting for user; working = mid-turn; paused = error / halted */
+export type AgentStatus = "idle" | "working" | "paused";
 export type SpendMode = "observe" | "spend_enabled";
 
 export interface Agent {
@@ -16,7 +17,6 @@ export interface Agent {
   chainId: SupportedChainId;
   status: AgentStatus;
   spendMode: SpendMode;
-  currentGoal: string | null;
   /** Last dsh session id attached to this agent's workspace, if any. */
   lastDshSessionId: string | null;
   createdAt: number;
@@ -31,7 +31,7 @@ export interface CreateAgentInput {
   chainId?: SupportedChainId;
 }
 
-/** Partial identity update. Chain may only change when idle / needs_input. */
+/** Partial identity update. Chain may only change when idle or paused. */
 export interface UpdateAgentInput {
   name?: string;
   avatarId?: AvatarId;

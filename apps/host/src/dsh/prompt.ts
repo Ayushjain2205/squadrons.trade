@@ -21,26 +21,24 @@ export const LLM_PATCH_PATH = path.resolve(
   "../../dsh/squadrons.llm.cordis.yml",
 );
 
-export const GOAL_COMPLETE_MARKER = "[[GOAL_COMPLETE]]";
+/**
+ * Identity + rules for a turn. When the dsh session already has history,
+ * prefer {@link buildContinuingTurnPrompt} so we don't re-paste the thread.
+ */
+export function buildAgentTurnPrompt(agent: Agent, userText: string): string {
+  return `${buildAgentIdentityBlock(agent)}\n\nUser message:\n${userText}`;
+}
 
-export type PromptHistoryMessage = {
-  role: "user" | "assistant" | "system";
-  content: string;
-};
+/** Short user-only prompt once the session already carries conversation. */
+export function buildContinuingTurnPrompt(userText: string): string {
+  return userText;
+}
 
-export function buildAgentTurnPrompt(
-  agent: Agent,
-  userText: string,
-  history: PromptHistoryMessage[] = [],
-): string {
+export function buildAgentIdentityBlock(agent: Agent): string {
   const spendLabel =
     agent.spendMode === "observe"
       ? "observe-only (no spending, no transactions)"
       : "spend enabled (still wait for platform gates — do not invent txs)";
-
-  const goalBlock = agent.currentGoal
-    ? `Active goal:\n${agent.currentGoal}\n\nWork toward this goal. When it is fully complete, end your reply with a final line containing exactly ${GOAL_COMPLETE_MARKER} and nothing else on that line.`
-    : `No active goal yet. The user is telling you what to do. Confirm the goal briefly and start working it. Do not emit ${GOAL_COMPLETE_MARKER} until the goal is actually finished.`;
 
   const chain = getSupportedChain(agent.chainId);
   const homeChain = chain
@@ -51,15 +49,8 @@ export function buildAgentTurnPrompt(
     ? `- You may call get_wallet_balances to read balances on your home chain only (${homeChain}). It cannot query other chains.`
     : `- No on-chain balance tool for ${homeChain} yet. Use web search for public info; do not invent balances.`;
 
-  // Each host turn starts a fresh dsh session, so prior chat must be inlined.
-  const prior = history
-    .filter((m) => m.content.trim().length > 0)
-    .slice(-12)
-    .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
-    .join("\n\n");
-
-  const parts = [
-    "You are a Squadrons crypto agent.",
+  return [
+    "You are a Squadrons crypto agent in an ongoing conversation.",
     `Name: ${agent.name}`,
     `Description: ${agent.description}`,
     `Home chain: ${homeChain}`,
@@ -73,36 +64,5 @@ export function buildAgentTurnPrompt(
     "- On-chain tools are scoped to your home chain. Do not claim data from other chains.",
     "- Do not claim you executed on-chain transactions unless the platform confirms them.",
     "- Do not invent balances, quotes, or tx hashes. Prefer tools over guessing.",
-    "",
-    goalBlock,
-  ];
-
-  if (prior) {
-    parts.push("", "Recent conversation:", prior);
-  }
-
-  parts.push("", "User message:", userText);
-  return parts.join("\n");
-}
-
-export function stripGoalCompleteMarker(text: string): {
-  content: string;
-  completed: boolean;
-} {
-  const lines = text.split(/\r?\n/);
-  let completed = false;
-  const kept: string[] = [];
-
-  for (const line of lines) {
-    if (line.trim() === GOAL_COMPLETE_MARKER) {
-      completed = true;
-      continue;
-    }
-    kept.push(line);
-  }
-
-  return {
-    content: kept.join("\n").trimEnd(),
-    completed,
-  };
+  ].join("\n");
 }

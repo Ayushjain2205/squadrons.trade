@@ -101,7 +101,7 @@ export async function sendMessage(
 ): Promise<{
   agent: AgentWithWorkspace;
   messages: AgentMessage[];
-  turn: { finalResponse: string; goalCompleted?: boolean; sessionId: string };
+  turn: { finalResponse: string; sessionId: string };
 }> {
   return hostFetch(`/v1/agents/${agentId}/messages`, {
     method: "POST",

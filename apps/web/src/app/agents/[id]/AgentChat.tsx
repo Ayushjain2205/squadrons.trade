@@ -130,9 +130,9 @@ export function AgentChat({
             <h1 className="truncate font-[family-name:var(--font-display)] text-base font-semibold tracking-[-0.02em]">
               {agent.name}
             </h1>
-            {!isWorking && agent.currentGoal ? (
+            {!isWorking && agent.description ? (
               <p className="truncate text-xs text-[var(--muted)]">
-                {agent.currentGoal}
+                {agent.description}
               </p>
             ) : null}
           </div>
@@ -153,9 +153,7 @@ export function AgentChat({
           {messages.length === 0 ? (
             <div className="rounded-[var(--radius-msg)] bg-[var(--msg-bot)] px-5 py-8 text-center">
               <p className="text-sm text-[var(--ink-soft)]">
-                {agent.currentGoal
-                  ? "No messages in this goal yet."
-                  : `Tell ${agent.name} what to work on.`}
+                {`Message ${agent.name} to get started.`}
               </p>
             </div>
           ) : (

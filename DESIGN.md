@@ -10,7 +10,7 @@ Grok Bot–like **operator desk**: near-black chrome, three columns, orb faces a
 | --- | --- |
 | Left rail (~280px) | Search, agent list, New agent, local-dev footer |
 | Center | Agent header, message stream, pill composer |
-| Right rail (~296px, lg+) | Goal, status, about; settings (name, face, color, description, chain) |
+| Right rail (~296px, lg+) | Status, about; settings (name, face, color, description, chain) |
 
 Mobile: list on `/`; chat full-bleed with back; right rail hidden.
 
@@ -35,5 +35,5 @@ Cherry Bomb One (wordmark), Manrope (UI + display), IBM Plex Mono (chain ids / m
 - Agent list rows: orb + name + preview + relative time; selected = `--panel-2`
 - Messages: large radius wells; user right / assistant left; clock in bubble
 - Composer: full pill, `+` affordance, circular send
-- Right rail: goal / status / about; gear opens inline settings (identity + face/color + chain)
-- Orbs: 8 faces × 8 colors, chosen independently
+- Right rail: status / about; gear opens inline settings (identity + face/color + chain)
+- Orbs: 8 faces × 7 colors, chosen independently

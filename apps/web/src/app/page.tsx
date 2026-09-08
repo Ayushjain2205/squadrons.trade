@@ -61,7 +61,7 @@ export default async function HomePage() {
                         </span>
                       </div>
                       <p className="mt-0.5 line-clamp-1 text-sm text-[var(--ink-soft)]">
-                        {agent.currentGoal || agent.description}
+                        {agent.description}
                       </p>
                     </div>
                   </Link>

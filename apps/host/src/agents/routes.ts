@@ -3,18 +3,15 @@ import type { Express, NextFunction, Request, Response } from "express";
 import type { CreateAgentInput, UpdateAgentInput } from "@squadrons/shared";
 import { isAvatarId, isOrbColorId, isSupportedChainId } from "@squadrons/shared";
 import { runDshTurn } from "../dsh/runner.js";
-import {
-  buildAgentTurnPrompt,
-  stripGoalCompleteMarker,
-} from "../dsh/prompt.js";
+import { buildAgentTurnPrompt } from "../dsh/prompt.js";
 import type { MessageStore } from "./messages.js";
 import { agentWorkspacePath } from "./paths.js";
 import type { AgentStore } from "./store.js";
 
 const LOCAL_DEV_USER = "local-dev";
 
-const GOAL_INTAKE_PROMPT =
-  "I'm ready. What should I work on? Describe the goal in one or two sentences.";
+const GREETING =
+  "Hey — I'm ready when you are. What should we dig into?";
 
 export function resolveUserId(req: Request): string {
   const header = req.header("x-user-id")?.trim();
@@ -62,12 +59,12 @@ export function registerAgentRoutes(
       const workspace = agentWorkspacePath(userId, agent.id);
       await mkdir(workspace, { recursive: true });
 
-      const intake = messages.append(agent.id, "assistant", GOAL_INTAKE_PROMPT);
+      const greeting = messages.append(agent.id, "assistant", GREETING);
 
       res.status(201).json({
         ok: true,
         agent: { ...agent, workspace },
-        messages: [intake],
+        messages: [greeting],
       });
     } catch (error) {
       next(error);
@@ -210,10 +207,7 @@ export function registerAgentRoutes(
     });
   });
 
-  /**
-   * Chat turn: append user message, run dsh in agent workspace, append reply.
-   * First user message while needs_input becomes the active goal.
-   */
+  /** Chat turn: append user message, run dsh, append reply. */
   app.post("/v1/agents/:id/messages", async (req, res, next) => {
     try {
       const userId = resolveUserId(req);
@@ -236,23 +230,13 @@ export function registerAgentRoutes(
         return;
       }
 
-      const priorMessages = messages.listByAgent(agent.id);
       const userMessage = messages.append(agent.id, "user", content);
 
-      // Goal intake: first concrete instruction becomes the goal.
-      if (!agent.currentGoal) {
-        agent =
-          agents.setGoal(userId, agent.id, {
-            currentGoal: content,
-            status: "working",
-          }) ?? agent;
-      } else {
-        agents.setStatus(userId, agent.id, "working");
-        agent = agents.getForUser(userId, agent.id) ?? agent;
-      }
+      agents.setStatus(userId, agent.id, "working");
+      agent = agents.getForUser(userId, agent.id) ?? agent;
 
       const workspace = agentWorkspacePath(userId, agent.id);
-      const prompt = buildAgentTurnPrompt(agent, content, priorMessages);
+      const prompt = buildAgentTurnPrompt(agent, content);
 
       let turn;
       try {
@@ -260,15 +244,14 @@ export function registerAgentRoutes(
           workspace,
           prompt,
           chainId: agent.chainId,
+          sessionId: agent.lastDshSessionId,
         });
       } catch (error) {
         agents.setStatus(userId, agent.id, "paused");
         throw error;
       }
 
-      const { content: replyText, completed } = stripGoalCompleteMarker(
-        turn.finalResponse || "(no response)",
-      );
+      const replyText = (turn.finalResponse || "(no response)").trimEnd();
 
       const assistantMessage = messages.append(
         agent.id,
@@ -276,9 +259,8 @@ export function registerAgentRoutes(
         replyText || "(empty response)",
       );
 
-      const updated = agents.setGoal(userId, agent.id, {
-        currentGoal: completed ? null : agent.currentGoal,
-        status: completed ? "idle" : "working",
+      const updated = agents.updateAfterRun(userId, agent.id, {
+        status: "idle",
         lastDshSessionId: turn.sessionId,
       });
 
@@ -291,7 +273,6 @@ export function registerAgentRoutes(
         turn: {
           ...turn,
           finalResponse: replyText,
-          goalCompleted: completed,
         },
       });
     } catch (error) {
