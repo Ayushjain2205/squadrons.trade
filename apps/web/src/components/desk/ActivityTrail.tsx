@@ -1,17 +1,42 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { displayActivityLabel } from "@squadrons/shared";
 import {
   listActivity,
   subscribeActivity,
   type ActivityEvent,
 } from "@/lib/host";
 
-/** Only show abstracted product steps — hide legacy noisy rows. */
-function isProductStep(event: ActivityEvent): boolean {
-  if (event.kind === "turn_start" || event.kind === "turn_end") return false;
-  if (event.kind === "tool_result") return false;
-  return true;
+type DisplayStep = ActivityEvent & { displayLabel: string };
+
+function toDisplayStep(event: ActivityEvent): DisplayStep | null {
+  const displayLabel = displayActivityLabel(event);
+  if (!displayLabel) return null;
+  return { ...event, displayLabel };
+}
+
+/** One line per logical step — collapse same tool / same verb within a short window. */
+function collapseSteps(events: ActivityEvent[]): DisplayStep[] {
+  const out: DisplayStep[] = [];
+  for (const event of events) {
+    const step = toDisplayStep(event);
+    if (!step) continue;
+    const last = out[out.length - 1];
+    if (last) {
+      const sameTool =
+        Boolean(last.toolName) && last.toolName === step.toolName;
+      const sameVerb = last.displayLabel === step.displayLabel;
+      const close = step.createdAt - last.createdAt < 120_000;
+      if ((sameTool || sameVerb) && close) {
+        // Keep the newer row (fresher timestamp).
+        out[out.length - 1] = step;
+        continue;
+      }
+    }
+    out.push(step);
+  }
+  return out;
 }
 
 export function ActivityTrail({
@@ -33,7 +58,7 @@ export function ActivityTrail({
 
     void listActivity(agentId)
       .then((rows) => {
-        if (!cancelled) setEvents(rows.filter(isProductStep));
+        if (!cancelled) setEvents(rows);
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -42,18 +67,9 @@ export function ActivityTrail({
       });
 
     const unsubscribe = subscribeActivity(agentId, (event) => {
-      if (!isProductStep(event)) return;
+      if (!displayActivityLabel(event)) return;
       setEvents((prev) => {
         if (prev.some((row) => row.id === event.id)) return prev;
-        // Collapse back-to-back identical steps (e.g. repeated same tool).
-        const last = prev[prev.length - 1];
-        if (
-          last &&
-          last.label === event.label &&
-          event.createdAt - last.createdAt < 4_000
-        ) {
-          return prev;
-        }
         return [...prev, event];
       });
     });
@@ -64,7 +80,10 @@ export function ActivityTrail({
     };
   }, [agentId]);
 
-  const steps = [...events].reverse().slice(0, 24);
+  const steps = useMemo(
+    () => collapseSteps(events).reverse().slice(0, 24),
+    [events],
+  );
 
   return (
     <section className="flex min-h-0 flex-1 flex-col">
@@ -124,7 +143,7 @@ export function ActivityTrail({
                         : "text-[var(--ink-soft)]"
                   }`}
                 >
-                  {event.label}
+                  {event.displayLabel}
                 </p>
                 <time
                   className="pt-0.5 font-[family-name:var(--font-mono)] text-[10px] tabular-nums text-[var(--muted)]"
