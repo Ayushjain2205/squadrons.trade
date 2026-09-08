@@ -55,13 +55,24 @@ pnpm --filter @squadrons/host dsh:smoke
 # or: curl -X POST http://localhost:8787/v1/dsh/smoke -H 'content-type: application/json' -d '{"prompt":"say hi"}'
 ```
 
+## Auth (Privy)
+
+1. Create a Privy app and enable embedded wallets (create on login).
+2. Set `NEXT_PUBLIC_PRIVY_APP_ID` in `apps/web/.env.local`.
+3. Set `PRIVY_APP_ID` and `PRIVY_APP_SECRET` in `apps/host/.env`.
+
+The desk requires login. Host APIs expect `Authorization: Bearer <Privy access token>` (SSE uses `?access_token=`). Agents are scoped by Privy user id (DID). Older `local-dev` rows are not migrated — wipe/recreate agents after switching to real auth.
+
+`GET /v1/me` returns `{ userId, walletAddress }` for the shared embedded wallet. The host injects that address as `SQUADRONS_USER_WALLET` into dsh turns so `get_wallet_balances` defaults to it. Optional `SQUADRONS_DEMO_WALLET` is only a fallback when no user wallet is set.
+
 ## Step 2 — agents + workspaces
 
-Local-dev user defaults to `local-dev` (override with `X-User-Id`).
+Use a Privy access token from a logged-in session (browser Network tab, or Privy SDK `getAccessToken()`):
 
 ```bash
 curl -s -X POST http://localhost:8787/v1/agents \
   -H 'content-type: application/json' \
+  -H "authorization: Bearer $PRIVY_ACCESS_TOKEN" \
   -d '{"name":"Base Scout","avatarId":"01","description":"Scouts LP opportunities on Base"}'
 ```
 
@@ -71,11 +82,7 @@ With host running on `:8787`:
 
 ```bash
 pnpm dev:web
-# open http://localhost:3000
+# open http://localhost:3000 — log in, then list / create agents
 ```
 
-List agents, create with orb faces, open an agent and chat.
-
 New agents start idle with a short greeting. The host keeps a long-lived dsh harness + session per agent in-process (new session after host restart or home-chain change). Context pressure uses dsh’s built-in `@deepseek-ai/dsh-compaction-basic` from the `sdk` profile (`dsh-base`) — no custom summarizer. Mid-turn tool activity streams over SSE (`GET /v1/agents/:id/events`) and is persisted in SQLite (`GET /v1/agents/:id/activity`). Observe-mode dsh patch disables shell/fs/subagents; keeps web/todo/goal/skill plus **`get_wallet_balances`** (home-chain scoped) and **`get_spot_prices`** (USD reference) from `packages/squadrons-defi`.
-
-Optional: set `SQUADRONS_DEMO_WALLET` in `apps/host/.env` so the balances tool has a default address.

@@ -32,7 +32,7 @@ Not a chat with tools — a roster of characterful crypto agents with memory and
 - Default auto-trade cap: $10 (when spend exists)
 - No user-facing skill/playbook manager in v1
 - No cron / routines UI in v1
-- Auth: local-dev stub now; Privy later
+- Auth: Privy required (email / wallet); one shared embedded EVM wallet per user
 
 ## Brand Commitments
 

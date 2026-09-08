@@ -8,7 +8,7 @@ Grok Bot–like **operator desk**: near-black chrome, three columns, orb faces a
 
 | Region | Role |
 | --- | --- |
-| Left rail (~280px) | Search, agent list, New agent, local-dev footer |
+| Left rail (~280px) | Search, agent list, New agent, wallet + logout footer |
 | Center | Agent header, message stream, pill composer |
 | Right rail (~296px, lg+) | Soft identity (description / chain / spend); **Activity** trail; gear → settings |
 
