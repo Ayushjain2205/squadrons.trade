@@ -2,7 +2,7 @@ import { mkdir } from "node:fs/promises";
 import type { Express, NextFunction, Request, Response } from "express";
 import type { CreateAgentInput, UpdateAgentInput } from "@squadrons/shared";
 import { isAvatarId, isOrbColorId, isSupportedChainId } from "@squadrons/shared";
-import { runDshTurn, invalidateAgentRuntime } from "../dsh/runner.js";
+import { runDshTurn, invalidateAgentRuntime, abortAgentRuntime } from "../dsh/runner.js";
 import type { ActivityHub } from "./activity-hub.js";
 import type { MessageStore } from "./messages.js";
 import { agentWorkspacePath } from "./paths.js";
@@ -279,6 +279,48 @@ export function registerAgentRoutes(
     req.on("close", close);
   });
 
+  /** Halt a working agent by killing its dsh runtime; status → paused. */
+  app.post("/v1/agents/:id/pause", async (req, res, next) => {
+    try {
+      const userId = resolveUserId(req);
+      const agentId = req.params.id;
+      if (!agentId) {
+        res.status(400).json({ ok: false, error: "missing agent id" });
+        return;
+      }
+
+      const existing = agents.getForUser(userId, agentId);
+      if (!existing) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+
+      await abortAgentRuntime(existing.id);
+      const agent = agents.setStatus(userId, existing.id, "paused");
+      activity.publish({
+        agentId: existing.id,
+        kind: "info",
+        label: "Paused by you",
+      });
+
+      res.json({
+        ok: true,
+        agent: agent
+          ? {
+              ...agent,
+              workspace: agentWorkspacePath(userId, agent.id),
+            }
+          : {
+              ...existing,
+              status: "paused" as const,
+              workspace: agentWorkspacePath(userId, existing.id),
+            },
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   /** Chat turn: append user message, run dsh, append reply. */
   app.post("/v1/agents/:id/messages", async (req, res, next) => {
     try {
@@ -328,14 +370,20 @@ export function registerAgentRoutes(
           },
         });
       } catch (error) {
-        agents.setStatus(userId, agent.id, "paused");
-        activity.publish({
-          agentId: agent.id,
-          kind: "error",
-          label: "Turn failed",
-          detail:
-            error instanceof Error ? error.message.slice(0, 220) : String(error),
-        });
+        // Pause closes the runtime mid-turn; status is already paused.
+        const current = agents.getForUser(userId, agent.id);
+        if (current?.status !== "paused") {
+          agents.setStatus(userId, agent.id, "paused");
+          activity.publish({
+            agentId: agent.id,
+            kind: "error",
+            label: "Turn failed",
+            detail:
+              error instanceof Error
+                ? error.message.slice(0, 220)
+                : String(error),
+          });
+        }
         throw error;
       }
 

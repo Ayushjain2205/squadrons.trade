@@ -109,6 +109,14 @@ export async function sendMessage(
   });
 }
 
+export async function pauseAgent(agentId: string): Promise<AgentWithWorkspace> {
+  const data = await hostFetch<{ agent: AgentWithWorkspace }>(
+    `/v1/agents/${agentId}/pause`,
+    { method: "POST", body: "{}" },
+  );
+  return data.agent;
+}
+
 export type ActivityEvent = {
   id: string;
   agentId: string;

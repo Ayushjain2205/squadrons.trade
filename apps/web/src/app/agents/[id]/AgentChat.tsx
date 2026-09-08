@@ -6,6 +6,9 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import type { AvatarId, OrbColorId } from "@squadrons/shared";
 import { AgentOrb } from "@/components/AgentOrb";
 import {
+  getAgent,
+  listMessages,
+  pauseAgent,
   sendMessage,
   type AgentMessage,
   type AgentWithWorkspace,
@@ -27,6 +30,7 @@ export function AgentChat({
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [pausing, setPausing] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -62,6 +66,7 @@ export function AgentChat({
         createdAt: Date.now(),
       },
     ]);
+    applyAgent({ ...agent, status: "working" });
 
     startTransition(async () => {
       try {
@@ -73,11 +78,39 @@ export function AgentChat({
         });
         router.refresh();
       } catch (err) {
+        try {
+          const latest = await getAgent(agent.id);
+          applyAgent(latest);
+          if (latest.status === "paused") {
+            const stored = await listMessages(agent.id);
+            setMessages(stored);
+            setDraft("");
+            setError(null);
+            return;
+          }
+        } catch {
+          // fall through
+        }
         setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
         setDraft(content);
         setError(err instanceof Error ? err.message : "Send failed");
+        applyAgent({ ...agent, status: "paused" });
       }
     });
+  }
+
+  async function onPause() {
+    if (pausing) return;
+    setPausing(true);
+    setError(null);
+    try {
+      const updated = await pauseAgent(agent.id);
+      applyAgent(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Pause failed");
+    } finally {
+      setPausing(false);
+    }
   }
 
   function onKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -139,12 +172,21 @@ export function AgentChat({
         </div>
 
         {isWorking ? (
-          <AgentWorkingStatus
-            name={agent.name}
-            avatarId={agent.avatarId}
-            colorId={agent.colorId}
-            className="shrink-0"
-          />
+          <div className="flex shrink-0 items-center gap-2">
+            <AgentWorkingStatus
+              name={agent.name}
+              avatarId={agent.avatarId}
+              colorId={agent.colorId}
+            />
+            <button
+              type="button"
+              onClick={() => void onPause()}
+              disabled={pausing}
+              className="rounded-lg border border-[var(--line)] px-2.5 py-1.5 text-xs font-medium text-[var(--ink-soft)] transition hover:bg-[var(--panel)] hover:text-[var(--ink)] disabled:opacity-50"
+            >
+              {pausing ? "Stopping…" : "Stop"}
+            </button>
+          </div>
         ) : null}
       </header>
 

@@ -114,6 +114,16 @@ export async function invalidateAgentRuntime(agentId: string): Promise<void> {
   await evict(agentId);
 }
 
+/**
+ * Stop a live turn by closing the agent's dsh subprocess.
+ * The in-flight `run()` rejects; there is no wire-level cancel in dsh SDK.
+ */
+export async function abortAgentRuntime(agentId: string): Promise<boolean> {
+  const had = pool.has(agentId);
+  await evict(agentId);
+  return had;
+}
+
 /** Close every pooled harness — call on host shutdown. */
 export async function closeAllAgentRuntimes(): Promise<void> {
   const ids = [...pool.keys()];
