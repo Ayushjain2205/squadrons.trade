@@ -300,7 +300,7 @@ export function registerAgentRoutes(
       activity.publish({
         agentId: existing.id,
         kind: "info",
-        label: "Paused by you",
+        label: "Stopped",
       });
 
       res.json({
@@ -377,11 +377,8 @@ export function registerAgentRoutes(
           activity.publish({
             agentId: agent.id,
             kind: "error",
-            label: "Turn failed",
-            detail:
-              error instanceof Error
-                ? error.message.slice(0, 220)
-                : String(error),
+            label: "Something went wrong",
+            detail: null,
           });
         }
         throw error;

@@ -5,8 +5,8 @@ import { AgentRail } from "./AgentRail";
 /**
  * THESIS: Operator desk — agent roster left, live chat center, agent context right; refuse page-per-agent chrome.
  * OWN-WORLD: Near-black Grok-like rails, charcoal message wells, mint status accent, orb faces as identity.
- * STORY: Pick an agent, talk to it, glance goal/spend/status without leaving the desk.
- * FIRST VIEWPORT: Full-height three columns; selected rail row; center header + messages + pill composer; right goal/status.
+ * STORY: Pick an agent, talk to it, glance identity + activity without leaving the desk.
+ * FIRST VIEWPORT: Full-height three columns; selected rail row; center header + messages + pill composer; right soft identity + activity.
  * FORM: Grok Bot desk canon (user-pinned) · seed n/a
  * FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
  */

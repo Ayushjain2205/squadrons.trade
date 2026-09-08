@@ -6,44 +6,26 @@ type HarnessNotification = {
   params: Record<string, unknown>;
 };
 
-const TOOL_LABELS: Record<string, string> = {
-  get_wallet_balances: "Checking wallet balances",
-  get_spot_prices: "Fetching spot prices",
+/** Product-facing verbs — never expose tool ids or raw args. */
+const STEP_LABELS: Record<string, string> = {
+  get_wallet_balances: "Looking up balances",
+  get_spot_prices: "Checking prices",
   web_search: "Searching the web",
   WebSearch: "Searching the web",
-  todo_write: "Updating todos",
-  todo_read: "Reading todos",
-  ask_user_question: "Asking a question",
-  skill: "Using a skill",
-  Goal: "Updating goal",
-  goal: "Updating goal",
+  web_fetch: "Reading a page",
+  todo_write: "Organizing next steps",
+  todo_read: "Reviewing next steps",
+  ask_user_question: "Needs your input",
+  skill: "Using a playbook",
 };
 
-function toolLabel(name: string): string {
-  return TOOL_LABELS[name] ?? `Using ${name}`;
-}
-
-function truncate(text: string, max = 220): string {
-  const cleaned = text.replace(/\s+/g, " ").trim();
-  if (cleaned.length <= max) return cleaned;
-  return `${cleaned.slice(0, max - 1)}…`;
-}
-
-function extractTextFromBlocks(content: unknown): string {
-  if (!Array.isArray(content)) return "";
-  const parts: string[] = [];
-  for (const block of content) {
-    if (!block || typeof block !== "object") continue;
-    const row = block as Record<string, unknown>;
-    if (typeof row.text === "string") parts.push(row.text);
-    else if (typeof row.content === "string") parts.push(row.content);
-  }
-  return parts.join("\n");
+function stepLabel(toolName: string): string {
+  return STEP_LABELS[toolName] ?? "Working on it";
 }
 
 /**
- * Map a dsh harness notification into zero or one product activity events.
- * Skips noisy chunk / status traffic.
+ * Map a dsh notification into at most one highly abstracted activity step.
+ * Grok Bot–style: human verbs only — no turn markers, no args, no result dumps.
  */
 export function mapNotificationToActivity(
   agentId: string,
@@ -57,60 +39,46 @@ export function mapNotificationToActivity(
   const data = typed.data ?? {};
 
   switch (type) {
-    case "turn/start":
-      return {
-        agentId,
-        kind: "turn_start" satisfies ActivityKind,
-        label: "Working…",
-      };
-    case "turn/end": {
-      const reason = data.reason as { kind?: string } | undefined;
-      if (reason?.kind === "error") {
-        return {
-          agentId,
-          kind: "error",
-          label: "Turn ended with an error",
-        };
-      }
-      return {
-        agentId,
-        kind: "turn_end",
-        label: "Turn finished",
-      };
-    }
     case "tool/call": {
       const name = typeof data.name === "string" ? data.name : "tool";
-      const args =
-        typeof data.arguments === "string" ? truncate(data.arguments, 160) : null;
       return {
         agentId,
-        kind: "tool_call",
-        label: toolLabel(name),
-        detail: args,
+        kind: "tool_call" satisfies ActivityKind,
+        label: stepLabel(name),
+        detail: null,
         toolName: name,
       };
     }
     case "tool/result": {
-      const message = data.message as
-        | { name?: string; content?: unknown; toolCallId?: string }
-        | undefined;
+      // Successful results stay silent — the call already told the story.
+      if (!data.error) return null;
+      const message = data.message as { name?: string } | undefined;
       const name =
         typeof message?.name === "string"
           ? message.name
           : typeof data.name === "string"
             ? data.name
             : "tool";
-      const body = truncate(extractTextFromBlocks(message?.content) || "");
-      const errored = Boolean(data.error);
       return {
         agentId,
-        kind: errored ? "error" : "tool_result",
-        label: errored ? `${toolLabel(name)} failed` : `${toolLabel(name)} · done`,
-        detail: body || null,
+        kind: "error" satisfies ActivityKind,
+        label: `${stepLabel(name)} failed`,
+        detail: null,
         toolName: name,
       };
     }
+    case "turn/end": {
+      const reason = data.reason as { kind?: string } | undefined;
+      if (reason?.kind !== "error") return null;
+      return {
+        agentId,
+        kind: "error",
+        label: "Something went wrong",
+        detail: null,
+      };
+    }
     default:
+      // Skip turn/start, chunks, assistant messages, successful turn/end, etc.
       return null;
   }
 }

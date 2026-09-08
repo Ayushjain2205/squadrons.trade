@@ -59,7 +59,7 @@ export function AgentContextPanel({
         </button>
       </div>
 
-      <div className="desk-scroll min-h-0 flex-1 overflow-y-auto p-4">
+      <div className="desk-scroll flex min-h-0 flex-1 flex-col overflow-y-auto p-4">
         {settingsOpen ? (
           <AgentSettingsForm
             agent={agent}
@@ -78,32 +78,27 @@ export function AgentContextPanel({
 }
 
 function AgentContextSummary({ agent }: { agent: AgentWithWorkspace }) {
-  return (
-    <>
-      <section className="space-y-2">
-        <h3 className="text-sm font-semibold tracking-[-0.01em]">Status</h3>
-        <div className="flex flex-wrap gap-2 text-xs font-medium uppercase tracking-wide">
-          <span className="rounded-md bg-[var(--accent-dim)] px-2 py-1 text-[var(--accent)]">
-            {agent.status}
-          </span>
-          <span className="rounded-md bg-[var(--panel-2)] px-2 py-1 text-[var(--muted)]">
-            {agent.spendMode === "observe" ? "observe" : "spend on"}
-          </span>
-          <span className="rounded-md bg-[var(--panel)] px-2 py-1 font-[family-name:var(--font-mono)] normal-case tracking-normal text-[var(--muted)]">
-            {chainLabel(agent.chainId)} · {agent.chainId}
-          </span>
-        </div>
-      </section>
+  const isWorking = agent.status === "working";
 
-      <section className="mt-6 space-y-2">
-        <h3 className="text-sm font-semibold tracking-[-0.01em]">About</h3>
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
+      <section className="shrink-0 space-y-1.5">
         <p className="text-sm leading-relaxed text-[var(--ink-soft)]">
           {agent.description}
         </p>
+        <p className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--muted)]">
+          {chainLabel(agent.chainId)}
+          {" · "}
+          {agent.spendMode === "observe" ? "observe" : "spend on"}
+        </p>
       </section>
 
-      <ActivityTrail agentId={agent.id} />
-    </>
+      <ActivityTrail
+        agentId={agent.id}
+        agentName={agent.name}
+        live={isWorking}
+      />
+    </div>
   );
 }
 
