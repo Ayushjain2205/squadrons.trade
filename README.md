@@ -76,6 +76,6 @@ pnpm dev:web
 
 List agents, create with orb faces, open an agent and chat.
 
-New agents start idle with a short greeting. The host keeps a long-lived dsh harness + session per agent in-process (new session after host restart or home-chain change). Context pressure uses dsh’s built-in `@deepseek-ai/dsh-compaction-basic` from the `sdk` profile (`dsh-base`) — no custom summarizer. Mid-turn tool activity streams over SSE (`GET /v1/agents/:id/events`) and is persisted in SQLite (`GET /v1/agents/:id/activity`). Observe-mode dsh patch disables shell/fs/subagents; keeps web/todo/goal/skill plus **`get_wallet_balances`** (home-chain scoped) from `packages/squadrons-defi`.
+New agents start idle with a short greeting. The host keeps a long-lived dsh harness + session per agent in-process (new session after host restart or home-chain change). Context pressure uses dsh’s built-in `@deepseek-ai/dsh-compaction-basic` from the `sdk` profile (`dsh-base`) — no custom summarizer. Mid-turn tool activity streams over SSE (`GET /v1/agents/:id/events`) and is persisted in SQLite (`GET /v1/agents/:id/activity`). Observe-mode dsh patch disables shell/fs/subagents; keeps web/todo/goal/skill plus **`get_wallet_balances`** (home-chain scoped) and **`get_spot_prices`** (USD reference) from `packages/squadrons-defi`.
 
 Optional: set `SQUADRONS_DEMO_WALLET` in `apps/host/.env` so the balances tool has a default address.

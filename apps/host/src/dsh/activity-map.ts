@@ -8,6 +8,7 @@ type HarnessNotification = {
 
 const TOOL_LABELS: Record<string, string> = {
   get_wallet_balances: "Checking wallet balances",
+  get_spot_prices: "Fetching spot prices",
   web_search: "Searching the web",
   WebSearch: "Searching the web",
   todo_write: "Updating todos",

@@ -42,9 +42,10 @@ export function chainLabel(chainId: number): string {
   return getSupportedChain(chainId)?.shortName ?? `Chain ${chainId}`;
 }
 
-/** Observe-mode on-chain read tools available per home chain. */
+/** Observe-mode on-chain / market read tools available per home chain. */
 export const CHAIN_SCOPED_READ_TOOLS = [
   "get_wallet_balances",
+  "get_spot_prices",
 ] as const;
 
 export type ChainScopedReadTool = (typeof CHAIN_SCOPED_READ_TOOLS)[number];
@@ -53,6 +54,6 @@ export function chainScopedReadTools(
   _chainId: SupportedChainId,
 ): readonly ChainScopedReadTool[] {
   // All supported home chains currently share the same read surface;
-  // tools still execute against the agent's home chain only.
+  // balance tools still execute against the agent's home chain only.
   return CHAIN_SCOPED_READ_TOOLS;
 }

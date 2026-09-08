@@ -17,6 +17,14 @@ import {
 export const name = "squadrons-defi";
 export const inject = ["tools"];
 
+/** CoinGecko ids for symbols we know on supported home chains. */
+const SPOT_IDS = {
+  ETH: "ethereum",
+  WETH: "weth",
+  USDC: "usd-coin",
+  USDG: "usd-coin", // peg reference until a dedicated feed exists
+};
+
 function resolveAddress(explicit) {
   const candidate =
     (typeof explicit === "string" && explicit.trim()) ||
@@ -69,6 +77,31 @@ function resolveTokenList(config, tokens) {
       `Unknown token on ${config.shortName} (${config.chainId}): ${key}. Known: ${known}, or pass an ERC-20 address.`,
     );
   });
+}
+
+/**
+ * @param {import('./chains.js').ChainToolConfig} home
+ * @param {unknown} symbols
+ */
+function resolveSpotSymbols(home, symbols) {
+  const defaults = defaultTokenSymbols(home);
+  const requested =
+    Array.isArray(symbols) && symbols.length > 0
+      ? symbols.map((s) => String(s).trim().toUpperCase())
+      : defaults;
+
+  /** @type {Array<{ symbol: string, coingeckoId: string }>} */
+  const resolved = [];
+  for (const symbol of requested) {
+    const id = SPOT_IDS[symbol];
+    if (!id) {
+      throw new Error(
+        `No USD spot feed for ${symbol}. Known: ${Object.keys(SPOT_IDS).join(", ")}`,
+      );
+    }
+    resolved.push({ symbol, coingeckoId: id });
+  }
+  return resolved;
 }
 
 /**
@@ -190,6 +223,76 @@ export function apply(ctx) {
       presentCall: (args) => ({
         card: "generic",
         title: `Get wallet balances (${home.shortName})`,
+        kind: "other",
+        rawInput: args,
+      }),
+    }),
+  );
+
+  ctx.tools.register(
+    defineTool({
+      name: "get_spot_prices",
+      description: `Read-only: USD spot reference prices for tokens relevant to this agent's home chain ${home.name} (defaults: ${symbols}). Not a DEX quote and not executable — use for scout context only.`,
+      parameters: {
+        symbols: {
+          type: "array",
+          description: `Token symbols to price (subset of ${Object.keys(SPOT_IDS).join(", ")}). Defaults to home-chain defaults (${symbols}).`,
+          items: { type: "string" },
+        },
+      },
+      output: {
+        schema: {
+          type: "object",
+          additionalProperties: true,
+        },
+        render: (_args, value) => [
+          {
+            type: "text",
+            text: JSON.stringify(value, null, 2),
+          },
+        ],
+      },
+      async execute(args) {
+        const specs = resolveSpotSymbols(home, args.symbols);
+        const ids = [...new Set(specs.map((s) => s.coingeckoId))];
+        const url = new URL("https://api.coingecko.com/api/v3/simple/price");
+        url.searchParams.set("ids", ids.join(","));
+        url.searchParams.set("vs_currencies", "usd");
+
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(
+            `Spot price feed failed (${response.status}). Try again or use web search.`,
+          );
+        }
+        const payload = await response.json();
+
+        const prices = specs.map(({ symbol, coingeckoId }) => {
+          const usd = payload?.[coingeckoId]?.usd;
+          return {
+            symbol,
+            usd: typeof usd === "number" ? usd : null,
+            source: "coingecko",
+            coingeckoId,
+            note:
+              symbol === "USDG"
+                ? "USDG uses usd-coin as a peg reference — verify on-chain before acting"
+                : undefined,
+          };
+        });
+
+        return {
+          chainId: home.chainId,
+          chain: home.name,
+          asOf: new Date().toISOString(),
+          quote: "USD",
+          kind: "spot_reference",
+          prices,
+        };
+      },
+      presentCall: (args) => ({
+        card: "generic",
+        title: `Get spot prices (${home.shortName})`,
         kind: "other",
         rawInput: args,
       }),

@@ -45,9 +45,11 @@ export function buildAgentIdentityBlock(agent: Agent): string {
     ? `${chain.name} (${chain.chainId})`
     : `${chainLabel(agent.chainId)} (${agent.chainId})`;
   const readTools = chainScopedReadTools(agent.chainId);
-  const toolRule = readTools.includes("get_wallet_balances")
-    ? `- You may call get_wallet_balances to read balances on your home chain only (${homeChain}). It cannot query other chains.`
-    : `- No on-chain balance tool for ${homeChain} yet. Use web search for public info; do not invent balances.`;
+  const toolList = readTools.join(", ");
+  const toolRule =
+    readTools.length > 0
+      ? `- You may call: ${toolList}. get_wallet_balances is home-chain only (${homeChain}). get_spot_prices returns USD reference prices (not a DEX quote / not executable).`
+      : `- No market/balance tools for ${homeChain} yet. Use web search for public info; do not invent numbers.`;
 
   return [
     "You are a Squadrons crypto agent in an ongoing conversation.",
