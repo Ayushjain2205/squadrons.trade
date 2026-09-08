@@ -172,21 +172,12 @@ export function AgentChat({
         </div>
 
         {isWorking ? (
-          <div className="flex shrink-0 items-center gap-2">
-            <AgentWorkingStatus
-              name={agent.name}
-              avatarId={agent.avatarId}
-              colorId={agent.colorId}
-            />
-            <button
-              type="button"
-              onClick={() => void onPause()}
-              disabled={pausing}
-              className="rounded-lg border border-[var(--line)] px-2.5 py-1.5 text-xs font-medium text-[var(--ink-soft)] transition hover:bg-[var(--panel)] hover:text-[var(--ink)] disabled:opacity-50"
-            >
-              {pausing ? "Stopping…" : "Stop"}
-            </button>
-          </div>
+          <AgentWorkingStatus
+            name={agent.name}
+            avatarId={agent.avatarId}
+            colorId={agent.colorId}
+            className="shrink-0"
+          />
         ) : null}
       </header>
 
@@ -236,16 +227,29 @@ export function AgentChat({
             disabled={pending}
             className="chat-input max-h-32 min-h-10 flex-1 resize-none bg-transparent py-2.5 text-[15px] leading-snug text-[var(--ink)] placeholder:text-[var(--muted)] outline-none ring-0 disabled:opacity-60"
           />
-          <button
-            type="submit"
-            disabled={pending || !draft.trim()}
-            className="mb-0.5 flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--ink)] text-[var(--canvas)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
-            aria-label="Send"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M3.4 20.6L20.9 12 3.4 3.4l-.1 6.7L14 12 3.3 13.9l.1 6.7z" />
-            </svg>
-          </button>
+          {isWorking ? (
+            <button
+              type="button"
+              onClick={() => void onPause()}
+              disabled={pausing}
+              className="mb-0.5 flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--ink)] text-[var(--canvas)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label={pausing ? "Stopping" : "Stop"}
+              title="Stop"
+            >
+              <span className="block size-3 rounded-[2px] bg-current" aria-hidden />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!draft.trim()}
+              className="mb-0.5 flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--ink)] text-[var(--canvas)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
+              aria-label="Send"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3.4 20.6L20.9 12 3.4 3.4l-.1 6.7L14 12 3.3 13.9l.1 6.7z" />
+              </svg>
+            </button>
+          )}
         </form>
         {error ? (
           <p className="mt-3 rounded-xl bg-[#2a1818] px-4 py-3 text-sm text-[var(--danger)]">
