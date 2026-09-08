@@ -74,12 +74,17 @@ export async function runDshTurn(
     initializeTimeoutMs: 60_000,
   });
 
-  const runOptions =
-    options.sessionId != null && options.sessionId !== ""
-      ? { sessionId: options.sessionId }
-      : undefined;
+  // Always start a fresh dsh session. Each turn owns a short-lived harness
+  // process; reusing lastDshSessionId across process boundaries hits:
+  // "persisted log on disk that does not match this live session (id collision)"
+  // and returns idle with an empty finalResponse.
+  void options.sessionId;
+  const result = await harness.run(options.prompt);
 
-  const result = await harness.run(options.prompt, runOptions);
+  const turnError = findTurnError(result.events);
+  if (turnError) {
+    throw new Error(turnError);
+  }
 
   return {
     sessionId: result.sessionId,
@@ -90,6 +95,22 @@ export async function runDshTurn(
     provider,
     model,
   };
+}
+
+function findTurnError(events: unknown[]): string | null {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const event = events[i] as {
+      type?: string;
+      data?: { reason?: { kind?: string; error?: { message?: string } } };
+    } | null;
+    if (event?.type !== "turn/end") continue;
+    if (event.data?.reason?.kind !== "error") return null;
+    return (
+      event.data.reason.error?.message ??
+      "dsh turn ended with an error and no assistant reply"
+    );
+  }
+  return null;
 }
 
 /** Step-1 one-off smoke helper (ephemeral workspace, no observe patch). */

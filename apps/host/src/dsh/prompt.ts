@@ -18,7 +18,16 @@ export const LLM_PATCH_PATH = path.resolve(
 
 export const GOAL_COMPLETE_MARKER = "[[GOAL_COMPLETE]]";
 
-export function buildAgentTurnPrompt(agent: Agent, userText: string): string {
+export type PromptHistoryMessage = {
+  role: "user" | "assistant" | "system";
+  content: string;
+};
+
+export function buildAgentTurnPrompt(
+  agent: Agent,
+  userText: string,
+  history: PromptHistoryMessage[] = [],
+): string {
   const spendLabel =
     agent.spendMode === "observe"
       ? "observe-only (no spending, no transactions)"
@@ -28,7 +37,14 @@ export function buildAgentTurnPrompt(agent: Agent, userText: string): string {
     ? `Active goal:\n${agent.currentGoal}\n\nWork toward this goal. When it is fully complete, end your reply with a final line containing exactly ${GOAL_COMPLETE_MARKER} and nothing else on that line.`
     : `No active goal yet. The user is telling you what to do. Confirm the goal briefly and start working it. Do not emit ${GOAL_COMPLETE_MARKER} until the goal is actually finished.`;
 
-  return [
+  // Each host turn starts a fresh dsh session, so prior chat must be inlined.
+  const prior = history
+    .filter((m) => m.content.trim().length > 0)
+    .slice(-12)
+    .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
+    .join("\n\n");
+
+  const parts = [
     "You are a Squadrons crypto agent.",
     `Name: ${agent.name}`,
     `Description: ${agent.description}`,
@@ -44,10 +60,14 @@ export function buildAgentTurnPrompt(agent: Agent, userText: string): string {
     "- Do not invent balances, quotes, or tx hashes. Prefer tools over guessing.",
     "",
     goalBlock,
-    "",
-    "User message:",
-    userText,
-  ].join("\n");
+  ];
+
+  if (prior) {
+    parts.push("", "Recent conversation:", prior);
+  }
+
+  parts.push("", "User message:", userText);
+  return parts.join("\n");
 }
 
 export function stripGoalCompleteMarker(text: string): {

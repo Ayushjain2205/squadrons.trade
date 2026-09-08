@@ -129,6 +129,7 @@ export function registerAgentRoutes(
         return;
       }
 
+      const priorMessages = messages.listByAgent(agent.id);
       const userMessage = messages.append(agent.id, "user", content);
 
       // Goal intake: first concrete instruction becomes the goal.
@@ -144,14 +145,13 @@ export function registerAgentRoutes(
       }
 
       const workspace = agentWorkspacePath(userId, agent.id);
-      const prompt = buildAgentTurnPrompt(agent, content);
+      const prompt = buildAgentTurnPrompt(agent, content, priorMessages);
 
       let turn;
       try {
         turn = await runDshTurn({
           workspace,
           prompt,
-          sessionId: agent.lastDshSessionId,
         });
       } catch (error) {
         agents.setStatus(userId, agent.id, "paused");
