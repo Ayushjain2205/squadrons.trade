@@ -279,10 +279,10 @@ export function AgentOrb({
       aria-label={title ?? face?.name ?? id}
     >
       <defs>
-        <radialGradient id={gradientId} cx="35%" cy="30%" r="65%">
+        <radialGradient id={gradientId} cx="35%" cy="28%" r="72%">
           <stop offset="0%" stopColor={palette.gloss} />
-          <stop offset="55%" stopColor={palette.orb} />
-          <stop offset="100%" stopColor="#1a1a1a" />
+          <stop offset="58%" stopColor={palette.orb} />
+          <stop offset="100%" stopColor={palette.shade} />
         </radialGradient>
       </defs>
       <circle cx="50" cy="50" r="46" fill={`url(#${gradientId})`} />

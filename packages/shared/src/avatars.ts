@@ -50,6 +50,7 @@ export const AGENT_COLORS = [
     orb: "#6B5B95",
     eye: "#C4B5FD",
     gloss: "#9B8BC4",
+    shade: "#4A3F6A",
   },
   {
     id: "blue",
@@ -57,6 +58,7 @@ export const AGENT_COLORS = [
     orb: "#3D6B9A",
     eye: "#93C5FD",
     gloss: "#6B9BC4",
+    shade: "#2A4A6C",
   },
   {
     id: "green",
@@ -64,6 +66,7 @@ export const AGENT_COLORS = [
     orb: "#3D7A5A",
     eye: "#86EFAC",
     gloss: "#5A9A7A",
+    shade: "#2A5440",
   },
   {
     id: "yellow",
@@ -71,6 +74,7 @@ export const AGENT_COLORS = [
     orb: "#9A8A3D",
     eye: "#FDE68A",
     gloss: "#C4B46B",
+    shade: "#6A5E2A",
   },
   {
     id: "orange",
@@ -78,6 +82,7 @@ export const AGENT_COLORS = [
     orb: "#9A6B3D",
     eye: "#FCD34D",
     gloss: "#C49A6B",
+    shade: "#6A4A2A",
   },
   {
     id: "red",
@@ -85,6 +90,7 @@ export const AGENT_COLORS = [
     orb: "#8B4545",
     eye: "#FCA5A5",
     gloss: "#B56B6B",
+    shade: "#5C3030",
   },
   {
     id: "pink",
@@ -92,6 +98,7 @@ export const AGENT_COLORS = [
     orb: "#8B4A6B",
     eye: "#F9A8D4",
     gloss: "#B56B8B",
+    shade: "#5C3248",
   },
 ] as const;
 

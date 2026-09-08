@@ -18,7 +18,7 @@ export function OrbColorSwatch({
       style={{
         width: size,
         height: size,
-        background: `radial-gradient(circle at 35% 30%, ${palette.gloss} 0%, ${palette.orb} 55%, #1a1a1a 100%)`,
+        background: `radial-gradient(circle at 35% 28%, ${palette.gloss} 0%, ${palette.orb} 58%, ${palette.shade} 100%)`,
       }}
       aria-hidden
     />
