@@ -170,15 +170,6 @@ export function AgentChat({
             ) : null}
           </div>
         </div>
-
-        {isWorking ? (
-          <AgentWorkingStatus
-            name={agent.name}
-            avatarId={agent.avatarId}
-            colorId={agent.colorId}
-            className="shrink-0"
-          />
-        ) : null}
       </header>
 
       <div className="desk-scroll min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-5">
@@ -194,19 +185,19 @@ export function AgentChat({
               <MessageBubble key={message.id} message={message} />
             ))
           )}
-          {pending ? (
-            <AgentWorkingStatus
-              name={agent.name}
-              avatarId={agent.avatarId}
-              colorId={agent.colorId}
-              className="px-1 py-1"
-            />
-          ) : null}
           <div ref={bottomRef} />
         </div>
       </div>
 
       <div className="shrink-0 px-4 pb-4 pt-2 sm:px-5 sm:pb-5">
+        {isWorking ? (
+          <AgentWorkingStatus
+            name={agent.name}
+            avatarId={agent.avatarId}
+            colorId={agent.colorId}
+            className="mb-2 px-1"
+          />
+        ) : null}
         <form
           onSubmit={onSend}
           className="chat-composer flex w-full items-end gap-2 rounded-full border border-[var(--line)] bg-[var(--msg-bot)] px-2 py-2 shadow-[0_8px_30px_rgba(0,0,0,0.35)]"
