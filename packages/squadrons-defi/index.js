@@ -28,12 +28,13 @@ const SPOT_IDS = {
 function resolveAddress(explicit) {
   const candidate =
     (typeof explicit === "string" && explicit.trim()) ||
+    process.env.SQUADRONS_USER_WALLET ||
     process.env.SQUADRONS_DEMO_WALLET ||
     process.env.DEMO_WALLET ||
     "";
   if (!candidate || !isAddress(candidate)) {
     throw new Error(
-      "address is required (pass address, or set SQUADRONS_DEMO_WALLET)",
+      "address is required (pass address, or sign in so SQUADRONS_USER_WALLET is set)",
     );
   }
   return candidate;
@@ -119,7 +120,7 @@ export function apply(ctx) {
         address: {
           type: "string",
           description:
-            "EVM address to query. If omitted, uses SQUADRONS_DEMO_WALLET from the environment.",
+            "EVM address to query. If omitted, uses the signed-in user's shared wallet (SQUADRONS_USER_WALLET).",
         },
         tokens: {
           type: "array",

@@ -25,8 +25,12 @@ export const LLM_PATCH_PATH = path.resolve(
  * Identity + rules for a turn. When the dsh session already has history,
  * prefer {@link buildContinuingTurnPrompt} so we don't re-paste the thread.
  */
-export function buildAgentTurnPrompt(agent: Agent, userText: string): string {
-  return `${buildAgentIdentityBlock(agent)}\n\nUser message:\n${userText}`;
+export function buildAgentTurnPrompt(
+  agent: Agent,
+  userText: string,
+  walletAddress?: string | null,
+): string {
+  return `${buildAgentIdentityBlock(agent, walletAddress)}\n\nUser message:\n${userText}`;
 }
 
 /** Short user-only prompt once the session already carries conversation. */
@@ -34,7 +38,10 @@ export function buildContinuingTurnPrompt(userText: string): string {
   return userText;
 }
 
-export function buildAgentIdentityBlock(agent: Agent): string {
+export function buildAgentIdentityBlock(
+  agent: Agent,
+  walletAddress?: string | null,
+): string {
   const spendLabel =
     agent.spendMode === "observe"
       ? "observe-only (no spending, no transactions)"
@@ -51,12 +58,17 @@ export function buildAgentIdentityBlock(agent: Agent): string {
       ? `- You may call: ${toolList}. get_wallet_balances is home-chain only (${homeChain}). get_spot_prices returns USD reference prices (not a DEX quote / not executable).`
       : `- No market/balance tools for ${homeChain} yet. Use web search for public info; do not invent numbers.`;
 
-  return [
+  const lines = [
     "You are a Squadrons crypto agent in an ongoing conversation.",
     `Name: ${agent.name}`,
     `Description: ${agent.description}`,
     `Home chain: ${homeChain}`,
     `Spend mode: ${spendLabel}`,
+  ];
+  if (walletAddress) {
+    lines.push(`Shared user wallet: ${walletAddress}`);
+  }
+  lines.push(
     "",
     "Rules:",
     "- Stay in character as this named agent.",
@@ -66,5 +78,6 @@ export function buildAgentIdentityBlock(agent: Agent): string {
     "- On-chain tools are scoped to your home chain. Do not claim data from other chains.",
     "- Do not claim you executed on-chain transactions unless the platform confirms them.",
     "- Do not invent balances, quotes, or tx hashes. Prefer tools over guessing.",
-  ].join("\n");
+  );
+  return lines.join("\n");
 }

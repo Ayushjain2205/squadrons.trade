@@ -42,6 +42,8 @@ export type DshTurnOptions = {
   history?: Array<{ role: string; content: string }>;
   /** Live activity sink (persist + SSE). */
   onActivity?: (event: NewActivityEvent) => void;
+  /** Shared per-user wallet injected as SQUADRONS_USER_WALLET. */
+  walletAddress?: string | null;
 };
 
 type PooledRuntime = {
@@ -49,6 +51,7 @@ type PooledRuntime = {
   sessionId: string | null;
   workspace: string;
   chainId: number;
+  walletAddress: string | null;
   provider: string;
   model: string;
 };
@@ -90,11 +93,19 @@ function resolveRoute(options: Pick<DshTurnOptions, "provider" | "model">): {
   return { provider, model };
 }
 
-function buildChildEnv(chainId: number): NodeJS.ProcessEnv {
+function buildChildEnv(
+  chainId: number,
+  walletAddress?: string | null,
+): NodeJS.ProcessEnv {
   const childEnv: NodeJS.ProcessEnv = { ...process.env };
   delete childEnv.DSH_MODEL;
   delete childEnv.DSH_PROVIDER;
   childEnv.SQUADRONS_AGENT_CHAIN_ID = String(chainId);
+  if (walletAddress) {
+    childEnv.SQUADRONS_USER_WALLET = walletAddress;
+  } else {
+    delete childEnv.SQUADRONS_USER_WALLET;
+  }
   return childEnv;
 }
 
@@ -136,11 +147,13 @@ async function ensureRuntime(
   model: string,
   patches: string[],
 ): Promise<PooledRuntime> {
+  const walletAddress = options.walletAddress ?? null;
   const existing = pool.get(options.agentId);
   if (
     existing &&
     existing.workspace === options.workspace &&
     existing.chainId === options.agent.chainId &&
+    existing.walletAddress === walletAddress &&
     existing.provider === provider &&
     existing.model === model
   ) {
@@ -160,7 +173,7 @@ async function ensureRuntime(
     provider,
     model,
     patches,
-    env: buildChildEnv(options.agent.chainId),
+    env: buildChildEnv(options.agent.chainId, walletAddress),
     initializeTimeoutMs: 60_000,
   });
   await harness.start();
@@ -170,6 +183,7 @@ async function ensureRuntime(
     sessionId: null,
     workspace: options.workspace,
     chainId: options.agent.chainId,
+    walletAddress,
     provider,
     model,
   };
@@ -239,7 +253,11 @@ export async function runDshTurn(
 }
 
 function buildColdStartPrompt(options: DshTurnOptions): string {
-  const base = buildAgentTurnPrompt(options.agent, options.userText);
+  const base = buildAgentTurnPrompt(
+    options.agent,
+    options.userText,
+    options.walletAddress,
+  );
   const history = options.history
     ?.filter((m) => m.content.trim().length > 0)
     .slice(-12);
