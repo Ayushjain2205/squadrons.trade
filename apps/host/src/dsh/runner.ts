@@ -167,6 +167,7 @@ async function ensureRuntime(
  * Run one chat turn on a long-lived per-agent dsh harness + session.
  * The process stays warm across turns; a new session is minted only when the
  * pool entry is created (host restart, chain change, or first message).
+ * Long context is compacted by dsh-base's compaction-basic plugin (sdk profile).
  */
 export async function runDshTurn(
   options: DshTurnOptions,
