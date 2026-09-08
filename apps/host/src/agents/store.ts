@@ -10,6 +10,7 @@ import {
   type CreateAgentInput,
   type SpendMode,
   type SupportedChainId,
+  type UpdateAgentInput,
 } from "@squadrons/shared";
 
 type AgentRow = {
@@ -215,6 +216,76 @@ export class AgentStore {
         status: patch.status,
         lastDshSessionId: patch.lastDshSessionId,
         currentGoal,
+        updatedAt,
+      });
+
+    return this.getForUser(userId, agentId);
+  }
+
+  updateSettings(
+    userId: string,
+    agentId: string,
+    input: UpdateAgentInput,
+  ): Agent | null {
+    const existing = this.getForUser(userId, agentId);
+    if (!existing) return null;
+
+    const name =
+      input.name !== undefined ? input.name.trim() : existing.name;
+    const description =
+      input.description !== undefined
+        ? input.description.trim()
+        : existing.description;
+    const avatarId =
+      input.avatarId !== undefined ? input.avatarId : existing.avatarId;
+
+    if (!name) throw new Error("name is required");
+    if (!description) throw new Error("description is required");
+    if (!isAvatarId(avatarId)) throw new Error("invalid avatarId");
+
+    let chainId = existing.chainId;
+    let currentGoal = existing.currentGoal;
+    let status = existing.status;
+
+    if (input.chainId !== undefined && input.chainId !== existing.chainId) {
+      if (!isSupportedChainId(input.chainId)) {
+        throw new Error("unsupported chainId");
+      }
+      if (existing.status !== "idle" && existing.status !== "needs_input") {
+        throw new Error(
+          "cannot change chain while agent is working or paused",
+        );
+      }
+      chainId = input.chainId;
+      // Home-chain switch: drop any stale goal; keep chat history + workspace.
+      if (currentGoal) {
+        currentGoal = null;
+        status = "needs_input";
+      }
+    }
+
+    const updatedAt = Date.now();
+    this.db
+      .prepare(
+        `UPDATE agents
+         SET name = @name,
+             description = @description,
+             avatar_id = @avatarId,
+             chain_id = @chainId,
+             current_goal = @currentGoal,
+             status = @status,
+             updated_at = @updatedAt
+         WHERE id = @id AND user_id = @userId`,
+      )
+      .run({
+        id: agentId,
+        userId,
+        name,
+        description,
+        avatarId,
+        chainId,
+        currentGoal,
+        status,
         updatedAt,
       });
 

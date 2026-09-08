@@ -26,3 +26,11 @@ export interface CreateAgentInput {
   description: string;
   chainId?: SupportedChainId;
 }
+
+/** Partial identity update. Chain may only change when idle / needs_input. */
+export interface UpdateAgentInput {
+  name?: string;
+  avatarId?: AvatarId;
+  description?: string;
+  chainId?: SupportedChainId;
+}

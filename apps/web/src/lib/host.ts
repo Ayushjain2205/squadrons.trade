@@ -1,4 +1,9 @@
-import type { Agent, AvatarId, CreateAgentInput } from "@squadrons/shared";
+import type {
+  Agent,
+  AvatarId,
+  CreateAgentInput,
+  UpdateAgentInput,
+} from "@squadrons/shared";
 
 const hostUrl =
   process.env.NEXT_PUBLIC_HOST_URL?.replace(/\/$/, "") ??
@@ -69,6 +74,20 @@ export async function createAgent(
   return { ...data.agent, workspace: data.workspace };
 }
 
+export async function updateAgent(
+  id: string,
+  input: UpdateAgentInput,
+): Promise<AgentWithWorkspace> {
+  const data = await hostFetch<{ agent: AgentWithWorkspace }>(
+    `/v1/agents/${id}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    },
+  );
+  return data.agent;
+}
+
 export async function listMessages(agentId: string): Promise<AgentMessage[]> {
   const data = await hostFetch<{ messages: AgentMessage[] }>(
     `/v1/agents/${agentId}/messages`,
@@ -90,4 +109,4 @@ export async function sendMessage(
   });
 }
 
-export type { AvatarId };
+export type { AvatarId, UpdateAgentInput };

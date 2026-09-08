@@ -1,7 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import type { Express, NextFunction, Request, Response } from "express";
-import type { CreateAgentInput } from "@squadrons/shared";
-import { isSupportedChainId } from "@squadrons/shared";
+import type { CreateAgentInput, UpdateAgentInput } from "@squadrons/shared";
+import { isAvatarId, isSupportedChainId } from "@squadrons/shared";
 import { runDshTurn } from "../dsh/runner.js";
 import {
   buildAgentTurnPrompt,
@@ -93,6 +93,80 @@ export function registerAgentRoutes(
         workspace: agentWorkspacePath(userId, agent.id),
       },
     });
+  });
+
+  app.patch("/v1/agents/:id", (req, res, next) => {
+    try {
+      const userId = resolveUserId(req);
+      const agentId = req.params.id;
+      if (!agentId) {
+        res.status(400).json({ ok: false, error: "missing agent id" });
+        return;
+      }
+
+      const existing = agents.getForUser(userId, agentId);
+      if (!existing) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+
+      const body = req.body as Partial<UpdateAgentInput> & {
+        chainId?: number | string;
+        avatarId?: string;
+      };
+      const patch: UpdateAgentInput = {};
+
+      if (body.name !== undefined) patch.name = String(body.name);
+      if (body.description !== undefined) {
+        patch.description = String(body.description);
+      }
+      if (body.avatarId !== undefined) {
+        const avatar = String(body.avatarId);
+        if (!isAvatarId(avatar)) {
+          res.status(400).json({ ok: false, error: "invalid avatarId" });
+          return;
+        }
+        patch.avatarId = avatar;
+      }
+      if (
+        body.chainId !== undefined &&
+        body.chainId !== null &&
+        String(body.chainId).trim() !== ""
+      ) {
+        const rawChain = Number(body.chainId);
+        if (!isSupportedChainId(rawChain)) {
+          res.status(400).json({ ok: false, error: "unsupported chainId" });
+          return;
+        }
+        patch.chainId = rawChain;
+      }
+
+      if (
+        patch.name === undefined &&
+        patch.description === undefined &&
+        patch.avatarId === undefined &&
+        patch.chainId === undefined
+      ) {
+        res.status(400).json({ ok: false, error: "no settings to update" });
+        return;
+      }
+
+      const agent = agents.updateSettings(userId, agentId, patch);
+      if (!agent) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+
+      res.json({
+        ok: true,
+        agent: {
+          ...agent,
+          workspace: agentWorkspacePath(userId, agent.id),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
   });
 
   app.get("/v1/agents/:id/messages", (req, res) => {
@@ -212,7 +286,10 @@ export function agentErrorHandler(
   _next: NextFunction,
 ): void {
   const message = error instanceof Error ? error.message : String(error);
-  const status = /required|invalid|unsupported/i.test(message) ? 400 : 500;
+  const status =
+    /required|invalid|unsupported|cannot|no settings/i.test(message)
+      ? 400
+      : 500;
   if (status >= 500) console.error("[agents]", error);
   res.status(status).json({ ok: false, error: message });
 }

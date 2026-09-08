@@ -14,9 +14,11 @@ import { MarkdownContent } from "@/components/MarkdownContent";
 export function AgentChat({
   agent: initialAgent,
   initialMessages,
+  onAgentUpdated,
 }: {
   agent: AgentWithWorkspace;
   initialMessages: AgentMessage[];
+  onAgentUpdated?: (agent: AgentWithWorkspace) => void;
 }) {
   const router = useRouter();
   const [agent, setAgent] = useState(initialAgent);
@@ -35,6 +37,11 @@ export function AgentChat({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, pending]);
+
+  function applyAgent(next: AgentWithWorkspace) {
+    setAgent(next);
+    onAgentUpdated?.(next);
+  }
 
   function onSend(event?: React.FormEvent) {
     event?.preventDefault();
@@ -58,7 +65,7 @@ export function AgentChat({
     startTransition(async () => {
       try {
         const result = await sendMessage(agent.id, content);
-        setAgent(result.agent);
+        applyAgent(result.agent);
         setMessages((prev) => {
           const withoutOptimistic = prev.filter((m) => m.id !== optimisticId);
           return [...withoutOptimistic, ...result.messages];

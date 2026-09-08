@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
-import { DeskShell } from "@/components/desk/DeskShell";
 import { getAgent, listAgents, listMessages } from "@/lib/host";
-import { AgentChat } from "./AgentChat";
+import { AgentWorkspace } from "./AgentWorkspace";
 
 export const dynamic = "force-dynamic";
 
@@ -24,8 +23,10 @@ export default async function AgentDetailPage({ params }: PageProps) {
   }
 
   return (
-    <DeskShell agents={agents} selectedId={agent.id} selectedAgent={agent}>
-      <AgentChat agent={agent} initialMessages={messages} />
-    </DeskShell>
+    <AgentWorkspace
+      initialAgents={agents}
+      initialAgent={agent}
+      initialMessages={messages}
+    />
   );
 }
