@@ -184,7 +184,12 @@ function AgentSettingsForm({
                     : "border-transparent hover:border-[var(--line)] hover:bg-[var(--panel)]"
                 }`}
               >
-                <AgentOrb id={face.id} colorId={colorId} size={36} />
+                <AgentOrb
+                  id={face.id}
+                  colorId={colorId}
+                  size={36}
+                  animate={selected}
+                />
               </button>
             );
           })}

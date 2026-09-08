@@ -111,7 +111,12 @@ export function AgentChat({
             </svg>
           </Link>
           <div className="relative shrink-0">
-            <AgentOrb id={agent.avatarId} colorId={agent.colorId} size={32} />
+            <AgentOrb
+              id={agent.avatarId}
+              colorId={agent.colorId}
+              size={32}
+              animate={isWorking}
+            />
             <span
               className={`absolute -right-0.5 -top-0.5 size-2.5 rounded-full border-2 border-[var(--canvas)] ${
                 isWorking
@@ -254,6 +259,7 @@ function AgentWorkingStatus({
         colorId={colorId}
         size={22}
         className="shrink-0"
+        animate
       />
       <span className="truncate">
         <span className="text-[var(--ink)]">{name}</span> is working

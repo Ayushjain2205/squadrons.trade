@@ -101,7 +101,12 @@ export default function NewAgentPage() {
                         : "border-transparent hover:border-[var(--line)] hover:bg-[var(--panel)]"
                     }`}
                   >
-                    <AgentOrb id={face.id} colorId={colorId} size={44} />
+                    <AgentOrb
+                      id={face.id}
+                      colorId={colorId}
+                      size={44}
+                      animate={selected}
+                    />
                   </button>
                 );
               })}
