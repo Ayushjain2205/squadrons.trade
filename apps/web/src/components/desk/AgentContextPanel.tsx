@@ -1,3 +1,4 @@
+import { chainLabel } from "@squadrons/shared";
 import type { AgentWithWorkspace } from "@/lib/host";
 
 export function AgentContextPanel({
@@ -37,7 +38,7 @@ export function AgentContextPanel({
             {agent.spendMode === "observe" ? "observe" : "spend on"}
           </span>
           <span className="rounded-md bg-[var(--panel)] px-2 py-1 font-[family-name:var(--font-mono)] normal-case tracking-normal text-[var(--muted)]">
-            Base · {agent.chainId}
+            {chainLabel(agent.chainId)} · {agent.chainId}
           </span>
         </div>
       </section>

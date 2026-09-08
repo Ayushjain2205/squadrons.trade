@@ -1,6 +1,11 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Agent } from "@squadrons/shared";
+import {
+  chainLabel,
+  chainScopedReadTools,
+  getSupportedChain,
+  type Agent,
+} from "@squadrons/shared";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -37,6 +42,15 @@ export function buildAgentTurnPrompt(
     ? `Active goal:\n${agent.currentGoal}\n\nWork toward this goal. When it is fully complete, end your reply with a final line containing exactly ${GOAL_COMPLETE_MARKER} and nothing else on that line.`
     : `No active goal yet. The user is telling you what to do. Confirm the goal briefly and start working it. Do not emit ${GOAL_COMPLETE_MARKER} until the goal is actually finished.`;
 
+  const chain = getSupportedChain(agent.chainId);
+  const homeChain = chain
+    ? `${chain.name} (${chain.chainId})`
+    : `${chainLabel(agent.chainId)} (${agent.chainId})`;
+  const readTools = chainScopedReadTools(agent.chainId);
+  const toolRule = readTools.includes("get_wallet_balances")
+    ? `- You may call get_wallet_balances to read balances on your home chain only (${homeChain}). It cannot query other chains.`
+    : `- No on-chain balance tool for ${homeChain} yet. Use web search for public info; do not invent balances.`;
+
   // Each host turn starts a fresh dsh session, so prior chat must be inlined.
   const prior = history
     .filter((m) => m.content.trim().length > 0)
@@ -48,14 +62,15 @@ export function buildAgentTurnPrompt(
     "You are a Squadrons crypto agent.",
     `Name: ${agent.name}`,
     `Description: ${agent.description}`,
-    `Home chain: Base (${agent.chainId})`,
+    `Home chain: ${homeChain}`,
     `Spend mode: ${spendLabel}`,
     "",
     "Rules:",
     "- Stay in character as this named agent.",
     "- Prefer concise, actionable updates.",
     "- You may use web search for public market/research info.",
-    "- You may call get_wallet_balances to read Base (8453) balances (observe-only).",
+    toolRule,
+    "- On-chain tools are scoped to your home chain. Do not claim data from other chains.",
     "- Do not claim you executed on-chain transactions unless the platform confirms them.",
     "- Do not invent balances, quotes, or tx hashes. Prefer tools over guessing.",
     "",

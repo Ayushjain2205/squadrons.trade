@@ -5,17 +5,54 @@ export const DEFAULT_POLICY = {
   defaultChainId: 8453,
 } as const;
 
-/** Base is the first supported chain for demos. */
+/** Supported home chains for agent create. */
 export const SUPPORTED_CHAINS = [
   {
     chainId: 8453,
     name: "Base",
     shortName: "Base",
   },
+  {
+    chainId: 1,
+    name: "Ethereum",
+    shortName: "Ethereum",
+  },
+  {
+    chainId: 4663,
+    name: "Robinhood Chain",
+    shortName: "Robinhood",
+  },
 ] as const;
 
 export type SupportedChainId = (typeof SUPPORTED_CHAINS)[number]["chainId"];
 
+export type SupportedChain = (typeof SUPPORTED_CHAINS)[number];
+
 export function isSupportedChainId(value: number): value is SupportedChainId {
   return SUPPORTED_CHAINS.some((chain) => chain.chainId === value);
+}
+
+export function getSupportedChain(
+  chainId: number,
+): SupportedChain | undefined {
+  return SUPPORTED_CHAINS.find((chain) => chain.chainId === chainId);
+}
+
+export function chainLabel(chainId: number): string {
+  return getSupportedChain(chainId)?.shortName ?? `Chain ${chainId}`;
+}
+
+/** Observe-mode on-chain read tools available per home chain. */
+export const CHAIN_SCOPED_READ_TOOLS = [
+  "get_wallet_balances",
+] as const;
+
+export type ChainScopedReadTool = (typeof CHAIN_SCOPED_READ_TOOLS)[number];
+
+export function chainScopedReadTools(
+  _chainId: SupportedChainId,
+): readonly ChainScopedReadTool[] {
+  // All supported home chains currently share the same read surface;
+  // tools still execute against the agent's home chain only.
+  return CHAIN_SCOPED_READ_TOOLS;
 }

@@ -21,6 +21,8 @@ export type DshTurnOptions = {
   sessionId?: string | null;
   provider?: string;
   model?: string;
+  /** Agent home chain — scopes on-chain tools for this turn. */
+  chainId?: number;
   /** Extra Cordis patches beyond the Squadrons LLM patch. */
   patches?: string[];
   /** When false, skip the observe-mode tool lockdown (smoke only). */
@@ -59,9 +61,12 @@ export async function runDshTurn(
 
   // dsh discovers parent .env files; keep DSH_* out of dotenv-managed files.
   // Provider/model are passed via DeepSeekHarness options, not child env.
-  const childEnv = { ...process.env };
+  const childEnv: NodeJS.ProcessEnv = { ...process.env };
   delete childEnv.DSH_MODEL;
   delete childEnv.DSH_PROVIDER;
+  if (options.chainId !== undefined) {
+    childEnv.SQUADRONS_AGENT_CHAIN_ID = String(options.chainId);
+  }
 
   await using harness = new DeepSeekHarness({
     profile: "sdk",

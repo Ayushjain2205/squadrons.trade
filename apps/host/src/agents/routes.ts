@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import type { Express, NextFunction, Request, Response } from "express";
 import type { CreateAgentInput } from "@squadrons/shared";
+import { isSupportedChainId } from "@squadrons/shared";
 import { runDshTurn } from "../dsh/runner.js";
 import {
   buildAgentTurnPrompt,
@@ -28,12 +29,23 @@ export function registerAgentRoutes(
   app.post("/v1/agents", async (req, res, next) => {
     try {
       const userId = resolveUserId(req);
-      const body = req.body as Partial<CreateAgentInput>;
+      const body = req.body as Partial<CreateAgentInput> & {
+        chainId?: number | string;
+      };
+      const hasChain =
+        body.chainId !== undefined &&
+        body.chainId !== null &&
+        String(body.chainId).trim() !== "";
+      const rawChain = hasChain ? Number(body.chainId) : undefined;
+      if (hasChain && (rawChain === undefined || !isSupportedChainId(rawChain))) {
+        res.status(400).json({ ok: false, error: "unsupported chainId" });
+        return;
+      }
       const agent = agents.create(userId, {
         name: String(body.name ?? ""),
         avatarId: body.avatarId as CreateAgentInput["avatarId"],
         description: String(body.description ?? ""),
-        chainId: body.chainId,
+        chainId: rawChain,
       });
 
       const workspace = agentWorkspacePath(userId, agent.id);
@@ -152,6 +164,7 @@ export function registerAgentRoutes(
         turn = await runDshTurn({
           workspace,
           prompt,
+          chainId: agent.chainId,
         });
       } catch (error) {
         agents.setStatus(userId, agent.id, "paused");

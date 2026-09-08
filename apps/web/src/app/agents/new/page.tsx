@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { AGENT_AVATARS, type AvatarId } from "@squadrons/shared";
+import {
+  AGENT_AVATARS,
+  DEFAULT_POLICY,
+  SUPPORTED_CHAINS,
+  type AvatarId,
+  type SupportedChainId,
+} from "@squadrons/shared";
 import { AgentOrb } from "@/components/AgentOrb";
 import { DeskShell } from "@/components/desk/DeskShell";
 import { createAgent, listAgents, type AgentWithWorkspace } from "@/lib/host";
@@ -14,6 +20,9 @@ export default function NewAgentPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [avatarId, setAvatarId] = useState<AvatarId>("01");
+  const [chainId, setChainId] = useState<SupportedChainId>(
+    DEFAULT_POLICY.defaultChainId,
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -32,6 +41,7 @@ export default function NewAgentPage() {
           name,
           description,
           avatarId,
+          chainId,
         });
         router.push(`/agents/${agent.id}`);
         router.refresh();
@@ -54,7 +64,7 @@ export default function NewAgentPage() {
                 New agent
               </h1>
               <p className="text-[var(--ink-soft)]">
-                Pick a face, name it, describe its mandate. Chain is Base.
+                Pick a face, chain, name, and mandate.
               </p>
             </div>
             <Link
@@ -92,6 +102,37 @@ export default function NewAgentPage() {
             </div>
           </fieldset>
 
+          <fieldset className="space-y-3">
+            <legend className="text-sm font-medium text-[var(--ink-soft)]">
+              Chain
+            </legend>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {SUPPORTED_CHAINS.map((chain) => {
+                const selected = chain.chainId === chainId;
+                return (
+                  <button
+                    key={chain.chainId}
+                    type="button"
+                    onClick={() => setChainId(chain.chainId)}
+                    aria-pressed={selected}
+                    className={`cursor-pointer rounded-xl border px-3 py-3 text-left transition ${
+                      selected
+                        ? "border-[var(--accent)] bg-[var(--panel)]"
+                        : "border-[var(--line)] bg-transparent hover:bg-[var(--panel)]"
+                    }`}
+                  >
+                    <span className="block text-sm font-medium text-[var(--ink)]">
+                      {chain.shortName}
+                    </span>
+                    <span className="mt-0.5 block font-[family-name:var(--font-mono)] text-xs text-[var(--muted)]">
+                      {chain.chainId}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+
           <label className="block space-y-2">
             <span className="text-sm font-medium text-[var(--ink-soft)]">
               Name
@@ -114,13 +155,13 @@ export default function NewAgentPage() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
-              placeholder="Scouts LP opportunities on Base and reports findings in-app."
+              placeholder="Scouts LP opportunities and reports findings in-app."
               className="w-full resize-y rounded-xl border border-[var(--line)] bg-[var(--panel)] px-4 py-3 text-[var(--ink)] placeholder:text-[var(--muted)]"
             />
           </label>
 
           <p className="font-[family-name:var(--font-mono)] text-xs text-[var(--muted)]">
-            Chain · Base (8453) · spend starts as observe
+            Spend starts as observe
           </p>
 
           {error ? (

@@ -37,7 +37,7 @@ app.get("/health", (_req, res) => {
   res.json({
     ok: true,
     service: "squadrons-host",
-    chain: SUPPORTED_CHAINS[0],
+    chains: SUPPORTED_CHAINS,
     policy: DEFAULT_POLICY,
     openrouter: Boolean(process.env.OPENROUTER_API_KEY),
   });

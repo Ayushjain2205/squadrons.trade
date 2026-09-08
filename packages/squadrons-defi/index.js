@@ -7,32 +7,15 @@ import {
   http,
   isAddress,
 } from "viem";
-import { base } from "viem/chains";
+import {
+  defaultTokenSymbols,
+  resolveAgentChainConfig,
+  resolveRpcUrl,
+} from "./chains.js";
 
 /** Cordis plugin id / package export name. */
 export const name = "squadrons-defi";
 export const inject = ["tools"];
-
-const BASE_TOKENS = {
-  USDC: {
-    address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-    decimals: 6,
-    symbol: "USDC",
-  },
-  WETH: {
-    address: "0x4200000000000000000000000000000000000006",
-    decimals: 18,
-    symbol: "WETH",
-  },
-};
-
-function resolveRpcUrl() {
-  return (
-    process.env.BASE_RPC_URL ||
-    process.env.SQUADRONS_BASE_RPC_URL ||
-    "https://mainnet.base.org"
-  );
-}
 
 function resolveAddress(explicit) {
   const candidate =
@@ -48,22 +31,30 @@ function resolveAddress(explicit) {
   return candidate;
 }
 
-function resolveTokenList(tokens) {
+/**
+ * @param {import('./chains.js').ChainToolConfig} config
+ * @param {unknown} tokens
+ */
+function resolveTokenList(config, tokens) {
   if (!Array.isArray(tokens) || tokens.length === 0) {
     return [
-      { kind: "native", symbol: "ETH", decimals: 18 },
-      ...Object.values(BASE_TOKENS).map((t) => ({ kind: "erc20", ...t })),
+      { kind: "native", symbol: config.nativeSymbol, decimals: 18 },
+      ...Object.values(config.tokens).map((t) => ({ kind: "erc20", ...t })),
     ];
   }
 
   return tokens.map((raw) => {
     const key = String(raw).trim();
     const upper = key.toUpperCase();
-    if (upper === "ETH" || upper === "NATIVE") {
-      return { kind: "native", symbol: "ETH", decimals: 18 };
+    if (
+      upper === "ETH" ||
+      upper === "NATIVE" ||
+      upper === config.nativeSymbol.toUpperCase()
+    ) {
+      return { kind: "native", symbol: config.nativeSymbol, decimals: 18 };
     }
-    if (BASE_TOKENS[upper]) {
-      return { kind: "erc20", ...BASE_TOKENS[upper] };
+    if (config.tokens[upper]) {
+      return { kind: "erc20", ...config.tokens[upper] };
     }
     if (isAddress(key)) {
       return {
@@ -73,14 +64,10 @@ function resolveTokenList(tokens) {
         symbol: `${key.slice(0, 6)}…${key.slice(-4)}`,
       };
     }
-    throw new Error(`Unknown token: ${key}`);
-  });
-}
-
-function createClient() {
-  return createPublicClient({
-    chain: base,
-    transport: http(resolveRpcUrl()),
+    const known = defaultTokenSymbols(config).join(", ");
+    throw new Error(
+      `Unknown token on ${config.shortName} (${config.chainId}): ${key}. Known: ${known}, or pass an ERC-20 address.`,
+    );
   });
 }
 
@@ -88,11 +75,13 @@ function createClient() {
  * @param {import('@deepseek-ai/cordis').Context} ctx
  */
 export function apply(ctx) {
+  const home = resolveAgentChainConfig();
+  const symbols = defaultTokenSymbols(home).join(", ");
+
   ctx.tools.register(
     defineTool({
       name: "get_wallet_balances",
-      description:
-        "Read-only: fetch native ETH and ERC-20 balances on Base (chainId 8453) for a wallet. Defaults to ETH + USDC + WETH when tokens are omitted. Does not send transactions.",
+      description: `Read-only: fetch native ${home.nativeSymbol} and known ERC-20 balances on this agent's home chain ${home.name} (chainId ${home.chainId}) only. Defaults to ${symbols} when tokens are omitted. Does not send transactions. Cannot query other chains.`,
       parameters: {
         address: {
           type: "string",
@@ -101,9 +90,12 @@ export function apply(ctx) {
         },
         tokens: {
           type: "array",
-          description:
-            "Token symbols (ETH, USDC, WETH) or ERC-20 addresses. Defaults to ETH + USDC + WETH.",
+          description: `Token symbols (${symbols}) or ERC-20 addresses on ${home.shortName}. Defaults to ${symbols}.`,
           items: { type: "string" },
+        },
+        chainId: {
+          type: "number",
+          description: `Optional. Must match the agent home chain (${home.chainId}) if provided.`,
         },
       },
       output: {
@@ -119,18 +111,31 @@ export function apply(ctx) {
         ],
       },
       async execute(args) {
+        if (
+          args.chainId !== undefined &&
+          args.chainId !== null &&
+          Number(args.chainId) !== home.chainId
+        ) {
+          throw new Error(
+            `get_wallet_balances is scoped to this agent's home chain ${home.name} (${home.chainId}); requested ${args.chainId}`,
+          );
+        }
+
         const address = resolveAddress(args.address);
-        const tokenSpecs = resolveTokenList(args.tokens);
-        const client = createClient();
+        const tokenSpecs = resolveTokenList(home, args.tokens);
+        const client = createPublicClient({
+          chain: home.viemChain,
+          transport: http(resolveRpcUrl(home)),
+        });
 
         const balances = [];
 
         for (const token of tokenSpecs) {
-          if (token.kind === "native" || token.symbol === "ETH") {
+          if (token.kind === "native") {
             const wei = await client.getBalance({ address });
             balances.push({
-              chainId: 8453,
-              symbol: "ETH",
+              chainId: home.chainId,
+              symbol: home.nativeSymbol,
               address: null,
               amount: formatEther(wei),
               raw: wei.toString(),
@@ -166,7 +171,7 @@ export function apply(ctx) {
           });
 
           balances.push({
-            chainId: 8453,
+            chainId: home.chainId,
             symbol: String(symbol),
             address: token.address,
             amount: formatUnits(raw, Number(decimals)),
@@ -176,15 +181,15 @@ export function apply(ctx) {
         }
 
         return {
-          chainId: 8453,
-          chain: "Base",
+          chainId: home.chainId,
+          chain: home.name,
           address,
           balances,
         };
       },
       presentCall: (args) => ({
         card: "generic",
-        title: "Get wallet balances",
+        title: `Get wallet balances (${home.shortName})`,
         kind: "other",
         rawInput: args,
       }),
