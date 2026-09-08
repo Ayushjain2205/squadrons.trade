@@ -1,9 +1,16 @@
-# Ensure OpenRouter is a live llm-pi-ai route for SDK workers.
-# (Without this, llm-pi-ai can mount dormant and initialize fails with
-# "no adapter registered for provider openrouter".)
+# OpenRouter via llm-pi-ai (pi-ai builtin catalog route).
+# apiKeyEnv alone is enough — openrouter is in @earendil-works/pi-ai builtins.
+# Also pin agent-default-model so SDK workers do not fall back to deepseek-official
+# when ~/.dsh/settings.yaml is missing or not yet applied.
 - id: llm-pi-ai
   name: '@deepseek-ai/dsh-llm-pi-ai'
   config:
     providers:
       openrouter:
         apiKeyEnv: OPENROUTER_API_KEY
+
+- id: agent-default-model
+  name: '@deepseek-ai/dsh-agent-default-model'
+  config:
+    provider: openrouter
+    model: deepseek/deepseek-v4-flash

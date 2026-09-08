@@ -96,13 +96,11 @@ export function apply(ctx) {
       parameters: {
         address: {
           type: "string",
-          required: false,
           description:
             "EVM address to query. If omitted, uses SQUADRONS_DEMO_WALLET from the environment.",
         },
         tokens: {
           type: "array",
-          required: false,
           description:
             "Token symbols (ETH, USDC, WETH) or ERC-20 addresses. Defaults to ETH + USDC + WETH.",
           items: { type: "string" },
