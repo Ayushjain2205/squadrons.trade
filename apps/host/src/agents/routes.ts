@@ -3,6 +3,7 @@ import type { Express, NextFunction, Request, Response } from "express";
 import type { CreateAgentInput, UpdateAgentInput } from "@squadrons/shared";
 import { isAvatarId, isOrbColorId, isSupportedChainId } from "@squadrons/shared";
 import { runDshTurn, invalidateAgentRuntime } from "../dsh/runner.js";
+import type { ActivityHub } from "./activity-hub.js";
 import type { MessageStore } from "./messages.js";
 import { agentWorkspacePath } from "./paths.js";
 import type { AgentStore } from "./store.js";
@@ -21,6 +22,7 @@ export function registerAgentRoutes(
   app: Express,
   agents: AgentStore,
   messages: MessageStore,
+  activity: ActivityHub,
 ): void {
   app.post("/v1/agents", async (req, res, next) => {
     try {
@@ -213,6 +215,70 @@ export function registerAgentRoutes(
     });
   });
 
+  app.get("/v1/agents/:id/activity", (req, res) => {
+    const userId = resolveUserId(req);
+    const agentId = req.params.id;
+    if (!agentId) {
+      res.status(400).json({ ok: false, error: "missing agent id" });
+      return;
+    }
+
+    const agent = agents.getForUser(userId, agentId);
+    if (!agent) {
+      res.status(404).json({ ok: false, error: "agent not found" });
+      return;
+    }
+
+    const limitRaw = Number(req.query.limit ?? 100);
+    const limit = Number.isFinite(limitRaw) ? limitRaw : 100;
+    res.json({
+      ok: true,
+      activity: activity.list(agent.id, limit),
+    });
+  });
+
+  /** Live activity stream (SSE). Client should load history via GET /activity first. */
+  app.get("/v1/agents/:id/events", (req, res) => {
+    const userId = resolveUserId(req);
+    const agentId = req.params.id;
+    if (!agentId) {
+      res.status(400).json({ ok: false, error: "missing agent id" });
+      return;
+    }
+
+    const agent = agents.getForUser(userId, agentId);
+    if (!agent) {
+      res.status(404).json({ ok: false, error: "agent not found" });
+      return;
+    }
+
+    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders?.();
+
+    const write = (eventName: string, data: unknown) => {
+      res.write(`event: ${eventName}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+
+    write("ready", { agentId: agent.id });
+
+    const unsubscribe = activity.subscribe(agent.id, (event) => {
+      write("activity", event);
+    });
+
+    const heartbeat = setInterval(() => {
+      res.write(`: ping\n\n`);
+    }, 25_000);
+
+    const close = () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+    };
+
+    req.on("close", close);
+  });
+
   /** Chat turn: append user message, run dsh, append reply. */
   app.post("/v1/agents/:id/messages", async (req, res, next) => {
     try {
@@ -257,9 +323,19 @@ export function registerAgentRoutes(
             role: m.role,
             content: m.content,
           })),
+          onActivity: (event) => {
+            activity.publish(event);
+          },
         });
       } catch (error) {
         agents.setStatus(userId, agent.id, "paused");
+        activity.publish({
+          agentId: agent.id,
+          kind: "error",
+          label: "Turn failed",
+          detail:
+            error instanceof Error ? error.message.slice(0, 220) : String(error),
+        });
         throw error;
       }
 

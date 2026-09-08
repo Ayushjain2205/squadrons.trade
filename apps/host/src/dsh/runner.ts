@@ -10,6 +10,8 @@ import {
   LLM_PATCH_PATH,
   OBSERVE_PATCH_PATH,
 } from "./prompt.js";
+import { mapNotificationToActivity } from "./activity-map.js";
+import type { NewActivityEvent } from "../agents/activity.js";
 
 export type DshTurnResult = {
   sessionId: string;
@@ -38,6 +40,8 @@ export type DshTurnOptions = {
    * Ignored once the pooled session is continuing.
    */
   history?: Array<{ role: string; content: string }>;
+  /** Live activity sink (persist + SSE). */
+  onActivity?: (event: NewActivityEvent) => void;
 };
 
 type PooledRuntime = {
@@ -190,6 +194,14 @@ export async function runDshTurn(
     try {
       result = await runtime.harness.run(prompt, {
         sessionId: runtime.sessionId ?? undefined,
+        onNotification: (notification) => {
+          if (!options.onActivity) return;
+          const mapped = mapNotificationToActivity(
+            options.agentId,
+            notification,
+          );
+          if (mapped) options.onActivity(mapped);
+        },
       });
     } catch (error) {
       await evict(options.agentId);

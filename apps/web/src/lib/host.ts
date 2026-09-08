@@ -109,4 +109,54 @@ export async function sendMessage(
   });
 }
 
+export type ActivityEvent = {
+  id: string;
+  agentId: string;
+  kind:
+    | "turn_start"
+    | "turn_end"
+    | "tool_call"
+    | "tool_result"
+    | "error"
+    | "info";
+  label: string;
+  detail: string | null;
+  toolName: string | null;
+  createdAt: number;
+};
+
+export async function listActivity(
+  agentId: string,
+  limit = 100,
+): Promise<ActivityEvent[]> {
+  const data = await hostFetch<{ activity: ActivityEvent[] }>(
+    `/v1/agents/${agentId}/activity?limit=${limit}`,
+  );
+  return data.activity;
+}
+
+/** Subscribe to live activity for an agent. Returns an unsubscribe fn. */
+export function subscribeActivity(
+  agentId: string,
+  onEvent: (event: ActivityEvent) => void,
+): () => void {
+  const source = new EventSource(`${hostUrl}/v1/agents/${agentId}/events`);
+
+  const onActivity = (message: MessageEvent) => {
+    try {
+      const payload = JSON.parse(String(message.data)) as ActivityEvent;
+      if (payload?.id) onEvent(payload);
+    } catch {
+      // ignore malformed frames
+    }
+  };
+
+  source.addEventListener("activity", onActivity as EventListener);
+
+  return () => {
+    source.removeEventListener("activity", onActivity as EventListener);
+    source.close();
+  };
+}
+
 export type { AvatarId, UpdateAgentInput };

@@ -18,6 +18,8 @@ import {
   agentErrorHandler,
   registerAgentRoutes,
 } from "./agents/routes.js";
+import { ActivityStore } from "./agents/activity.js";
+import { ActivityHub } from "./agents/activity-hub.js";
 import { MessageStore } from "./agents/messages.js";
 import { AgentStore } from "./agents/store.js";
 import { openDatabase } from "./db.js";
@@ -29,6 +31,7 @@ const host = process.env.HOST ?? "0.0.0.0";
 const db = openDatabase();
 const agents = new AgentStore(db);
 const messages = new MessageStore(db);
+const activity = new ActivityHub(new ActivityStore(db));
 
 const app = express();
 app.use(cors({ origin: true }));
@@ -53,7 +56,7 @@ app.get("/v1/meta", (_req, res) => {
   });
 });
 
-registerAgentRoutes(app, agents, messages);
+registerAgentRoutes(app, agents, messages, activity);
 
 app.post("/v1/dsh/smoke", async (req, res) => {
   const prompt =

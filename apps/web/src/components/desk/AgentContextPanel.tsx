@@ -13,6 +13,7 @@ import {
 import { AgentOrb } from "@/components/AgentOrb";
 import { OrbColorSwatch } from "@/components/OrbColorSwatch";
 import { updateAgent, type AgentWithWorkspace } from "@/lib/host";
+import { ActivityTrail } from "./ActivityTrail";
 
 export function AgentContextPanel({
   agent,
@@ -100,6 +101,8 @@ function AgentContextSummary({ agent }: { agent: AgentWithWorkspace }) {
           {agent.description}
         </p>
       </section>
+
+      <ActivityTrail agentId={agent.id} />
     </>
   );
 }

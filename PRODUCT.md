@@ -22,6 +22,7 @@ Not a chat with tools — a roster of characterful crypto agents with memory and
 
 - My Agents roster; create with fixed orb avatars + colors
 - Continuous per-agent chat (no mandatory goal intake)
+- Live + historical activity trail (dsh tools → SSE + SQLite)
 - Observe-mode tools (balances, web, etc.); spend later
 - In-app chat / activity (no Discord in v1)
 

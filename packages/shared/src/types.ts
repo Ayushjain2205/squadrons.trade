@@ -39,3 +39,25 @@ export interface UpdateAgentInput {
   description?: string;
   chainId?: SupportedChainId;
 }
+
+/** Product-facing activity trail kinds (mapped from dsh session events). */
+export type ActivityKind =
+  | "turn_start"
+  | "turn_end"
+  | "tool_call"
+  | "tool_result"
+  | "error"
+  | "info";
+
+export interface ActivityEvent {
+  id: string;
+  agentId: string;
+  kind: ActivityKind;
+  /** Short operator-facing line. */
+  label: string;
+  /** Optional truncated detail (args, result snippet). */
+  detail: string | null;
+  /** Tool name when kind is tool_call / tool_result. */
+  toolName: string | null;
+  createdAt: number;
+}
