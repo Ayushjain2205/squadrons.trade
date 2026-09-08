@@ -79,7 +79,7 @@ export default function NewAgentPage() {
                     onClick={() => setAvatarId(avatar.id)}
                     aria-pressed={selected}
                     aria-label={avatar.name}
-                    className={`flex items-center justify-center rounded-2xl border p-1.5 transition ${
+                    className={`flex cursor-pointer items-center justify-center rounded-2xl border p-1.5 transition ${
                       selected
                         ? "border-[var(--accent)] bg-[var(--panel)]"
                         : "border-transparent hover:border-[var(--line)] hover:bg-[var(--panel)]"
@@ -132,7 +132,7 @@ export default function NewAgentPage() {
           <button
             type="submit"
             disabled={pending}
-            className="rounded-full bg-[var(--ink)] px-5 py-3 text-sm font-semibold text-[var(--canvas)] transition hover:opacity-90 disabled:opacity-60"
+            className="cursor-pointer rounded-full bg-[var(--ink)] px-5 py-3 text-sm font-semibold text-[var(--canvas)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {pending ? "Creating…" : "Create agent"}
           </button>

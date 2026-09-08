@@ -75,7 +75,7 @@ export function AgentRail({
                 <li key={agent.id}>
                   <Link
                     href={`/agents/${agent.id}`}
-                    className={`flex gap-3 rounded-xl px-2.5 py-2.5 transition ${
+                    className={`flex cursor-pointer gap-3 rounded-xl px-2.5 py-2.5 transition ${
                       active
                         ? "bg-[var(--panel-2)]"
                         : "hover:bg-[var(--panel)]"
@@ -106,7 +106,7 @@ export function AgentRail({
       <div className="shrink-0 space-y-1 border-t border-[var(--line-soft)] p-3">
         <Link
           href="/agents/new"
-          className="flex items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-sm text-[var(--ink-soft)] transition hover:bg-[var(--panel)] hover:text-[var(--ink)]"
+          className="flex cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-sm text-[var(--ink-soft)] transition hover:bg-[var(--panel)] hover:text-[var(--ink)]"
         >
           <span className="flex size-8 items-center justify-center rounded-lg bg-[var(--panel-2)] text-lg leading-none">
             +

@@ -9,7 +9,6 @@ import {
   type AgentMessage,
   type AgentWithWorkspace,
 } from "@/lib/host";
-import { formatClock } from "@/lib/time";
 
 export function AgentChat({
   agent: initialAgent,
@@ -121,10 +120,10 @@ export function AgentChat({
         </div>
       </header>
 
-      <div className="desk-scroll min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8">
-        <div className="mx-auto flex max-w-3xl flex-col gap-5">
+      <div className="desk-scroll min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-5">
+        <div className="flex flex-col gap-3">
           {messages.length === 0 ? (
-            <div className="rounded-[var(--radius-msg)] bg-[var(--panel)] px-5 py-8 text-center">
+            <div className="rounded-[var(--radius-msg)] bg-[var(--msg-bot)] px-5 py-8 text-center">
               <p className="text-sm text-[var(--ink-soft)]">
                 {agent.currentGoal
                   ? "No messages in this goal yet."
@@ -133,26 +132,20 @@ export function AgentChat({
             </div>
           ) : (
             messages.map((message) => (
-              <MessageBubble
-                key={message.id}
-                message={message}
-                agentName={agent.name}
-              />
+              <MessageBubble key={message.id} message={message} />
             ))
           )}
           {pending ? (
-            <p className="px-1 text-sm text-[var(--muted)]">
-              {agent.name} is working…
-            </p>
+            <p className="text-sm text-[var(--muted)]">Working…</p>
           ) : null}
           <div ref={bottomRef} />
         </div>
       </div>
 
-      <div className="shrink-0 px-3 pb-4 pt-2 sm:px-6 sm:pb-5">
+      <div className="shrink-0 px-4 pb-4 pt-2 sm:px-5 sm:pb-5">
         <form
           onSubmit={onSend}
-          className="mx-auto flex max-w-3xl items-end gap-2 rounded-full border border-[var(--line)] bg-[var(--panel)] px-2 py-2 shadow-[0_8px_30px_rgba(0,0,0,0.35)]"
+          className="chat-composer flex w-full items-end gap-2 rounded-full border border-[var(--line)] bg-[var(--msg-bot)] px-2 py-2 shadow-[0_8px_30px_rgba(0,0,0,0.35)]"
         >
           <span
             className="mb-0.5 flex size-10 shrink-0 items-center justify-center rounded-full text-[var(--muted)]"
@@ -168,12 +161,12 @@ export function AgentChat({
             rows={1}
             placeholder={placeholder}
             disabled={pending}
-            className="max-h-32 min-h-10 flex-1 resize-none bg-transparent py-2.5 text-[15px] leading-snug text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none disabled:opacity-60"
+            className="chat-input max-h-32 min-h-10 flex-1 resize-none bg-transparent py-2.5 text-[15px] leading-snug text-[var(--ink)] placeholder:text-[var(--muted)] outline-none ring-0 disabled:opacity-60"
           />
           <button
             type="submit"
             disabled={pending || !draft.trim()}
-            className="mb-0.5 flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--ink)] text-[var(--canvas)] transition hover:opacity-90 disabled:opacity-30"
+            className="mb-0.5 flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--ink)] text-[var(--canvas)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
             aria-label="Send"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -182,7 +175,7 @@ export function AgentChat({
           </button>
         </form>
         {error ? (
-          <p className="mx-auto mt-3 max-w-3xl rounded-xl bg-[#2a1818] px-4 py-3 text-sm text-[var(--danger)]">
+          <p className="mt-3 rounded-xl bg-[#2a1818] px-4 py-3 text-sm text-[var(--danger)]">
             {error}
           </p>
         ) : null}
@@ -191,32 +184,18 @@ export function AgentChat({
   );
 }
 
-function MessageBubble({
-  message,
-  agentName,
-}: {
-  message: AgentMessage;
-  agentName: string;
-}) {
+function MessageBubble({ message }: { message: AgentMessage }) {
   const isUser = message.role === "user";
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[min(100%,40rem)] rounded-[var(--radius-msg)] px-5 py-4 text-[15px] leading-relaxed ${
+        className={`max-w-[min(100%,42rem)] rounded-2xl px-4 py-3 text-[15px] leading-relaxed ${
           isUser
-            ? "bg-[var(--panel-2)] text-[var(--ink)]"
-            : "bg-[var(--panel)] text-[var(--ink-soft)]"
+            ? "bg-[var(--msg-user)] text-[var(--ink)]"
+            : "bg-[var(--msg-bot)] text-[var(--ink)]"
         }`}
       >
-        {!isUser ? (
-          <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-[var(--muted)]">
-            {agentName}
-          </p>
-        ) : null}
-        <p className="whitespace-pre-wrap text-[var(--ink)]">{message.content}</p>
-        <p className="mt-3 text-right text-[11px] text-[var(--muted)]">
-          {formatClock(message.createdAt)}
-        </p>
+        <p className="whitespace-pre-wrap">{message.content}</p>
       </div>
     </div>
   );

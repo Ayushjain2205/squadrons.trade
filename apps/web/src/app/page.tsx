@@ -109,7 +109,7 @@ function EmptyCreate() {
       </p>
       <Link
         href="/agents/new"
-        className="inline-flex rounded-full bg-[var(--ink)] px-5 py-2.5 text-sm font-semibold text-[var(--canvas)] transition hover:opacity-90"
+        className="inline-flex cursor-pointer rounded-full bg-[var(--ink)] px-5 py-2.5 text-sm font-semibold text-[var(--canvas)] transition hover:opacity-90"
       >
         New agent
       </Link>
