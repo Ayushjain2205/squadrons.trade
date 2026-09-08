@@ -1,17 +1,30 @@
 import Link from "next/link";
-import { AppShell } from "@/components/AppShell";
+import { DeskShell } from "@/components/desk/DeskShell";
+import { listAgents } from "@/lib/host";
 
-export default function NotFound() {
+export const dynamic = "force-dynamic";
+
+export default async function NotFound() {
+  let agents: Awaited<ReturnType<typeof listAgents>> = [];
+  try {
+    agents = await listAgents();
+  } catch {
+    agents = [];
+  }
+
   return (
-    <AppShell>
-      <div className="space-y-4 py-16 text-center">
-        <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-[-0.02em]">
+    <DeskShell agents={agents} selectedId={null}>
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+        <p className="font-[family-name:var(--font-display)] text-xl font-semibold">
           Agent not found
-        </h1>
-        <Link href="/" className="text-[var(--accent)] underline-offset-4 hover:underline">
-          Back to My Agents
+        </p>
+        <Link
+          href="/"
+          className="text-sm text-[var(--link)] transition hover:underline"
+        >
+          Back to agents
         </Link>
       </div>
-    </AppShell>
+    </DeskShell>
   );
 }

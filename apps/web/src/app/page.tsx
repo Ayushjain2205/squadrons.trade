@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { DeskShell } from "@/components/desk/DeskShell";
 import { AgentOrb } from "@/components/AgentOrb";
-import { AppShell } from "@/components/AppShell";
 import { getHostUrl, listAgents } from "@/lib/host";
+import { formatRelativeTime } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -19,104 +20,99 @@ export default async function HomePage() {
   }
 
   return (
-    <AppShell
-      action={
-        <Link
-          href="/agents/new"
-          className="rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[#0c1210] transition hover:brightness-110"
-        >
-          New agent
-        </Link>
-      }
-    >
-      <div className="rise space-y-8">
-        <div className="max-w-2xl space-y-3">
-          <h1 className="font-[family-name:var(--font-display)] text-4xl tracking-[-0.03em] text-[var(--ink)] sm:text-5xl">
+    <DeskShell agents={agents} hostError={error} selectedId={null}>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <header className="flex shrink-0 items-center border-b border-[var(--line-soft)] px-5 py-3 md:hidden">
+          <p className="font-[family-name:var(--font-display)] text-base font-semibold tracking-[-0.02em]">
             My Agents
-          </h1>
-          <p className="text-lg text-[var(--ink-soft)]">
-            Named crypto agents on Base. Observe by default — spend is per
-            agent when you turn it on.
           </p>
+        </header>
+
+        {/* Mobile list (rail is desktop-only) */}
+        <div className="desk-scroll min-h-0 flex-1 overflow-y-auto md:hidden">
+          {error ? (
+            <div className="space-y-2 p-5">
+              <p className="font-semibold text-[var(--danger)]">Host unreachable</p>
+              <p className="text-sm text-[var(--ink-soft)]">{error}</p>
+              <p className="font-[family-name:var(--font-mono)] text-xs text-[var(--muted)]">
+                {getHostUrl()}
+              </p>
+            </div>
+          ) : agents.length === 0 ? (
+            <EmptyCreate />
+          ) : (
+            <ul className="divide-y divide-[var(--line-soft)]">
+              {agents.map((agent) => (
+                <li key={agent.id}>
+                  <Link
+                    href={`/agents/${agent.id}`}
+                    className="flex gap-3 px-4 py-3.5 transition active:bg-[var(--panel)]"
+                  >
+                    <AgentOrb id={agent.avatarId} size={44} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex justify-between gap-2">
+                        <span className="truncate font-semibold">{agent.name}</span>
+                        <span className="text-[11px] text-[var(--muted)]">
+                          {formatRelativeTime(agent.updatedAt)}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 line-clamp-1 text-sm text-[var(--ink-soft)]">
+                        {agent.currentGoal || agent.description}
+                      </p>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
-        {error ? (
-          <div className="rounded-2xl border border-[var(--danger)]/40 bg-[#2a1818] px-5 py-4 text-[var(--danger)]">
-            <p className="font-medium">Host unreachable</p>
-            <p className="mt-1 text-sm opacity-90">{error}</p>
-            <p className="mt-3 font-[family-name:var(--font-mono)] text-xs text-[var(--muted)]">
-              Expected {getHostUrl()} — run `pnpm dev:host`
-            </p>
-          </div>
-        ) : agents.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-[var(--line)] bg-[var(--panel)] px-6 py-14 text-center">
-            <p className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-[-0.02em]">
-              No agents yet
-            </p>
-            <p className="mx-auto mt-2 max-w-md text-[var(--ink-soft)]">
-              Create one with a name, face, and description — then tell it what
-              to do.
-            </p>
-            <Link
-              href="/agents/new"
-              className="mt-6 inline-flex rounded-xl bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-[#0c1210] transition hover:brightness-110"
-            >
-              Create your first agent
-            </Link>
-          </div>
-        ) : (
-          <ul className="divide-y divide-[var(--line)] border-y border-[var(--line)]">
-            {agents.map((agent) => (
-              <li key={agent.id}>
-                <Link
-                  href={`/agents/${agent.id}`}
-                  className="flex items-center gap-4 py-5 transition hover:bg-[var(--panel)]"
-                >
-                  <AgentOrb id={agent.avatarId} size={64} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <h2 className="truncate font-[family-name:var(--font-display)] text-xl tracking-[-0.02em]">
-                        {agent.name}
-                      </h2>
-                      <StatusPill status={agent.status} />
-                      <SpendPill mode={agent.spendMode} />
-                    </div>
-                    <p className="mt-1 line-clamp-2 text-[var(--ink-soft)]">
-                      {agent.description}
-                    </p>
-                    <p className="mt-2 font-[family-name:var(--font-mono)] text-xs text-[var(--muted)]">
-                      Base · {agent.chainId}
-                    </p>
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+        {/* Desktop empty / select prompt */}
+        <div className="hidden min-h-0 flex-1 flex-col items-center justify-center px-6 text-center md:flex">
+          {error ? (
+            <div className="max-w-md space-y-3">
+              <p className="font-[family-name:var(--font-display)] text-xl font-semibold">
+                Host unreachable
+              </p>
+              <p className="text-sm text-[var(--ink-soft)]">{error}</p>
+              <p className="font-[family-name:var(--font-mono)] text-xs text-[var(--muted)]">
+                Expected {getHostUrl()} — run `pnpm dev:host`
+              </p>
+            </div>
+          ) : agents.length === 0 ? (
+            <EmptyCreate />
+          ) : (
+            <div className="max-w-sm space-y-2">
+              <p className="font-[family-name:var(--font-display)] text-xl font-semibold tracking-[-0.02em]">
+                Select an agent
+              </p>
+              <p className="text-sm text-[var(--ink-soft)]">
+                Pick one from the list, or create a new scout.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
-    </AppShell>
+    </DeskShell>
   );
 }
 
-function StatusPill({ status }: { status: string }) {
+function EmptyCreate() {
   return (
-    <span className="rounded-md bg-[var(--accent-dim)] px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-[var(--accent)]">
-      {status.replace("_", " ")}
-    </span>
-  );
-}
-
-function SpendPill({ mode }: { mode: string }) {
-  const observe = mode === "observe";
-  return (
-    <span
-      className={`rounded-md px-2 py-0.5 text-xs font-medium uppercase tracking-wide ${
-        observe
-          ? "bg-[var(--line)] text-[var(--muted)]"
-          : "bg-[#3d3218] text-[var(--warn)]"
-      }`}
-    >
-      {observe ? "observe" : "spend on"}
-    </span>
+    <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
+      <p className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-[-0.03em]">
+        Create your first agent
+      </p>
+      <p className="max-w-md text-[var(--ink-soft)]">
+        Name it, pick a face, then tell it what to work on — observe by default
+        on Base.
+      </p>
+      <Link
+        href="/agents/new"
+        className="inline-flex rounded-full bg-[var(--ink)] px-5 py-2.5 text-sm font-semibold text-[var(--canvas)] transition hover:opacity-90"
+      >
+        New agent
+      </Link>
+    </div>
   );
 }
