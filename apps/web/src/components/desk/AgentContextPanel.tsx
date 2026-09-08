@@ -2,13 +2,16 @@
 
 import { useEffect, useState, useTransition } from "react";
 import {
-  AGENT_AVATARS,
+  AGENT_COLORS,
+  AGENT_FACES,
   SUPPORTED_CHAINS,
   chainLabel,
   type AvatarId,
+  type OrbColorId,
   type SupportedChainId,
 } from "@squadrons/shared";
 import { AgentOrb } from "@/components/AgentOrb";
+import { OrbColorSwatch } from "@/components/OrbColorSwatch";
 import { updateAgent, type AgentWithWorkspace } from "@/lib/host";
 
 export function AgentContextPanel({
@@ -123,6 +126,7 @@ function AgentSettingsForm({
   const [name, setName] = useState(agent.name);
   const [description, setDescription] = useState(agent.description);
   const [avatarId, setAvatarId] = useState<AvatarId>(agent.avatarId);
+  const [colorId, setColorId] = useState<OrbColorId>(agent.colorId);
   const [chainId, setChainId] = useState<SupportedChainId>(agent.chainId);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -134,6 +138,7 @@ function AgentSettingsForm({
     setName(agent.name);
     setDescription(agent.description);
     setAvatarId(agent.avatarId);
+    setColorId(agent.colorId);
     setChainId(agent.chainId);
     setError(null);
   }, [agent]);
@@ -147,6 +152,7 @@ function AgentSettingsForm({
           name,
           description,
           avatarId,
+          colorId,
           chainId: chainLocked ? undefined : chainId,
         });
         onSaved(updated);
@@ -163,22 +169,49 @@ function AgentSettingsForm({
           Face
         </legend>
         <div className="grid grid-cols-4 gap-1.5">
-          {AGENT_AVATARS.map((avatar) => {
-            const selected = avatar.id === avatarId;
+          {AGENT_FACES.map((face) => {
+            const selected = face.id === avatarId;
             return (
               <button
-                key={avatar.id}
+                key={face.id}
                 type="button"
-                onClick={() => setAvatarId(avatar.id)}
+                onClick={() => setAvatarId(face.id)}
                 aria-pressed={selected}
-                aria-label={avatar.name}
+                aria-label={face.name}
                 className={`flex cursor-pointer items-center justify-center rounded-xl border p-1 transition ${
                   selected
                     ? "border-[var(--accent)] bg-[var(--panel)]"
                     : "border-transparent hover:border-[var(--line)] hover:bg-[var(--panel)]"
                 }`}
               >
-                <AgentOrb id={avatar.id} size={36} />
+                <AgentOrb id={face.id} colorId={colorId} size={36} />
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
+
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium text-[var(--ink-soft)]">
+          Color
+        </legend>
+        <div className="flex flex-nowrap gap-1.5">
+          {AGENT_COLORS.map((color) => {
+            const selected = color.id === colorId;
+            return (
+              <button
+                key={color.id}
+                type="button"
+                onClick={() => setColorId(color.id)}
+                aria-pressed={selected}
+                aria-label={color.name}
+                className={`flex cursor-pointer items-center justify-center rounded-full border p-0.5 transition ${
+                  selected
+                    ? "border-[var(--accent)] bg-[var(--panel)]"
+                    : "border-transparent hover:border-[var(--line)] hover:bg-[var(--panel)]"
+                }`}
+              >
+                <OrbColorSwatch colorId={color.id} size={24} />
               </button>
             );
           })}

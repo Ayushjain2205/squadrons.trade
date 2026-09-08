@@ -4,13 +4,17 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import {
-  AGENT_AVATARS,
+  AGENT_COLORS,
+  AGENT_FACES,
+  DEFAULT_ORB_COLOR,
   DEFAULT_POLICY,
   SUPPORTED_CHAINS,
   type AvatarId,
+  type OrbColorId,
   type SupportedChainId,
 } from "@squadrons/shared";
 import { AgentOrb } from "@/components/AgentOrb";
+import { OrbColorSwatch } from "@/components/OrbColorSwatch";
 import { DeskShell } from "@/components/desk/DeskShell";
 import { createAgent, listAgents, type AgentWithWorkspace } from "@/lib/host";
 
@@ -20,6 +24,7 @@ export default function NewAgentPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [avatarId, setAvatarId] = useState<AvatarId>("01");
+  const [colorId, setColorId] = useState<OrbColorId>(DEFAULT_ORB_COLOR);
   const [chainId, setChainId] = useState<SupportedChainId>(
     DEFAULT_POLICY.defaultChainId,
   );
@@ -41,6 +46,7 @@ export default function NewAgentPage() {
           name,
           description,
           avatarId,
+          colorId,
           chainId,
         });
         router.push(`/agents/${agent.id}`);
@@ -64,7 +70,7 @@ export default function NewAgentPage() {
                 New agent
               </h1>
               <p className="text-[var(--ink-soft)]">
-                Pick a face, chain, name, and mandate.
+                Pick a face, color, chain, name, and mandate.
               </p>
             </div>
             <Link
@@ -80,22 +86,49 @@ export default function NewAgentPage() {
               Face
             </legend>
             <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
-              {AGENT_AVATARS.map((avatar) => {
-                const selected = avatar.id === avatarId;
+              {AGENT_FACES.map((face) => {
+                const selected = face.id === avatarId;
                 return (
                   <button
-                    key={avatar.id}
+                    key={face.id}
                     type="button"
-                    onClick={() => setAvatarId(avatar.id)}
+                    onClick={() => setAvatarId(face.id)}
                     aria-pressed={selected}
-                    aria-label={avatar.name}
+                    aria-label={face.name}
                     className={`flex cursor-pointer items-center justify-center rounded-2xl border p-1.5 transition ${
                       selected
                         ? "border-[var(--accent)] bg-[var(--panel)]"
                         : "border-transparent hover:border-[var(--line)] hover:bg-[var(--panel)]"
                     }`}
                   >
-                    <AgentOrb id={avatar.id} size={44} />
+                    <AgentOrb id={face.id} colorId={colorId} size={44} />
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+
+          <fieldset className="space-y-3">
+            <legend className="text-sm font-medium text-[var(--ink-soft)]">
+              Color
+            </legend>
+            <div className="flex flex-nowrap gap-2">
+              {AGENT_COLORS.map((color) => {
+                const selected = color.id === colorId;
+                return (
+                  <button
+                    key={color.id}
+                    type="button"
+                    onClick={() => setColorId(color.id)}
+                    aria-pressed={selected}
+                    aria-label={color.name}
+                    className={`flex cursor-pointer items-center justify-center rounded-full border p-1 transition ${
+                      selected
+                        ? "border-[var(--accent)] bg-[var(--panel)]"
+                        : "border-transparent hover:border-[var(--line)] hover:bg-[var(--panel)]"
+                    }`}
+                  >
+                    <OrbColorSwatch colorId={color.id} size={28} />
                   </button>
                 );
               })}

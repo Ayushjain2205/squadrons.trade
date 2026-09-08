@@ -3,11 +3,14 @@ import type Database from "better-sqlite3";
 import {
   DEFAULT_POLICY,
   isAvatarId,
+  isOrbColorId,
   isSupportedChainId,
+  legacyColorForFace,
   type Agent,
   type AgentStatus,
   type AvatarId,
   type CreateAgentInput,
+  type OrbColorId,
   type SpendMode,
   type SupportedChainId,
   type UpdateAgentInput,
@@ -18,6 +21,7 @@ type AgentRow = {
   user_id: string;
   name: string;
   avatar_id: string;
+  color_id: string | null;
   description: string;
   chain_id: number;
   status: string;
@@ -36,11 +40,17 @@ function rowToAgent(row: AgentRow): Agent {
     throw new Error(`Corrupt agent chain_id: ${row.chain_id}`);
   }
 
+  const colorId: OrbColorId =
+    row.color_id && isOrbColorId(row.color_id)
+      ? row.color_id
+      : legacyColorForFace(row.avatar_id);
+
   return {
     id: row.id,
     userId: row.user_id,
     name: row.name,
     avatarId: row.avatar_id,
+    colorId,
     description: row.description,
     chainId: row.chain_id,
     status: row.status as AgentStatus,
@@ -62,6 +72,10 @@ export class AgentStore {
     if (!description) throw new Error("description is required");
     if (!isAvatarId(input.avatarId)) throw new Error("invalid avatarId");
 
+    const colorId: OrbColorId =
+      input.colorId ?? legacyColorForFace(input.avatarId);
+    if (!isOrbColorId(colorId)) throw new Error("invalid colorId");
+
     const chainId: SupportedChainId =
       input.chainId ?? DEFAULT_POLICY.defaultChainId;
     if (!isSupportedChainId(chainId)) throw new Error("unsupported chainId");
@@ -72,6 +86,7 @@ export class AgentStore {
       userId,
       name,
       avatarId: input.avatarId as AvatarId,
+      colorId,
       description,
       chainId,
       status: "needs_input",
@@ -85,11 +100,11 @@ export class AgentStore {
     this.db
       .prepare(
         `INSERT INTO agents (
-          id, user_id, name, avatar_id, description, chain_id,
+          id, user_id, name, avatar_id, color_id, description, chain_id,
           status, spend_mode, current_goal, last_dsh_session_id,
           created_at, updated_at
         ) VALUES (
-          @id, @userId, @name, @avatarId, @description, @chainId,
+          @id, @userId, @name, @avatarId, @colorId, @description, @chainId,
           @status, @spendMode, @currentGoal, @lastDshSessionId,
           @createdAt, @updatedAt
         )`,
@@ -99,6 +114,7 @@ export class AgentStore {
         userId: agent.userId,
         name: agent.name,
         avatarId: agent.avatarId,
+        colorId: agent.colorId,
         description: agent.description,
         chainId: agent.chainId,
         status: agent.status,
@@ -238,10 +254,13 @@ export class AgentStore {
         : existing.description;
     const avatarId =
       input.avatarId !== undefined ? input.avatarId : existing.avatarId;
+    const colorId =
+      input.colorId !== undefined ? input.colorId : existing.colorId;
 
     if (!name) throw new Error("name is required");
     if (!description) throw new Error("description is required");
     if (!isAvatarId(avatarId)) throw new Error("invalid avatarId");
+    if (!isOrbColorId(colorId)) throw new Error("invalid colorId");
 
     let chainId = existing.chainId;
     let currentGoal = existing.currentGoal;
@@ -257,7 +276,6 @@ export class AgentStore {
         );
       }
       chainId = input.chainId;
-      // Home-chain switch: drop any stale goal; keep chat history + workspace.
       if (currentGoal) {
         currentGoal = null;
         status = "needs_input";
@@ -271,6 +289,7 @@ export class AgentStore {
          SET name = @name,
              description = @description,
              avatar_id = @avatarId,
+             color_id = @colorId,
              chain_id = @chainId,
              current_goal = @currentGoal,
              status = @status,
@@ -283,6 +302,7 @@ export class AgentStore {
         name,
         description,
         avatarId,
+        colorId,
         chainId,
         currentGoal,
         status,

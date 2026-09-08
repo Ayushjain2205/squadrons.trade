@@ -56,4 +56,29 @@ function migrate(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_messages_agent_created
       ON messages (agent_id, created_at ASC);
   `);
+
+  const columns = db
+    .prepare(`PRAGMA table_info(agents)`)
+    .all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === "color_id")) {
+    db.exec(`ALTER TABLE agents ADD COLUMN color_id TEXT`);
+    // Backfill from the old face→color pairing.
+    db.exec(`
+      UPDATE agents SET color_id = CASE avatar_id
+        WHEN '01' THEN 'purple'
+        WHEN '02' THEN 'blue'
+        WHEN '03' THEN 'green'
+        WHEN '04' THEN 'orange'
+        WHEN '05' THEN 'purple'
+        WHEN '06' THEN 'blue'
+        WHEN '07' THEN 'green'
+        WHEN '08' THEN 'orange'
+        ELSE 'purple'
+      END
+      WHERE color_id IS NULL
+    `);
+  }
+
+  // Teal was removed from the palette; map any leftovers to blue.
+  db.exec(`UPDATE agents SET color_id = 'blue' WHERE color_id = 'teal'`);
 }

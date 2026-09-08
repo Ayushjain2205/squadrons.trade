@@ -87,7 +87,12 @@ export function AgentRail({
                         : "hover:bg-[var(--panel)]"
                     }`}
                   >
-                    <AgentOrb id={agent.avatarId} size={40} className="shrink-0" />
+                    <AgentOrb
+                      id={agent.avatarId}
+                      colorId={agent.colorId}
+                      size={40}
+                      className="shrink-0"
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline justify-between gap-2">
                         <span className="truncate text-sm font-semibold tracking-[-0.01em]">

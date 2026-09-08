@@ -1,4 +1,4 @@
-import type { AvatarId } from "./avatars";
+import type { AvatarId, OrbColorId } from "./avatars";
 import type { SupportedChainId } from "./policy";
 
 export type AgentStatus = "idle" | "working" | "needs_input" | "paused";
@@ -8,7 +8,10 @@ export interface Agent {
   id: string;
   userId: string;
   name: string;
+  /** Face / eye style id. */
   avatarId: AvatarId;
+  /** Orb body color — independent of face. */
+  colorId: OrbColorId;
   description: string;
   chainId: SupportedChainId;
   status: AgentStatus;
@@ -23,6 +26,7 @@ export interface Agent {
 export interface CreateAgentInput {
   name: string;
   avatarId: AvatarId;
+  colorId?: OrbColorId;
   description: string;
   chainId?: SupportedChainId;
 }
@@ -31,6 +35,7 @@ export interface CreateAgentInput {
 export interface UpdateAgentInput {
   name?: string;
   avatarId?: AvatarId;
+  colorId?: OrbColorId;
   description?: string;
   chainId?: SupportedChainId;
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import type { AvatarId } from "@squadrons/shared";
+import type { AvatarId, OrbColorId } from "@squadrons/shared";
 import { AgentOrb } from "@/components/AgentOrb";
 import {
   sendMessage,
@@ -111,7 +111,7 @@ export function AgentChat({
             </svg>
           </Link>
           <div className="relative shrink-0">
-            <AgentOrb id={agent.avatarId} size={32} />
+            <AgentOrb id={agent.avatarId} colorId={agent.colorId} size={32} />
             <span
               className={`absolute -right-0.5 -top-0.5 size-2.5 rounded-full border-2 border-[var(--canvas)] ${
                 isWorking
@@ -137,6 +137,7 @@ export function AgentChat({
           <AgentWorkingStatus
             name={agent.name}
             avatarId={agent.avatarId}
+            colorId={agent.colorId}
             className="shrink-0"
           />
         ) : null}
@@ -161,6 +162,7 @@ export function AgentChat({
             <AgentWorkingStatus
               name={agent.name}
               avatarId={agent.avatarId}
+              colorId={agent.colorId}
               className="px-1 py-1"
             />
           ) : null}
@@ -234,10 +236,12 @@ function MessageBubble({ message }: { message: AgentMessage }) {
 function AgentWorkingStatus({
   name,
   avatarId,
+  colorId,
   className = "",
 }: {
   name: string;
   avatarId: AvatarId;
+  colorId: OrbColorId;
   className?: string;
 }) {
   return (
@@ -245,7 +249,12 @@ function AgentWorkingStatus({
       className={`flex items-center gap-2 text-sm text-[var(--ink-soft)] ${className}`}
       aria-live="polite"
     >
-      <AgentOrb id={avatarId} size={22} className="shrink-0" />
+      <AgentOrb
+        id={avatarId}
+        colorId={colorId}
+        size={22}
+        className="shrink-0"
+      />
       <span className="truncate">
         <span className="text-[var(--ink)]">{name}</span> is working
       </span>

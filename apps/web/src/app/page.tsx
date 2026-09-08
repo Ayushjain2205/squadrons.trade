@@ -48,7 +48,11 @@ export default async function HomePage() {
                     href={`/agents/${agent.id}`}
                     className="flex gap-3 px-4 py-3.5 transition active:bg-[var(--panel)]"
                   >
-                    <AgentOrb id={agent.avatarId} size={44} />
+                    <AgentOrb
+                      id={agent.avatarId}
+                      colorId={agent.colorId}
+                      size={44}
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="flex justify-between gap-2">
                         <span className="truncate font-semibold">{agent.name}</span>

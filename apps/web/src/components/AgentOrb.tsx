@@ -1,25 +1,5 @@
-import type { AvatarId } from "@squadrons/shared";
-
-const COLORS = {
-  purple: { orb: "#6B5B95", eye: "#C4B5FD", gloss: "#9B8BC4" },
-  blue: { orb: "#3D6B9A", eye: "#93C5FD", gloss: "#6B9BC4" },
-  green: { orb: "#3D7A5A", eye: "#86EFAC", gloss: "#5A9A7A" },
-  orange: { orb: "#9A6B3D", eye: "#FCD34D", gloss: "#C49A6B" },
-} as const;
-
-const META: Record<
-  AvatarId,
-  { color: keyof typeof COLORS; label: string }
-> = {
-  "01": { color: "purple", label: "Slit bars" },
-  "02": { color: "blue", label: "Vertical pills" },
-  "03": { color: "green", label: "Hollow frames" },
-  "04": { color: "orange", label: "Stair-step" },
-  "05": { color: "purple", label: "Chevrons" },
-  "06": { color: "blue", label: "Triple bars" },
-  "07": { color: "green", label: "Slanted ticks" },
-  "08": { color: "orange", label: "Plus clusters" },
-};
+import type { AvatarId, OrbColorId } from "@squadrons/shared";
+import { DEFAULT_ORB_COLOR, getOrbColor, AGENT_FACES } from "@squadrons/shared";
 
 function Eyes({ id, eye }: { id: AvatarId; eye: string }) {
   switch (id) {
@@ -146,6 +126,7 @@ function Eyes({ id, eye }: { id: AvatarId; eye: string }) {
 
 type AgentOrbProps = {
   id: AvatarId;
+  colorId?: OrbColorId;
   size?: number;
   className?: string;
   title?: string;
@@ -153,12 +134,14 @@ type AgentOrbProps = {
 
 export function AgentOrb({
   id,
+  colorId = DEFAULT_ORB_COLOR,
   size = 56,
   className,
   title,
 }: AgentOrbProps) {
-  const meta = META[id];
-  const palette = COLORS[meta.color];
+  const face = AGENT_FACES.find((entry) => entry.id === id);
+  const palette = getOrbColor(colorId);
+  const gradientId = `orb-${id}-${colorId}`;
 
   return (
     <svg
@@ -167,16 +150,16 @@ export function AgentOrb({
       viewBox="0 0 100 100"
       className={className}
       role="img"
-      aria-label={title ?? meta.label}
+      aria-label={title ?? face?.name ?? id}
     >
       <defs>
-        <radialGradient id={`orb-${id}`} cx="35%" cy="30%" r="65%">
+        <radialGradient id={gradientId} cx="35%" cy="30%" r="65%">
           <stop offset="0%" stopColor={palette.gloss} />
           <stop offset="55%" stopColor={palette.orb} />
           <stop offset="100%" stopColor="#1a1a1a" />
         </radialGradient>
       </defs>
-      <circle cx="50" cy="50" r="46" fill={`url(#orb-${id})`} />
+      <circle cx="50" cy="50" r="46" fill={`url(#${gradientId})`} />
       <ellipse
         cx="38"
         cy="28"
@@ -189,5 +172,3 @@ export function AgentOrb({
     </svg>
   );
 }
-
-export { META as AVATAR_META };

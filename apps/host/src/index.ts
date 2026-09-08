@@ -10,6 +10,7 @@ import cors from "cors";
 import express from "express";
 import {
   AGENT_AVATARS,
+  AGENT_COLORS,
   DEFAULT_POLICY,
   SUPPORTED_CHAINS,
 } from "@squadrons/shared";
@@ -46,6 +47,7 @@ app.get("/health", (_req, res) => {
 app.get("/v1/meta", (_req, res) => {
   res.json({
     avatars: AGENT_AVATARS,
+    colors: AGENT_COLORS,
     chains: SUPPORTED_CHAINS,
     policy: DEFAULT_POLICY,
   });

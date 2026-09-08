@@ -1,7 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import type { Express, NextFunction, Request, Response } from "express";
 import type { CreateAgentInput, UpdateAgentInput } from "@squadrons/shared";
-import { isAvatarId, isSupportedChainId } from "@squadrons/shared";
+import { isAvatarId, isOrbColorId, isSupportedChainId } from "@squadrons/shared";
 import { runDshTurn } from "../dsh/runner.js";
 import {
   buildAgentTurnPrompt,
@@ -31,6 +31,7 @@ export function registerAgentRoutes(
       const userId = resolveUserId(req);
       const body = req.body as Partial<CreateAgentInput> & {
         chainId?: number | string;
+        colorId?: string;
       };
       const hasChain =
         body.chainId !== undefined &&
@@ -41,9 +42,19 @@ export function registerAgentRoutes(
         res.status(400).json({ ok: false, error: "unsupported chainId" });
         return;
       }
+      let colorId: CreateAgentInput["colorId"];
+      if (body.colorId !== undefined) {
+        const rawColor = String(body.colorId);
+        if (!isOrbColorId(rawColor)) {
+          res.status(400).json({ ok: false, error: "invalid colorId" });
+          return;
+        }
+        colorId = rawColor;
+      }
       const agent = agents.create(userId, {
         name: String(body.name ?? ""),
         avatarId: body.avatarId as CreateAgentInput["avatarId"],
+        colorId,
         description: String(body.description ?? ""),
         chainId: rawChain,
       });
@@ -113,6 +124,7 @@ export function registerAgentRoutes(
       const body = req.body as Partial<UpdateAgentInput> & {
         chainId?: number | string;
         avatarId?: string;
+        colorId?: string;
       };
       const patch: UpdateAgentInput = {};
 
@@ -127,6 +139,14 @@ export function registerAgentRoutes(
           return;
         }
         patch.avatarId = avatar;
+      }
+      if (body.colorId !== undefined) {
+        const color = String(body.colorId);
+        if (!isOrbColorId(color)) {
+          res.status(400).json({ ok: false, error: "invalid colorId" });
+          return;
+        }
+        patch.colorId = color;
       }
       if (
         body.chainId !== undefined &&
@@ -145,6 +165,7 @@ export function registerAgentRoutes(
         patch.name === undefined &&
         patch.description === undefined &&
         patch.avatarId === undefined &&
+        patch.colorId === undefined &&
         patch.chainId === undefined
       ) {
         res.status(400).json({ ok: false, error: "no settings to update" });
