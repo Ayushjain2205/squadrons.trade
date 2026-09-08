@@ -1,3 +1,4 @@
+import { getAccessToken } from "@privy-io/react-auth";
 import type {
   Agent,
   AvatarId,
@@ -19,15 +20,28 @@ export type AgentMessage = {
   createdAt: number;
 };
 
-async function hostFetch<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<T> {
+export type MeResponse = {
+  userId: string;
+  walletAddress: string | null;
+};
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getAccessToken();
+  if (!token) {
+    throw new Error("Not signed in");
+  }
+  return {
+    "content-type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+async function hostFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = await authHeaders();
   const response = await fetch(`${hostUrl}${path}`, {
     ...init,
     headers: {
-      "content-type": "application/json",
-      "x-user-id": "local-dev",
+      ...headers,
       ...(init?.headers ?? {}),
     },
     cache: "no-store",
@@ -47,6 +61,14 @@ async function hostFetch<T>(
 
 export function getHostUrl(): string {
   return hostUrl;
+}
+
+export async function getMe(): Promise<MeResponse> {
+  const data = await hostFetch<MeResponse & { ok: boolean }>("/v1/me");
+  return {
+    userId: data.userId,
+    walletAddress: data.walletAddress,
+  };
 }
 
 export async function listAgents(): Promise<AgentWithWorkspace[]> {
@@ -148,22 +170,31 @@ export function subscribeActivity(
   agentId: string,
   onEvent: (event: ActivityEvent) => void,
 ): () => void {
-  const source = new EventSource(`${hostUrl}/v1/agents/${agentId}/events`);
+  let closed = false;
+  let source: EventSource | null = null;
 
-  const onActivity = (message: MessageEvent) => {
+  void (async () => {
     try {
-      const payload = JSON.parse(String(message.data)) as ActivityEvent;
-      if (payload?.id) onEvent(payload);
+      const token = await getAccessToken();
+      if (closed || !token) return;
+      const url = `${hostUrl}/v1/agents/${agentId}/events?access_token=${encodeURIComponent(token)}`;
+      source = new EventSource(url);
+      source.addEventListener("activity", ((message: MessageEvent) => {
+        try {
+          const payload = JSON.parse(String(message.data)) as ActivityEvent;
+          if (payload?.id) onEvent(payload);
+        } catch {
+          // ignore malformed frames
+        }
+      }) as EventListener);
     } catch {
-      // ignore malformed frames
+      // auth failure — leave trail without live updates
     }
-  };
-
-  source.addEventListener("activity", onActivity as EventListener);
+  })();
 
   return () => {
-    source.removeEventListener("activity", onActivity as EventListener);
-    source.close();
+    closed = true;
+    source?.close();
   };
 }
 

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Cherry_Bomb_One, Manrope, IBM_Plex_Mono } from "next/font/google";
+import { AuthGate } from "@/components/AuthGate";
+import { Providers } from "@/components/Providers";
 import "./globals.css";
 
 const body = Manrope({
@@ -27,7 +29,7 @@ const mono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "Squadrons",
   description:
-    "Persistent crypto agents with goals, memory, and observe-first spend.",
+    "Persistent crypto agents with memory and observe-first spend.",
 };
 
 export default function RootLayout({
@@ -40,15 +42,9 @@ export default function RootLayout({
       <body
         className={`${body.variable} ${display.variable} ${brand.variable} ${mono.variable} h-full antialiased`}
       >
-        {/*
-          THESIS: Operator desk — agent roster left, live chat center, agent context right.
-          OWN-WORLD: Near-black Grok-like rails, charcoal wells, mint status, orb faces, Cherry Bomb One wordmark.
-          STORY: Pick an agent, talk to it, glance goal/spend without leaving the desk.
-          FIRST VIEWPORT: Full-height three columns; selected rail; center chat + pill composer; right goal/status.
-          FORM: Grok Bot desk canon (user-pinned) + Squadrons brand mark
-          FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
-        */}
-        {children}
+        <Providers>
+          <AuthGate>{children}</AuthGate>
+        </Providers>
       </body>
     </html>
   );

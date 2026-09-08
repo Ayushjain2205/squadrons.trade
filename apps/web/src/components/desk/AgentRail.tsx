@@ -1,10 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { AgentOrb } from "@/components/AgentOrb";
-import type { AgentWithWorkspace } from "@/lib/host";
+import { getMe, type AgentWithWorkspace } from "@/lib/host";
 import { formatRelativeTime } from "@/lib/time";
+
+function truncateAddress(address: string): string {
+  if (address.length < 12) return address;
+  return `${address.slice(0, 6)}…${address.slice(-4)}`;
+}
 
 export function AgentRail({
   agents,
@@ -16,6 +22,21 @@ export function AgentRail({
   hostError?: string | null;
 }) {
   const [query, setQuery] = useState("");
+  const { logout } = usePrivy();
+  const { wallets } = useWallets();
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+
+  useEffect(() => {
+    const embedded = wallets.find((w) => w.walletClientType === "privy");
+    const fromClient = embedded?.address ?? wallets[0]?.address ?? null;
+    if (fromClient) {
+      setWalletAddress(fromClient);
+      return;
+    }
+    void getMe()
+      .then((me) => setWalletAddress(me.walletAddress))
+      .catch(() => setWalletAddress(null));
+  }, [wallets]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -123,13 +144,19 @@ export function AgentRail({
         </Link>
         <div className="flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm text-[var(--muted)]">
           <span className="flex size-8 items-center justify-center rounded-full bg-[var(--panel-2)] text-xs font-semibold text-[var(--ink-soft)]">
-            S
+            0x
           </span>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-[var(--ink-soft)]">
-              local-dev
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-[family-name:var(--font-mono)] text-sm font-medium text-[var(--ink-soft)]">
+              {walletAddress ? truncateAddress(walletAddress) : "No wallet yet"}
             </p>
-            <p className="truncate text-[11px]">workspace</p>
+            <button
+              type="button"
+              onClick={() => void logout()}
+              className="cursor-pointer text-[11px] text-[var(--muted)] transition hover:text-[var(--ink)]"
+            >
+              Log out
+            </button>
           </div>
         </div>
       </div>
