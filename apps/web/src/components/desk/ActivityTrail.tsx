@@ -10,33 +10,49 @@ import {
 
 type DisplayStep = ActivityEvent & { displayLabel: string };
 
-function toDisplayStep(event: ActivityEvent): DisplayStep | null {
-  const displayLabel = displayActivityLabel(event);
+function toDisplayStep(
+  event: ActivityEvent,
+  done: boolean,
+): DisplayStep | null {
+  const displayLabel = displayActivityLabel(event, { done });
   if (!displayLabel) return null;
   return { ...event, displayLabel };
 }
 
-/** One line per logical step — collapse same tool / same verb within a short window. */
-function collapseSteps(events: ActivityEvent[]): DisplayStep[] {
-  const out: DisplayStep[] = [];
+/**
+ * One line per logical step. Collapse same tool / same present-verb nearby.
+ * Uses present-tense keys for collapse so "Looking…" and "Looked…" merge.
+ */
+function collapseSteps(
+  events: ActivityEvent[],
+  live: boolean,
+): DisplayStep[] {
+  const out: Array<{ event: ActivityEvent; presentKey: string }> = [];
+
   for (const event of events) {
-    const step = toDisplayStep(event);
-    if (!step) continue;
+    const presentKey = displayActivityLabel(event, { done: false });
+    if (!presentKey) continue;
     const last = out[out.length - 1];
     if (last) {
       const sameTool =
-        Boolean(last.toolName) && last.toolName === step.toolName;
-      const sameVerb = last.displayLabel === step.displayLabel;
-      const close = step.createdAt - last.createdAt < 120_000;
+        Boolean(last.event.toolName) &&
+        last.event.toolName === event.toolName;
+      const sameVerb = last.presentKey === presentKey;
+      const close = event.createdAt - last.event.createdAt < 120_000;
       if ((sameTool || sameVerb) && close) {
-        // Keep the newer row (fresher timestamp).
-        out[out.length - 1] = step;
+        out[out.length - 1] = { event, presentKey };
         continue;
       }
     }
-    out.push(step);
+    out.push({ event, presentKey });
   }
-  return out;
+
+  // Newest last in `out`. While live, only the newest step stays present tense.
+  return out.map((row, index) => {
+    const isNewest = index === out.length - 1;
+    const done = !(live && isNewest);
+    return toDisplayStep(row.event, done)!;
+  });
 }
 
 export function ActivityTrail({
@@ -67,7 +83,7 @@ export function ActivityTrail({
       });
 
     const unsubscribe = subscribeActivity(agentId, (event) => {
-      if (!displayActivityLabel(event)) return;
+      if (!displayActivityLabel(event, { done: false })) return;
       setEvents((prev) => {
         if (prev.some((row) => row.id === event.id)) return prev;
         return [...prev, event];
@@ -81,8 +97,8 @@ export function ActivityTrail({
   }, [agentId]);
 
   const steps = useMemo(
-    () => collapseSteps(events).reverse().slice(0, 24),
-    [events],
+    () => collapseSteps(events, live).reverse().slice(0, 24),
+    [events, live],
   );
 
   return (

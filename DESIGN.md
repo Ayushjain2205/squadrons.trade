@@ -40,4 +40,4 @@ Cherry Bomb One (wordmark), Manrope (UI + display), IBM Plex Mono (chain ids / m
 
 ## Activity
 
-Highly abstracted Grok Bot–style steps: “Looking up balances”, “Checking prices”, “Searching the web”. No turn markers, raw args, or result JSON in the UI.
+Highly abstracted Grok Bot–style steps. Present tense only while in flight (“Looking up balances”); past tense when done (“Looked up balances”). No turn markers, raw args, or result JSON.
