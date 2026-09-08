@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
+import type { AvatarId } from "@squadrons/shared";
 import { AgentOrb } from "@/components/AgentOrb";
 import {
   sendMessage,
@@ -87,6 +88,7 @@ export function AgentChat({
   }
 
   const placeholder = `Message ${agent.name}`;
+  const isWorking = pending || agent.status === "working";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -108,24 +110,36 @@ export function AgentChat({
               <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </Link>
-          <AgentOrb id={agent.avatarId} size={32} className="shrink-0" />
+          <div className="relative shrink-0">
+            <AgentOrb id={agent.avatarId} size={32} />
+            <span
+              className={`absolute -right-0.5 -top-0.5 size-2.5 rounded-full border-2 border-[var(--canvas)] ${
+                isWorking
+                  ? "working-dot bg-[var(--accent)]"
+                  : "bg-[var(--muted)]"
+              }`}
+              aria-hidden
+            />
+          </div>
           <div className="min-w-0">
             <h1 className="truncate font-[family-name:var(--font-display)] text-base font-semibold tracking-[-0.02em]">
               {agent.name}
             </h1>
-            {pending ? (
-              <p className="flex items-center gap-1.5 text-xs text-[var(--accent)]">
-                <span className="working-dot size-1.5 rounded-full bg-[var(--accent)]" />
-                Working…
-              </p>
-            ) : (
+            {!isWorking && agent.currentGoal ? (
               <p className="truncate text-xs text-[var(--muted)]">
-                {agent.status.replace("_", " ")}
-                {agent.currentGoal ? ` · ${agent.currentGoal}` : ""}
+                {agent.currentGoal}
               </p>
-            )}
+            ) : null}
           </div>
         </div>
+
+        {isWorking ? (
+          <AgentWorkingStatus
+            name={agent.name}
+            avatarId={agent.avatarId}
+            className="shrink-0"
+          />
+        ) : null}
       </header>
 
       <div className="desk-scroll min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-5">
@@ -144,7 +158,11 @@ export function AgentChat({
             ))
           )}
           {pending ? (
-            <p className="text-sm text-[var(--muted)]">Working…</p>
+            <AgentWorkingStatus
+              name={agent.name}
+              avatarId={agent.avatarId}
+              className="px-1 py-1"
+            />
           ) : null}
           <div ref={bottomRef} />
         </div>
@@ -210,5 +228,27 @@ function MessageBubble({ message }: { message: AgentMessage }) {
         )}
       </div>
     </div>
+  );
+}
+
+function AgentWorkingStatus({
+  name,
+  avatarId,
+  className = "",
+}: {
+  name: string;
+  avatarId: AvatarId;
+  className?: string;
+}) {
+  return (
+    <p
+      className={`flex items-center gap-2 text-sm text-[var(--ink-soft)] ${className}`}
+      aria-live="polite"
+    >
+      <AgentOrb id={avatarId} size={22} className="shrink-0" />
+      <span className="truncate">
+        <span className="text-[var(--ink)]">{name}</span> is working
+      </span>
+    </p>
   );
 }
