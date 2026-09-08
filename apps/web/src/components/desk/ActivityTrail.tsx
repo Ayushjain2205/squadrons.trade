@@ -10,48 +10,33 @@ import {
 
 type DisplayStep = ActivityEvent & { displayLabel: string };
 
-function toDisplayStep(
-  event: ActivityEvent,
-  done: boolean,
-): DisplayStep | null {
-  const displayLabel = displayActivityLabel(event, { done });
-  if (!displayLabel) return null;
-  return { ...event, displayLabel };
-}
-
-/**
- * One line per logical step. Collapse same tool / same present-verb nearby.
- * Uses present-tense keys for collapse so "Looking…" and "Looked…" merge.
- */
 function collapseSteps(
   events: ActivityEvent[],
   live: boolean,
 ): DisplayStep[] {
-  const out: Array<{ event: ActivityEvent; presentKey: string }> = [];
+  const out: ActivityEvent[] = [];
 
   for (const event of events) {
-    const presentKey = displayActivityLabel(event, { done: false });
-    if (!presentKey) continue;
+    if (!displayActivityLabel(event, { done: false })) continue;
     const last = out[out.length - 1];
-    if (last) {
-      const sameTool =
-        Boolean(last.event.toolName) &&
-        last.event.toolName === event.toolName;
-      const sameVerb = last.presentKey === presentKey;
-      const close = event.createdAt - last.event.createdAt < 120_000;
-      if ((sameTool || sameVerb) && close) {
-        out[out.length - 1] = { event, presentKey };
-        continue;
-      }
+    if (
+      last &&
+      last.toolName &&
+      last.toolName === event.toolName &&
+      event.createdAt - last.createdAt < 120_000
+    ) {
+      out[out.length - 1] = event;
+      continue;
     }
-    out.push({ event, presentKey });
+    out.push(event);
   }
 
-  // Newest last in `out`. While live, only the newest step stays present tense.
-  return out.map((row, index) => {
+  return out.flatMap((event, index) => {
     const isNewest = index === out.length - 1;
     const done = !(live && isNewest);
-    return toDisplayStep(row.event, done)!;
+    const displayLabel = displayActivityLabel(event, { done });
+    if (!displayLabel) return [];
+    return [{ ...event, displayLabel }];
   });
 }
 
