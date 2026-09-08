@@ -21,7 +21,7 @@ import {
 import { MessageStore } from "./agents/messages.js";
 import { AgentStore } from "./agents/store.js";
 import { openDatabase } from "./db.js";
-import { runDshSmoke } from "./dsh/runner.js";
+import { closeAllAgentRuntimes, runDshSmoke } from "./dsh/runner.js";
 
 const port = Number(process.env.PORT ?? 8787);
 const host = process.env.HOST ?? "0.0.0.0";
@@ -75,6 +75,20 @@ app.post("/v1/dsh/smoke", async (req, res) => {
 
 app.use(agentErrorHandler);
 
-app.listen(port, host, () => {
+const server = app.listen(port, host, () => {
   console.log(`squadrons-host listening on http://${host}:${port}`);
+});
+
+async function shutdown(signal: string) {
+  console.log(`[host] ${signal} — closing dsh runtimes`);
+  server.close();
+  await closeAllAgentRuntimes();
+  process.exit(0);
+}
+
+process.once("SIGINT", () => {
+  void shutdown("SIGINT");
+});
+process.once("SIGTERM", () => {
+  void shutdown("SIGTERM");
 });

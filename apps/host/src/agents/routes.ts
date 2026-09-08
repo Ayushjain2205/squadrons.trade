@@ -2,8 +2,7 @@ import { mkdir } from "node:fs/promises";
 import type { Express, NextFunction, Request, Response } from "express";
 import type { CreateAgentInput, UpdateAgentInput } from "@squadrons/shared";
 import { isAvatarId, isOrbColorId, isSupportedChainId } from "@squadrons/shared";
-import { runDshTurn } from "../dsh/runner.js";
-import { buildAgentTurnPrompt } from "../dsh/prompt.js";
+import { runDshTurn, invalidateAgentRuntime } from "../dsh/runner.js";
 import type { MessageStore } from "./messages.js";
 import { agentWorkspacePath } from "./paths.js";
 import type { AgentStore } from "./store.js";
@@ -53,7 +52,7 @@ export function registerAgentRoutes(
         avatarId: body.avatarId as CreateAgentInput["avatarId"],
         colorId,
         description: String(body.description ?? ""),
-        chainId: rawChain,
+        chainId: rawChain as CreateAgentInput["chainId"],
       });
 
       const workspace = agentWorkspacePath(userId, agent.id);
@@ -103,7 +102,7 @@ export function registerAgentRoutes(
     });
   });
 
-  app.patch("/v1/agents/:id", (req, res, next) => {
+  app.patch("/v1/agents/:id", async (req, res, next) => {
     try {
       const userId = resolveUserId(req);
       const agentId = req.params.id;
@@ -169,10 +168,17 @@ export function registerAgentRoutes(
         return;
       }
 
+      const chainChanged =
+        patch.chainId !== undefined && patch.chainId !== existing.chainId;
+
       const agent = agents.updateSettings(userId, agentId, patch);
       if (!agent) {
         res.status(404).json({ ok: false, error: "agent not found" });
         return;
+      }
+
+      if (chainChanged) {
+        await invalidateAgentRuntime(agent.id);
       }
 
       res.json({
@@ -231,20 +237,26 @@ export function registerAgentRoutes(
       }
 
       const userMessage = messages.append(agent.id, "user", content);
+      const priorMessages = messages.listByAgent(agent.id).filter(
+        (m) => m.id !== userMessage.id,
+      );
 
       agents.setStatus(userId, agent.id, "working");
       agent = agents.getForUser(userId, agent.id) ?? agent;
 
       const workspace = agentWorkspacePath(userId, agent.id);
-      const prompt = buildAgentTurnPrompt(agent, content);
 
       let turn;
       try {
         turn = await runDshTurn({
+          agentId: agent.id,
+          agent,
+          userText: content,
           workspace,
-          prompt,
-          chainId: agent.chainId,
-          sessionId: agent.lastDshSessionId,
+          history: priorMessages.map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
         });
       } catch (error) {
         agents.setStatus(userId, agent.id, "paused");

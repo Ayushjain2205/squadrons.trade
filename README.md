@@ -76,6 +76,6 @@ pnpm dev:web
 
 List agents, create with orb faces, open an agent and chat.
 
-New agents start idle with a short greeting. Observe-mode dsh patch disables shell/fs/subagents; keeps web/todo/goal/skill plus **`get_wallet_balances`** (home-chain scoped) from `packages/squadrons-defi`.
+New agents start idle with a short greeting. The host keeps a long-lived dsh harness + session per agent in-process (new session after host restart or home-chain change). Observe-mode dsh patch disables shell/fs/subagents; keeps web/todo/goal/skill plus **`get_wallet_balances`** (home-chain scoped) from `packages/squadrons-defi`.
 
 Optional: set `SQUADRONS_DEMO_WALLET` in `apps/host/.env` so the balances tool has a default address.

@@ -2,8 +2,14 @@ import { mkdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { DeepSeekHarness } from "@deepseek-ai/dsh-sdk-client";
+import type { Agent } from "@squadrons/shared";
 import { hostRoot } from "../db.js";
-import { LLM_PATCH_PATH, OBSERVE_PATCH_PATH } from "./prompt.js";
+import {
+  buildAgentTurnPrompt,
+  buildContinuingTurnPrompt,
+  LLM_PATCH_PATH,
+  OBSERVE_PATCH_PATH,
+} from "./prompt.js";
 
 export type DshTurnResult = {
   sessionId: string;
@@ -16,90 +22,213 @@ export type DshTurnResult = {
 };
 
 export type DshTurnOptions = {
-  prompt: string;
+  /** Stable pool key — usually agent id. */
+  agentId: string;
+  agent: Agent;
+  userText: string;
   workspace: string;
-  sessionId?: string | null;
   provider?: string;
   model?: string;
-  /** Agent home chain — scopes on-chain tools for this turn. */
-  chainId?: number;
   /** Extra Cordis patches beyond the Squadrons LLM patch. */
   patches?: string[];
   /** When false, skip the observe-mode tool lockdown (smoke only). */
   observeMode?: boolean;
+  /**
+   * Optional prior chat for cold-start after host restart (session not yet live).
+   * Ignored once the pooled session is continuing.
+   */
+  history?: Array<{ role: string; content: string }>;
 };
+
+type PooledRuntime = {
+  harness: DeepSeekHarness;
+  sessionId: string | null;
+  workspace: string;
+  chainId: number;
+  provider: string;
+  model: string;
+};
+
+const pool = new Map<string, PooledRuntime>();
+/** Serialize turns per agent so concurrent POSTs cannot interleave on one session. */
+const turnLocks = new Map<string, Promise<unknown>>();
+
+async function withAgentTurnLock<T>(
+  agentId: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const prev = turnLocks.get(agentId) ?? Promise.resolve();
+  const run = prev.catch(() => undefined).then(fn);
+  turnLocks.set(agentId, run);
+  try {
+    return await run;
+  } finally {
+    if (turnLocks.get(agentId) === run) turnLocks.delete(agentId);
+  }
+}
 
 function defaultDshHome(): string {
   return process.env.DSH_HOME || path.join(os.homedir(), ".dsh");
 }
 
-/**
- * Spawns one `dsh --profile sdk` worker for a workspace, runs a prompt turn, then closes.
- */
-export async function runDshTurn(
-  options: DshTurnOptions,
-): Promise<DshTurnResult> {
+function resolveRoute(options: Pick<DshTurnOptions, "provider" | "model">): {
+  provider: string;
+  model: string;
+} {
   const provider = options.provider ?? process.env.DSH_PROVIDER ?? "openrouter";
   const model =
     options.model ?? process.env.DSH_MODEL ?? "deepseek/deepseek-v4-flash";
-
   if (provider === "openrouter" && !process.env.OPENROUTER_API_KEY) {
     throw new Error(
       "OPENROUTER_API_KEY is not set. Add it to apps/host/.env (or export it) so dsh can use OpenRouter.",
     );
   }
+  return { provider, model };
+}
 
-  const patches = [
-    LLM_PATCH_PATH,
-    ...(options.observeMode === false
-      ? []
-      : [OBSERVE_PATCH_PATH]),
-    ...(options.patches ?? []),
-  ];
-
-  await mkdir(options.workspace, { recursive: true });
-
-  // dsh discovers parent .env files; keep DSH_* out of dotenv-managed files.
-  // Provider/model are passed via DeepSeekHarness options, not child env.
+function buildChildEnv(chainId: number): NodeJS.ProcessEnv {
   const childEnv: NodeJS.ProcessEnv = { ...process.env };
   delete childEnv.DSH_MODEL;
   delete childEnv.DSH_PROVIDER;
-  if (options.chainId !== undefined) {
-    childEnv.SQUADRONS_AGENT_CHAIN_ID = String(options.chainId);
+  childEnv.SQUADRONS_AGENT_CHAIN_ID = String(chainId);
+  return childEnv;
+}
+
+async function evict(agentId: string): Promise<void> {
+  const existing = pool.get(agentId);
+  if (!existing) return;
+  pool.delete(agentId);
+  try {
+    await existing.harness.close();
+  } catch (error) {
+    console.error("[dsh-pool] failed to close harness", agentId, error);
+  }
+}
+
+/** Drop a pooled runtime (e.g. after home-chain change). */
+export async function invalidateAgentRuntime(agentId: string): Promise<void> {
+  await evict(agentId);
+}
+
+/** Close every pooled harness — call on host shutdown. */
+export async function closeAllAgentRuntimes(): Promise<void> {
+  const ids = [...pool.keys()];
+  await Promise.all(ids.map((id) => evict(id)));
+}
+
+async function ensureRuntime(
+  options: DshTurnOptions,
+  provider: string,
+  model: string,
+  patches: string[],
+): Promise<PooledRuntime> {
+  const existing = pool.get(options.agentId);
+  if (
+    existing &&
+    existing.workspace === options.workspace &&
+    existing.chainId === options.agent.chainId &&
+    existing.provider === provider &&
+    existing.model === model
+  ) {
+    return existing;
   }
 
-  await using harness = new DeepSeekHarness({
+  if (existing) {
+    await evict(options.agentId);
+  }
+
+  await mkdir(options.workspace, { recursive: true });
+
+  const harness = new DeepSeekHarness({
     profile: "sdk",
     dshHome: defaultDshHome(),
     cwd: options.workspace,
     provider,
     model,
     patches,
-    env: childEnv,
+    env: buildChildEnv(options.agent.chainId),
     initializeTimeoutMs: 60_000,
   });
+  await harness.start();
 
-  // Always start a fresh dsh session. Each turn owns a short-lived harness
-  // process; reusing lastDshSessionId across process boundaries hits:
-  // "persisted log on disk that does not match this live session (id collision)"
-  // and returns idle with an empty finalResponse.
-  void options.sessionId;
-  const result = await harness.run(options.prompt);
-
-  const turnError = findTurnError(result.events);
-  if (turnError) {
-    throw new Error(turnError);
-  }
-
-  return {
-    sessionId: result.sessionId,
-    finalResponse: result.finalResponse,
-    eventCount: result.events.length,
-    notificationCount: result.notifications.length,
+  const runtime: PooledRuntime = {
+    harness,
+    sessionId: null,
     workspace: options.workspace,
+    chainId: options.agent.chainId,
     provider,
     model,
   };
+  pool.set(options.agentId, runtime);
+  return runtime;
+}
+
+/**
+ * Run one chat turn on a long-lived per-agent dsh harness + session.
+ * The process stays warm across turns; a new session is minted only when the
+ * pool entry is created (host restart, chain change, or first message).
+ */
+export async function runDshTurn(
+  options: DshTurnOptions,
+): Promise<DshTurnResult> {
+  return withAgentTurnLock(options.agentId, async () => {
+    const { provider, model } = resolveRoute(options);
+    const patches = [
+      LLM_PATCH_PATH,
+      ...(options.observeMode === false ? [] : [OBSERVE_PATCH_PATH]),
+      ...(options.patches ?? []),
+    ];
+
+    const runtime = await ensureRuntime(options, provider, model, patches);
+    const continuing = Boolean(runtime.sessionId);
+    const prompt = continuing
+      ? buildContinuingTurnPrompt(options.userText)
+      : buildColdStartPrompt(options);
+
+    let result;
+    try {
+      result = await runtime.harness.run(prompt, {
+        sessionId: runtime.sessionId ?? undefined,
+      });
+    } catch (error) {
+      await evict(options.agentId);
+      throw error;
+    }
+
+    const turnError = findTurnError(result.events);
+    if (turnError) {
+      await evict(options.agentId);
+      throw new Error(turnError);
+    }
+
+    runtime.sessionId = result.sessionId;
+
+    return {
+      sessionId: result.sessionId,
+      finalResponse: result.finalResponse,
+      eventCount: result.events.length,
+      notificationCount: result.notifications.length,
+      workspace: options.workspace,
+      provider,
+      model,
+    };
+  });
+}
+
+function buildColdStartPrompt(options: DshTurnOptions): string {
+  const base = buildAgentTurnPrompt(options.agent, options.userText);
+  const history = options.history
+    ?.filter((m) => m.content.trim().length > 0)
+    .slice(-12);
+  if (!history || history.length === 0) return base;
+
+  const prior = history
+    .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
+    .join("\n\n");
+  return `${base.replace(
+    /\nUser message:\n[\s\S]*$/,
+    "",
+  )}\n\nRecent conversation (for context after restart):\n${prior}\n\nUser message:\n${options.userText}`;
 }
 
 function findTurnError(events: unknown[]): string | null {
@@ -118,7 +247,7 @@ function findTurnError(events: unknown[]): string | null {
   return null;
 }
 
-/** Step-1 one-off smoke helper (ephemeral workspace, no observe patch). */
+/** Step-1 one-off smoke helper (ephemeral workspace, no pool, no observe patch). */
 export async function runDshSmoke(options: {
   prompt?: string;
   workspace?: string;
@@ -126,9 +255,33 @@ export async function runDshSmoke(options: {
   const workspace =
     options.workspace ??
     path.join(hostRoot, "data", "tenants", "smoke", `run-${Date.now()}`);
-  return runDshTurn({
-    workspace,
-    prompt: options.prompt ?? "Reply with exactly: squadrons-dsh-ok",
-    observeMode: false,
+  const { provider, model } = resolveRoute({});
+  await mkdir(workspace, { recursive: true });
+
+  await using harness = new DeepSeekHarness({
+    profile: "sdk",
+    dshHome: defaultDshHome(),
+    cwd: workspace,
+    provider,
+    model,
+    patches: [LLM_PATCH_PATH],
+    env: buildChildEnv(8453),
+    initializeTimeoutMs: 60_000,
   });
+
+  const result = await harness.run(
+    options.prompt ?? "Reply with exactly: squadrons-dsh-ok",
+  );
+  const turnError = findTurnError(result.events);
+  if (turnError) throw new Error(turnError);
+
+  return {
+    sessionId: result.sessionId,
+    finalResponse: result.finalResponse,
+    eventCount: result.events.length,
+    notificationCount: result.notifications.length,
+    workspace,
+    provider,
+    model,
+  };
 }
