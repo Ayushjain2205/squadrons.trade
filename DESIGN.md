@@ -28,7 +28,7 @@ Mobile: list on `/`; chat full-bleed with back; right rail hidden.
 
 ## Type
 
-Manrope (UI + display), IBM Plex Mono (chain ids / meta).
+Cherry Bomb One (wordmark), Manrope (UI + display), IBM Plex Mono (chain ids / meta).
 
 ## Components
 

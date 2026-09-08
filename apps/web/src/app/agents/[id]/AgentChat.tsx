@@ -9,6 +9,7 @@ import {
   type AgentMessage,
   type AgentWithWorkspace,
 } from "@/lib/host";
+import { MarkdownContent } from "@/components/MarkdownContent";
 
 export function AgentChat({
   agent: initialAgent,
@@ -195,7 +196,11 @@ function MessageBubble({ message }: { message: AgentMessage }) {
             : "bg-[var(--msg-bot)] text-[var(--ink)]"
         }`}
       >
-        <p className="whitespace-pre-wrap">{message.content}</p>
+        {isUser ? (
+          <p className="whitespace-pre-wrap">{message.content}</p>
+        ) : (
+          <MarkdownContent content={message.content} />
+        )}
       </div>
     </div>
   );

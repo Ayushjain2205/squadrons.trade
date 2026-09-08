@@ -23,8 +23,8 @@ export default async function HomePage() {
     <DeskShell agents={agents} hostError={error} selectedId={null}>
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="flex shrink-0 items-center border-b border-[var(--line-soft)] px-5 py-3 md:hidden">
-          <p className="font-[family-name:var(--font-display)] text-base font-semibold tracking-[-0.02em]">
-            My Agents
+          <p className="font-[family-name:var(--font-brand)] text-[1.45rem] leading-none tracking-wide">
+            Squadrons
           </p>
         </header>
 
