@@ -10,12 +10,14 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@privy-io/react-auth": "^3.40.0",
     "@squadrons/shared": "workspace:*",
     "next": "^15.5.7",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "viem": "2.56.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
