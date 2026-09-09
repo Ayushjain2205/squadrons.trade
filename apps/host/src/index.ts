@@ -61,7 +61,7 @@ app.get("/v1/meta", (_req, res) => {
   });
 });
 
-registerAgentRoutes(app, agents, messages, activity, users);
+registerAgentRoutes(app, agents, messages, activity, users, strategies);
 
 app.post("/v1/dsh/smoke", async (req, res) => {
   const prompt =

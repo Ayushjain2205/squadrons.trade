@@ -2,10 +2,12 @@ import { mkdir } from "node:fs/promises";
 import type { Express, NextFunction, Request, Response } from "express";
 import type { CreateAgentInput, UpdateAgentInput } from "@squadrons/shared";
 import {
+  extractStrategyDraftFromText,
   isAgentMode,
   isAvatarId,
   isOrbColorId,
   isSupportedChainId,
+  parseStrategyDraftInput,
 } from "@squadrons/shared";
 import {
   AuthError,
@@ -21,6 +23,7 @@ import type { ActivityHub } from "./activity-hub.js";
 import type { MessageStore } from "./messages.js";
 import { agentWorkspacePath } from "./paths.js";
 import type { AgentStore } from "./store.js";
+import type { StrategyStore } from "./strategy-store.js";
 
 const GREETING =
   "Hey — I'm ready when you are. What should we dig into?";
@@ -31,6 +34,7 @@ export function registerAgentRoutes(
   messages: MessageStore,
   activity: ActivityHub,
   users: UserStore,
+  strategies: StrategyStore,
 ): void {
   app.get("/v1/me", async (req, res, next) => {
     try {
@@ -332,6 +336,62 @@ export function registerAgentRoutes(
     }
   });
 
+  /** Upsert a strategy draft (Operate mode only). */
+  app.put("/v1/agents/:id/strategy/draft", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      const agentId = req.params.id;
+      if (!agentId) {
+        res.status(400).json({ ok: false, error: "missing agent id" });
+        return;
+      }
+
+      const existing = agents.getForUser(user.id, agentId);
+      if (!existing) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+      if (existing.mode !== "operate") {
+        res.status(400).json({
+          ok: false,
+          error: "switch to Operate mode before drafting a strategy",
+        });
+        return;
+      }
+
+      const draft = parseStrategyDraftInput(req.body);
+      if (!draft) {
+        res.status(400).json({ ok: false, error: "invalid strategy draft" });
+        return;
+      }
+
+      strategies.upsertDraft(existing.id, draft);
+      activity.publish({
+        agentId: existing.id,
+        kind: "info",
+        label: "Saved strategy draft",
+        detail: draft.summary,
+      });
+
+      const agent = agents.getForUser(user.id, existing.id);
+      res.json({
+        ok: true,
+        agent: agent
+          ? {
+              ...agent,
+              workspace: agentWorkspacePath(user.id, agent.id),
+            }
+          : {
+              ...existing,
+              strategy: strategies.get(existing.id),
+              workspace: agentWorkspacePath(user.id, existing.id),
+            },
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   /** Halt a working agent by killing its dsh runtime; status → paused. */
   app.post("/v1/agents/:id/pause", async (req, res, next) => {
     try {
@@ -438,6 +498,23 @@ export function registerAgentRoutes(
       }
 
       const replyText = (turn.finalResponse || "(no response)").trimEnd();
+
+      if (agent.mode === "operate") {
+        const draft = extractStrategyDraftFromText(replyText);
+        if (draft) {
+          try {
+            strategies.upsertDraft(agent.id, draft);
+            activity.publish({
+              agentId: agent.id,
+              kind: "info",
+              label: "Saved strategy draft",
+              detail: draft.summary,
+            });
+          } catch (error) {
+            console.error("[strategy-draft]", agent.id, error);
+          }
+        }
+      }
 
       const assistantMessage = messages.append(
         agent.id,

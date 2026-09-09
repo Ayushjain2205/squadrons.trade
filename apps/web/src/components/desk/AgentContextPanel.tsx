@@ -14,6 +14,7 @@ import { ChainName, ChainPicker } from "@/components/ChainLogo";
 import { OrbColorSwatch } from "@/components/OrbColorSwatch";
 import { updateAgent, type AgentWithWorkspace } from "@/lib/host";
 import { ActivityTrail } from "./ActivityTrail";
+import { StrategyCard } from "./StrategyCard";
 
 export function AgentContextPanel({
   agent,
@@ -97,21 +98,9 @@ function AgentContextSummary({ agent }: { agent: AgentWithWorkspace }) {
             {agent.spendMode === "observe" ? "observe" : "spend on"}
           </span>
         </p>
-        {agent.strategy ? (
-          <p className="type-meta text-[var(--ink-soft)]">
-            Strategy · {agent.strategy.status}
-            {agent.strategy.summary
-              ? ` — ${agent.strategy.summary}`
-              : null}
-          </p>
-        ) : (
-          <p className="type-meta text-[var(--muted)]">
-            {agent.mode === "operate"
-              ? "No strategy draft yet — define one in chat."
-              : "Scout first, then switch to Operate to arm a strategy."}
-          </p>
-        )}
       </section>
+
+      <StrategyCard mode={agent.mode} strategy={agent.strategy} />
 
       <ActivityTrail
         agentId={agent.id}

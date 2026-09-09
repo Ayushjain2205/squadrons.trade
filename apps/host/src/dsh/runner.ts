@@ -211,7 +211,9 @@ export async function runDshTurn(
     const runtime = await ensureRuntime(options, provider, model, patches);
     const continuing = Boolean(runtime.sessionId);
     const prompt = continuing
-      ? buildContinuingTurnPrompt(options.userText)
+      ? buildContinuingTurnPrompt(options.userText, {
+          mode: options.agent.mode,
+        })
       : buildColdStartPrompt(options);
 
     let result;

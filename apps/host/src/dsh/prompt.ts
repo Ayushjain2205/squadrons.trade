@@ -34,7 +34,17 @@ export function buildAgentTurnPrompt(
 }
 
 /** Short user-only prompt once the session already carries conversation. */
-export function buildContinuingTurnPrompt(userText: string): string {
+export function buildContinuingTurnPrompt(
+  userText: string,
+  options?: { mode?: Agent["mode"] },
+): string {
+  if (options?.mode === "operate") {
+    return [
+      "Operate mode reminder: when the strategy is concrete, end with a ```strategy JSON fence (summary, trigger, action, optional caps). User still Arms it.",
+      "",
+      userText,
+    ].join("\n");
+  }
   return userText;
 }
 
@@ -89,7 +99,13 @@ export function buildAgentIdentityBlock(
     "- Do not claim you executed on-chain transactions unless the platform confirms them.",
     "- Do not invent balances, quotes, or tx hashes. Prefer tools over guessing.",
     agent.mode === "operate"
-      ? "- In Operate mode, help define a clear strategy the user can arm later. Do not claim it is running unless status is running."
+      ? [
+          "- In Operate mode, help define a clear strategy the user can arm later. Do not claim it is running unless status is running.",
+          "- When the plan is concrete enough to draft, end your reply with a fenced ```strategy JSON block using keys summary, trigger, action, and optional caps.",
+          '- trigger.type is "interval" (intervalSec >= 15) or "condition" (condition string; optional intervalSec poll floor).',
+          '- action.type is "alert" or "propose_trade" (observe agents should prefer alert).',
+          "- Keep the JSON valid. The platform saves it as a draft — the user still has to Arm it.",
+        ].join("\n")
       : "- In Scout mode, focus on research and findings. Suggest switching to Operate when ready to define a runnable strategy.",
   );
   return lines.join("\n");
