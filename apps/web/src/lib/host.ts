@@ -184,6 +184,24 @@ export async function dismissStrategyImprovement(
   );
 }
 
+export async function updateStrategyImprovement(
+  agentId: string,
+  patch: {
+    enabled?: boolean;
+    cadence?: "hourly" | "daily" | "weekly";
+    allowedKeys?: string[];
+  },
+): Promise<AgentWithWorkspace> {
+  const data = await hostFetch<{ agent: AgentWithWorkspace }>(
+    `/v1/agents/${agentId}/strategy/improvement`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    },
+  );
+  return data.agent;
+}
+
 export async function listMessages(agentId: string): Promise<AgentMessage[]> {
   const data = await hostFetch<{ messages: AgentMessage[] }>(
     `/v1/agents/${agentId}/messages`,

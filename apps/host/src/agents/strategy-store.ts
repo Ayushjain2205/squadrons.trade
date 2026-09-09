@@ -220,6 +220,48 @@ export class StrategyStore {
     return strategy;
   }
 
+  /**
+   * Patch self-improvement policy without changing recipe/params/arm state.
+   */
+  patchImprovement(
+    agentId: string,
+    patch: {
+      enabled?: boolean;
+      cadence?: "hourly" | "daily" | "weekly";
+      allowedKeys?: string[];
+    },
+  ): Strategy {
+    const existing = this.get(agentId);
+    if (!existing) throw new Error("strategy not found");
+
+    const next = parseStrategyImprovement(
+      {
+        ...existing.improvement,
+        ...patch,
+        autoApply: false,
+        lastRunAt: existing.improvement.lastRunAt,
+      },
+      Object.keys(existing.params),
+    );
+
+    const updatedAt = Date.now();
+    this.db
+      .prepare(
+        `UPDATE strategies
+         SET improvement_json = @improvementJson, updated_at = @updatedAt
+         WHERE agent_id = @agentId`,
+      )
+      .run({
+        agentId,
+        improvementJson: JSON.stringify(next),
+        updatedAt,
+      });
+
+    const strategy = this.get(agentId);
+    if (!strategy) throw new Error("failed to patch strategy improvement");
+    return strategy;
+  }
+
   setStatus(
     agentId: string,
     status: Exclude<StrategyStatus, "none">,

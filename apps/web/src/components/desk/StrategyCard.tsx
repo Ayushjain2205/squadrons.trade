@@ -11,6 +11,7 @@ import {
   approveStrategyImprovement,
   dismissStrategyImprovement,
   listStrategyImprovements,
+  updateStrategyImprovement,
 } from "@/lib/host";
 
 export function StrategyCard({
@@ -84,6 +85,24 @@ export function StrategyCard({
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Improvement action failed",
+        );
+      }
+    });
+  }
+
+  function setImprovement(patch: {
+    enabled?: boolean;
+    cadence?: "hourly" | "daily" | "weekly";
+  }) {
+    if (busy || mode !== "operate" || !strategy) return;
+    setError(null);
+    startTransition(async () => {
+      try {
+        const updated = await updateStrategyImprovement(agentId, patch);
+        onAgentUpdated?.(updated);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Could not update improvement",
         );
       }
     });
@@ -182,7 +201,8 @@ export function StrategyCard({
 
       {needsRecipe ? (
         <p className="type-meta text-[var(--danger)]">
-          Legacy draft — switch to Operate and propose a recipe-backed plan
+          This draft has no recipe. Switch to Operate and ask the agent to
+          propose a recipe-backed plan (e.g. balance threshold or price cross)
           before Arm.
         </p>
       ) : null}
@@ -212,7 +232,45 @@ export function StrategyCard({
         </div>
         <div>
           <dt className="type-meta text-[var(--muted)]">Self-improvement</dt>
-          <dd className="type-meta text-[var(--ink-soft)]">{improvementLabel}</dd>
+          <dd className="type-meta text-[var(--ink-soft)]">
+            {mode === "operate" && !needsRecipe ? (
+              <span className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    setImprovement({
+                      enabled: !strategy.improvement?.enabled,
+                    })
+                  }
+                  className="cursor-pointer underline-offset-2 hover:underline disabled:opacity-40"
+                >
+                  {strategy.improvement?.enabled ? "On" : "Off"}
+                </button>
+                {strategy.improvement?.enabled ? (
+                  <select
+                    value={strategy.improvement.cadence}
+                    disabled={busy}
+                    onChange={(e) =>
+                      setImprovement({
+                        cadence: e.target.value as
+                          | "hourly"
+                          | "daily"
+                          | "weekly",
+                      })
+                    }
+                    className="rounded bg-[var(--panel-2)] px-1.5 py-0.5 text-[var(--ink-soft)] outline-none"
+                  >
+                    <option value="hourly">hourly</option>
+                    <option value="daily">daily</option>
+                    <option value="weekly">weekly</option>
+                  </select>
+                ) : null}
+              </span>
+            ) : (
+              improvementLabel
+            )}
+          </dd>
         </div>
         <div>
           <dt className="type-meta text-[var(--muted)]">Spend</dt>

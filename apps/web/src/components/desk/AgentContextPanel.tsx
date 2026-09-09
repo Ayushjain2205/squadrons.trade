@@ -173,6 +173,7 @@ function AgentContextSummary({
             event.label === "Resumed strategy" ||
             event.label === "Disarmed strategy" ||
             event.label === "Updated strategy params" ||
+            event.label === "Updated self-improvement" ||
             event.label === "Self-improvement suggested" ||
             event.label === "Self-improvement approved" ||
             event.label === "Self-improvement dismissed" ||
