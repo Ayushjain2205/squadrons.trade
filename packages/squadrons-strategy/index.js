@@ -1,8 +1,11 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { defineTool } from "@deepseek-ai/dsh-tools";
-import { draftPath, statePath, STRATEGY_DIR } from "./paths.js";
-import { parseStrategyDraftInput } from "./validate.js";
+import { draftPath, statePath, tickPath, STRATEGY_DIR } from "./paths.js";
+import {
+  parseStrategyDraftInput,
+  parseStrategyTickDecision,
+} from "./validate.js";
 
 /** Cordis plugin id / package export name. */
 export const name = "squadrons-strategy";
@@ -143,6 +146,77 @@ export function apply(ctx) {
         title: "Get strategy",
         kind: "other",
         rawInput: {},
+      }),
+    }),
+  );
+
+  ctx.tools.register(
+    defineTool({
+      name: "report_tick",
+      description:
+        "Report the outcome of a background strategy tick. Call once per tick after evaluating tools. Prefer this over dumping tick JSON in the reply. action is none (no alert) or alert.",
+      parameters: {
+        action: {
+          type: "string",
+          description: 'Tick outcome: "none" or "alert".',
+          enum: ["none", "alert"],
+        },
+        label: {
+          type: "string",
+          description:
+            "Short operator-facing activity line (e.g. Checked balances, ETH down 5%).",
+        },
+        detail: {
+          type: "string",
+          description: "Optional extra detail for the activity trail.",
+        },
+      },
+      output: {
+        schema: {
+          type: "object",
+          additionalProperties: true,
+        },
+        render: (_args, value) => [
+          {
+            type: "text",
+            text: JSON.stringify(value, null, 2),
+          },
+        ],
+      },
+      async execute(args) {
+        const decision = parseStrategyTickDecision(args);
+        if (!decision) {
+          throw new Error(
+            'Invalid tick report. Need action "none"|"alert" and a short label.',
+          );
+        }
+
+        const state = await readJson(statePath());
+        if (state?.status !== "running") {
+          throw new Error(
+            "report_tick is only for armed running strategies during a host tick.",
+          );
+        }
+
+        const dir = path.join(process.cwd(), STRATEGY_DIR);
+        await mkdir(dir, { recursive: true });
+        const payload = {
+          ...decision,
+          reportedAt: Date.now(),
+        };
+        await writeFile(tickPath(), `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+
+        return {
+          ok: true,
+          ...decision,
+          note: "Tick reported to the host activity trail.",
+        };
+      },
+      presentCall: (args) => ({
+        card: "generic",
+        title: "Report tick",
+        kind: "other",
+        rawInput: args,
       }),
     }),
   );

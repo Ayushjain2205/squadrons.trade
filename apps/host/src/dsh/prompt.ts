@@ -149,7 +149,7 @@ export function buildStrategyTickPrompt(
     "- Prefer tools over guessing balances/prices.",
     "- If nothing actionable, action is none.",
     "- If the trigger warrants the configured action and spend is observe-only, use action alert (never invent txs).",
-    "- End with a ```tick JSON fence: {\"action\":\"none\"|\"alert\",\"label\":\"short activity line\",\"detail\":\"optional\"}.",
+    '- Call report_tick once with action "none"|"alert", a short label, and optional detail. Do not dump ```tick fences.',
     "- Keep label short and operator-facing (present or past tense).",
   ].join("\n");
 }

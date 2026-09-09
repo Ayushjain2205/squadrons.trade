@@ -1,14 +1,16 @@
-import {
-  extractStrategyTickDecisionFromText,
-  type Strategy,
-} from "@squadrons/shared";
+import type { Strategy, StrategyTickDecision } from "@squadrons/shared";
 import type { ActivityHub } from "../agents/activity-hub.js";
 import { agentWorkspacePath } from "../agents/paths.js";
 import type { AgentStore } from "../agents/store.js";
 import type { StrategyStore } from "../agents/strategy-store.js";
 import type { UserStore } from "../auth/privy.js";
+import { isSuccessfulReportTickResult } from "../dsh/activity-map.js";
 import { runDshStrategyTick } from "../dsh/runner.js";
-import { writeStrategyStateFile } from "./workspace-draft.js";
+import {
+  clearStrategyTickReport,
+  readStrategyTickReport,
+  writeStrategyStateFile,
+} from "./workspace-draft.js";
 
 const DEFAULT_SCAN_MS = 15_000;
 const DEFAULT_INTERVAL_SEC = 60;
@@ -45,6 +47,7 @@ export function startStrategyScheduler(deps: {
       const user = deps.users.get(agent.userId);
       const workspace = agentWorkspacePath(agent.userId, agent.id);
       await writeStrategyStateFile(workspace, agent);
+      await clearStrategyTickReport(workspace);
 
       deps.activity.publish({
         agentId: agent.id,
@@ -53,11 +56,23 @@ export function startStrategyScheduler(deps: {
         detail: strategy.summary,
       });
 
-      let decisionLabel = "Checked strategy";
-      let decisionDetail: string | null = null;
+      let decision: StrategyTickDecision | null = null;
+      let publishedDecision = false;
+
+      const publishDecision = (next: StrategyTickDecision) => {
+        if (publishedDecision) return;
+        publishedDecision = true;
+        decision = next;
+        deps.activity.publish({
+          agentId: strategy.agentId,
+          kind: "info",
+          label: next.label,
+          detail: next.detail ?? null,
+        });
+      };
 
       try {
-        const turn = await runDshStrategyTick({
+        await runDshStrategyTick({
           agent,
           strategy,
           workspace,
@@ -65,14 +80,21 @@ export function startStrategyScheduler(deps: {
           onActivity: (event) => {
             deps.activity.publish(event);
           },
+          onNotification: (notification) => {
+            if (!isSuccessfulReportTickResult(notification)) return;
+            void readStrategyTickReport(workspace)
+              .then((reported) => {
+                if (reported) publishDecision(reported);
+              })
+              .catch((error) => {
+                console.error("[strategy-tick-report]", strategy.agentId, error);
+              });
+          },
         });
 
-        const decision = extractStrategyTickDecisionFromText(
-          turn.finalResponse || "",
-        );
-        if (decision) {
-          decisionLabel = decision.label;
-          decisionDetail = decision.detail ?? null;
+        if (!decision) {
+          const reported = await readStrategyTickReport(workspace);
+          if (reported) publishDecision(reported);
         }
       } catch (error) {
         console.error("[strategy-tick]", strategy.agentId, error);
@@ -90,12 +112,14 @@ export function startStrategyScheduler(deps: {
       const still = deps.strategies.get(strategy.agentId);
       if (!still || still.status !== "running") return;
 
-      deps.activity.publish({
-        agentId: strategy.agentId,
-        kind: "info",
-        label: decisionLabel,
-        detail: decisionDetail,
-      });
+      if (!publishedDecision) {
+        deps.activity.publish({
+          agentId: strategy.agentId,
+          kind: "info",
+          label: "Checked strategy",
+          detail: null,
+        });
+      }
 
       deps.strategies.markTicked(strategy.agentId);
     } finally {

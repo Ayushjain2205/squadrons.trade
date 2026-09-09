@@ -40,6 +40,16 @@ export function isSuccessfulProposeStrategyResult(
   return toolNameFromData(event.data) === "propose_strategy";
 }
 
+/** True when dsh reports a successful report_tick tool result. */
+export function isSuccessfulReportTickResult(
+  notification: HarnessNotification,
+): boolean {
+  const event = sessionEvent(notification);
+  if (!event || event.type !== "tool/result") return false;
+  if (event.data.error) return false;
+  return toolNameFromData(event.data) === "report_tick";
+}
+
 /**
  * Map a dsh notification into at most one highly abstracted activity step.
  * Grok Bot–style: human verbs only — no turn markers, no args, no result dumps.

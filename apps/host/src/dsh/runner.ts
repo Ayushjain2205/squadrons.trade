@@ -298,6 +298,7 @@ export async function runDshStrategyTick(options: {
   workspace: string;
   walletAddress?: string | null;
   onActivity?: (event: NewActivityEvent) => void;
+  onNotification?: DshTurnOptions["onNotification"];
 }): Promise<DshTurnResult> {
   const prompt = buildStrategyTickPrompt(
     options.agent,
@@ -312,6 +313,7 @@ export async function runDshStrategyTick(options: {
     workspace: options.workspace,
     walletAddress: options.walletAddress,
     onActivity: options.onActivity,
+    onNotification: options.onNotification,
     promptMode: "raw",
   });
 }

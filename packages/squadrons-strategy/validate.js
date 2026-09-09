@@ -56,3 +56,25 @@ export function parseStrategyDraftInput(value) {
 
   return { summary, trigger, action, caps };
 }
+
+/**
+ * Validate report_tick args. Mirrors @squadrons/shared parseStrategyTickDecision.
+ * @param {unknown} value
+ * @returns {{ action: "none"|"alert", label: string, detail?: string } | null}
+ */
+export function parseStrategyTickDecision(value) {
+  if (!isRecord(value)) return null;
+  const action = value.action;
+  if (action !== "none" && action !== "alert") return null;
+  const label =
+    typeof value.label === "string" && value.label.trim()
+      ? value.label.trim()
+      : action === "alert"
+        ? "Alert"
+        : "Checked strategy";
+  const detail =
+    typeof value.detail === "string" && value.detail.trim()
+      ? value.detail.trim()
+      : undefined;
+  return { action, label, detail };
+}
