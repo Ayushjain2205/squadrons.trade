@@ -34,14 +34,19 @@ Scout → Operate → propose_strategy (draft)
                  → host scheduler wakes due strategies
                  → executeStrategyRecipe → Strategy activity
                  → (optional) update_strategy_params while running
+
+If improvement.enabled:
+  cadence due → self-improvement dsh review
+             → propose_improvement → pending proposal
+             → Strategy card Approve → patchParams
+             → or Dismiss
 ```
 
-Self-improvement (shipping next): cadence due → pending proposal → Strategy card Approve/Dismiss → `patchParams`.
-
-## Tools (Operate)
+## Tools (Operate / improvement)
 
 - `propose_strategy` — full draft (not while `running`; pause/disarm first)
 - `update_strategy_params` — live param patch (draft / paused / running)
+- `propose_improvement` — queue a desk proposal (does not apply)
 - `get_strategy` — read desk state + pending draft
 
 Legacy strategies without `recipeId` cannot Arm until re-proposed; old LLM ticks remain only as a compat path.
@@ -56,12 +61,14 @@ Legacy strategies without `recipeId` cannot Arm until re-proposed; old LLM ticks
 
 | Path | Role |
 | --- | --- |
-| `packages/shared/src/strategy.ts` | Types + draft parsers |
+| `packages/shared/src/strategy.ts` | Types + draft / proposal parsers |
 | `packages/shared/src/recipes.ts` | Recipe ids + param validation |
 | `packages/squadrons-strategy/` | Cordis tools |
 | `apps/host/src/strategy/scheduler.ts` | Interval wake loop |
 | `apps/host/src/strategy/recipes/` | Deterministic executors |
-| `apps/web/.../StrategyCard.tsx` | Arm / recipe / params UI |
+| `apps/host/src/strategy/improvement.ts` | Cadence reviews |
+| `apps/host/src/strategy/improvement-store.ts` | Proposal persistence |
+| `apps/web/.../StrategyCard.tsx` | Arm / params / Approve·Dismiss |
 
 ## Adding a recipe
 
