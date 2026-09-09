@@ -63,4 +63,8 @@ export function chainScopedReadTools(
 }
 
 /** Tools the Operate-mode prompt should mention for strategy authorship. */
-export const STRATEGY_TOOLS = ["propose_strategy", "get_strategy"] as const;
+export const STRATEGY_TOOLS = [
+  "propose_strategy",
+  "update_strategy_params",
+  "get_strategy",
+] as const;
