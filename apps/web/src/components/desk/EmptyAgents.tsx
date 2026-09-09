@@ -1,20 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import type { AvatarId, OrbColorId } from "@squadrons/shared";
-import { AgentOrb } from "@/components/AgentOrb";
+import { OrbField, type OrbFieldItem } from "@/components/OrbField";
 
-/** Curated preview roster — characterful, not a rainbow dump. */
-const PREVIEW: Array<{
-  id: AvatarId;
-  colorId: OrbColorId;
-  x: string;
-  y: string;
-  size: number;
-  rotate: string;
-  delay: string;
-}> = [
+const PREVIEW: OrbFieldItem[] = [
   { id: "05", colorId: "blue", x: "6%", y: "16%", size: 56, rotate: "-12deg", delay: "0s" },
   { id: "01", colorId: "green", x: "36%", y: "0%", size: 74, rotate: "4deg", delay: "0.35s" },
   { id: "08", colorId: "orange", x: "68%", y: "12%", size: 52, rotate: "10deg", delay: "0.7s" },
@@ -28,45 +17,12 @@ const PREVIEW: Array<{
  * "roster not yet filled" rather than a blank marketing panel.
  */
 export function EmptyAgents() {
-  const [active, setActive] = useState<number | null>(null);
-
   return (
     <div className="flex flex-col items-center justify-center gap-8 px-6 py-14 text-center">
-      <div
-        className="empty-squadron relative h-[172px] w-[min(100%,300px)]"
-        aria-hidden
-      >
-        <div className="empty-squadron-glow pointer-events-none absolute inset-[-24%] rounded-full" />
-        {PREVIEW.map((orb, index) => {
-          const awake = active === index;
-          return (
-            <div
-              key={`${orb.id}-${orb.colorId}`}
-              className="empty-squadron-orb absolute"
-              style={{
-                left: orb.x,
-                top: orb.y,
-                ["--orb-delay" as string]: orb.delay,
-                zIndex: awake ? 4 : 1,
-              }}
-              onMouseEnter={() => setActive(index)}
-              onMouseLeave={() => setActive(null)}
-            >
-              <div
-                className={`empty-squadron-orb-face ${awake ? "is-awake" : ""}`}
-                style={{ ["--orb-rotate" as string]: orb.rotate }}
-              >
-                <AgentOrb
-                  id={orb.id}
-                  colorId={orb.colorId}
-                  size={orb.size}
-                  animate={awake}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <OrbField
+        orbs={PREVIEW}
+        className="h-[172px] w-[min(100%,300px)]"
+      />
 
       <div className="max-w-md space-y-3">
         <p className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-[-0.03em]">

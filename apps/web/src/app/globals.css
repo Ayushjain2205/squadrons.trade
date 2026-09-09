@@ -133,9 +133,9 @@ textarea.chat-input:focus-visible,
   }
 }
 
-/* --- Empty desk: waiting squadron --- */
+/* --- Orb field (empty desk + login) --- */
 
-.empty-squadron-glow {
+.orb-field-glow {
   background: radial-gradient(
     circle at 48% 42%,
     color-mix(in srgb, var(--accent) 16%, transparent),
@@ -143,12 +143,12 @@ textarea.chat-input:focus-visible,
   );
 }
 
-.empty-squadron-orb {
-  animation: empty-orb-float 4.4s ease-in-out infinite;
+.orb-field-orb {
+  animation: orb-field-float 4.4s ease-in-out infinite;
   animation-delay: var(--orb-delay, 0s);
 }
 
-.empty-squadron-orb-face {
+.orb-field-face {
   transform: rotate(var(--orb-rotate, 0deg));
   filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.5));
   transition:
@@ -156,12 +156,12 @@ textarea.chat-input:focus-visible,
     filter 0.35s ease;
 }
 
-.empty-squadron-orb-face.is-awake {
+.orb-field-face.is-awake {
   transform: rotate(var(--orb-rotate, 0deg)) scale(1.12);
   filter: drop-shadow(0 14px 22px rgb(0 0 0 / 0.55));
 }
 
-@keyframes empty-orb-float {
+@keyframes orb-field-float {
   0%,
   100% {
     transform: translateY(0);
@@ -171,16 +171,71 @@ textarea.chat-input:focus-visible,
   }
 }
 
+.auth-gate-wash {
+  background:
+    radial-gradient(
+      ellipse 55% 40% at 50% 18%,
+      color-mix(in srgb, var(--accent) 12%, transparent),
+      transparent 72%
+    ),
+    radial-gradient(
+      circle at 12% 88%,
+      color-mix(in srgb, var(--panel-2) 90%, transparent),
+      transparent 42%
+    ),
+    radial-gradient(
+      circle at 88% 80%,
+      color-mix(in srgb, var(--panel) 85%, transparent),
+      transparent 40%
+    );
+}
+
+/* --- Login crew: overlapping lineup above the wordmark --- */
+
+.login-crew-orb {
+  position: relative;
+  transform: translateY(var(--crew-lift, 0));
+  filter: drop-shadow(0 12px 20px rgb(0 0 0 / 0.55));
+  transition:
+    transform 0.45s cubic-bezier(0.22, 1.15, 0.36, 1),
+    filter 0.35s ease;
+  animation: login-crew-bob 5s ease-in-out infinite;
+  animation-delay: var(--crew-delay, 0s);
+}
+
+.login-crew-orb.is-awake {
+  transform: translateY(calc(var(--crew-lift, 0px) - 10px)) scale(1.08);
+  filter: drop-shadow(0 16px 26px rgb(0 0 0 / 0.6));
+}
+
+@keyframes login-crew-bob {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -5px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .empty-squadron-orb {
+  .login-crew-orb {
     animation: none;
   }
 
-  .empty-squadron-orb-face {
+  .login-crew-orb.is-awake {
+    transform: translateY(var(--crew-lift, 0));
+  }
+
+  .orb-field-orb {
+    animation: none;
+  }
+
+  .orb-field-face {
     transition: none;
   }
 
-  .empty-squadron-orb-face.is-awake {
+  .orb-field-face.is-awake {
     transform: rotate(var(--orb-rotate, 0deg));
   }
 }
