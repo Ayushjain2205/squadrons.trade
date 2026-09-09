@@ -160,9 +160,10 @@ export function buildStrategyTickPrompt(
     "Rules for this tick:",
     "- Do not claim the strategy is disarmed or that you changed Arm state.",
     "- Prefer tools over guessing balances/prices.",
+    "- If a price tool fails, do not loop retries — call report_tick once with action alert or none and say the feed failed.",
+    "- Call report_tick exactly once. Do not dump ```tick fences.",
     "- If nothing actionable, action is none.",
     ...spendRules,
-    '- Call report_tick once. Do not dump ```tick fences.',
     "- Keep label short and operator-facing (present or past tense).",
   ].join("\n");
 }

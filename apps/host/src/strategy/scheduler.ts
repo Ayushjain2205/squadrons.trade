@@ -47,6 +47,9 @@ export function startStrategyScheduler(deps: {
       const agent = deps.agents.getById(strategy.agentId);
       if (!agent || agent.strategy?.status !== "running") return;
 
+      // Stamp immediately so a long/failing dsh turn cannot overlap the next due scan.
+      deps.strategies.markTicked(strategy.agentId);
+
       const user = deps.users.get(agent.userId);
       const workspace = agentWorkspacePath(agent.userId, agent.id);
       await writeStrategyStateFile(workspace, agent);

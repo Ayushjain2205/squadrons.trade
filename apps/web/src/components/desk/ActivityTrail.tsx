@@ -141,17 +141,24 @@ export function ActivityTrail({
                     aria-hidden
                   />
                 </span>
-                <p
-                  className={`type-ui min-w-0 leading-snug ${
-                    newest && live
-                      ? "text-[var(--ink)]"
-                      : event.kind === "error"
-                        ? "text-[var(--danger)]"
-                        : "text-[var(--ink-soft)]"
-                  }`}
-                >
-                  {event.displayLabel}
-                </p>
+                <div className="min-w-0">
+                  <p
+                    className={`type-ui leading-snug ${
+                      newest && live
+                        ? "text-[var(--ink)]"
+                        : event.kind === "error"
+                          ? "text-[var(--danger)]"
+                          : "text-[var(--ink-soft)]"
+                    }`}
+                  >
+                    {event.displayLabel}
+                  </p>
+                  {event.kind === "error" && event.detail ? (
+                    <p className="type-meta mt-0.5 truncate text-[var(--muted)]">
+                      {event.detail}
+                    </p>
+                  ) : null}
+                </div>
                 <time
                   className="type-data pt-0.5 text-[var(--muted)]"
                   dateTime={new Date(event.createdAt).toISOString()}

@@ -733,7 +733,7 @@ export function registerAgentRoutes(
             agentId: agent.id,
             kind: "error",
             label: "Something went wrong",
-            detail: null,
+            detail: error instanceof Error ? error.message : String(error),
           });
         }
         throw error;

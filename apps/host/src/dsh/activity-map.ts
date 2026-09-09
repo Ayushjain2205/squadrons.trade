@@ -9,6 +9,9 @@ export type HarnessNotification = {
   params: Record<string, unknown>;
 };
 
+/** Last tool/call name per agent — tool/result error payloads often omit `name`. */
+const lastToolCallName = new Map<string, string>();
+
 function sessionEvent(notification: HarnessNotification): {
   type?: string;
   data: Record<string, unknown>;
@@ -21,9 +24,26 @@ function sessionEvent(notification: HarnessNotification): {
 }
 
 function toolNameFromData(data: Record<string, unknown>): string | null {
-  if (typeof data.name === "string") return data.name;
+  if (typeof data.name === "string" && data.name.trim()) return data.name;
   const message = data.message as { name?: string } | undefined;
-  if (typeof message?.name === "string") return message.name;
+  if (typeof message?.name === "string" && message.name.trim()) {
+    return message.name;
+  }
+  if (typeof data.toolName === "string" && data.toolName.trim()) {
+    return data.toolName;
+  }
+  const tool = data.tool as { name?: string } | undefined;
+  if (typeof tool?.name === "string" && tool.name.trim()) return tool.name;
+  return null;
+}
+
+function errorDetail(data: Record<string, unknown>): string | null {
+  const error = data.error;
+  if (typeof error === "string" && error.trim()) return error.trim();
+  if (error && typeof error === "object") {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string" && message.trim()) return message.trim();
+  }
   return null;
 }
 
@@ -65,6 +85,7 @@ export function mapNotificationToActivity(
   switch (type) {
     case "tool/call": {
       const name = toolNameFromData(data) ?? "tool";
+      lastToolCallName.set(agentId, name);
       return {
         agentId,
         kind: "tool_call" satisfies ActivityKind,
@@ -76,23 +97,31 @@ export function mapNotificationToActivity(
     case "tool/result": {
       // Successful results stay silent — the call already told the story.
       if (!data.error) return null;
-      const name = toolNameFromData(data) ?? "tool";
+      const name =
+        toolNameFromData(data) ?? lastToolCallName.get(agentId) ?? "tool";
       return {
         agentId,
         kind: "error" satisfies ActivityKind,
         label: `${activityStepLabel(name)} failed`,
-        detail: null,
+        detail: errorDetail(data),
         toolName: name,
       };
     }
     case "turn/end": {
-      const reason = data.reason as { kind?: string } | undefined;
+      const reason = data.reason as {
+        kind?: string;
+        error?: { message?: string };
+      } | undefined;
       if (reason?.kind !== "error") return null;
+      const message =
+        typeof reason.error?.message === "string" && reason.error.message.trim()
+          ? reason.error.message.trim()
+          : null;
       return {
         agentId,
         kind: "error",
         label: "Something went wrong",
-        detail: null,
+        detail: message,
       };
     }
     default:

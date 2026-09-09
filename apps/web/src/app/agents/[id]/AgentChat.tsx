@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import type { AgentMode, AvatarId, OrbColorId } from "@squadrons/shared";
 import { AgentOrb } from "@/components/AgentOrb";
@@ -26,7 +25,6 @@ export function AgentChat({
   initialMessages: AgentMessage[];
   onAgentUpdated?: (agent: AgentWithWorkspace) => void;
 }) {
-  const router = useRouter();
   const [agent, setAgent] = useState(initialAgent);
   const [messages, setMessages] = useState(initialMessages);
   const [draft, setDraft] = useState("");
@@ -39,8 +37,12 @@ export function AgentChat({
 
   useEffect(() => {
     setAgent(initialAgent);
+  }, [initialAgent]);
+
+  useEffect(() => {
     setMessages(initialMessages);
-  }, [initialAgent, initialMessages]);
+  }, [initialAgent.id]); // eslint-disable-line react-hooks/exhaustive-deps -- only reset transcript when switching agents
+
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -79,7 +81,8 @@ export function AgentChat({
           const withoutOptimistic = prev.filter((m) => m.id !== optimisticId);
           return [...withoutOptimistic, ...result.messages];
         });
-        router.refresh();
+        // Avoid router.refresh() here — it can briefly replace chat with stale
+        // server props and make a successful reply look like it never arrived.
       } catch (err) {
         try {
           const latest = await getAgent(agent.id);

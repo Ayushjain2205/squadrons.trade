@@ -1,4 +1,4 @@
-# Keep in sync with apps/host strategy workspace helpers.
+// Keep in sync with apps/host strategy workspace helpers.
 export const STRATEGY_DIR = ".squadrons";
 export const STRATEGY_DRAFT_FILE = "strategy-draft.json";
 export const STRATEGY_STATE_FILE = "strategy-state.json";

@@ -1,4 +1,5 @@
 import { mkdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { DeepSeekHarness } from "@deepseek-ai/dsh-sdk-client";
@@ -91,7 +92,11 @@ async function withAgentTurnLock<T>(
 }
 
 function defaultDshHome(): string {
-  return process.env.DSH_HOME || path.join(os.homedir(), ".dsh");
+  if (process.env.DSH_HOME) return process.env.DSH_HOME;
+  // Prefer a workspace-local dsh home when present (reliable OpenRouter + plugins).
+  const localHome = path.join(hostRoot, "data", "dsh-home");
+  if (existsSync(localHome)) return localHome;
+  return path.join(os.homedir(), ".dsh");
 }
 
 function resolveRoute(options: Pick<DshTurnOptions, "provider" | "model">): {
@@ -198,6 +203,8 @@ async function ensureRuntime(
     profile: "sdk",
     dshHome: defaultDshHome(),
     cwd: options.workspace,
+    // Subprocess cwd must match the agent workspace — tools use process.cwd().
+    processCwd: options.workspace,
     provider,
     model,
     patches,

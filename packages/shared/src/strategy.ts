@@ -190,7 +190,10 @@ export function parseStrategyTickDecision(
     }
   }
 
-  return { action, label, detail, intent };
+  const decision: StrategyTickDecision = { action, label };
+  if (detail) decision.detail = detail;
+  if (intent) decision.intent = intent;
+  return decision;
 }
 
 export function extractStrategyTickDecisionFromText(

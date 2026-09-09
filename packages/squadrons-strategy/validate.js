@@ -81,12 +81,16 @@ export function parseStrategyTickDecision(value) {
       ? value.detail.trim()
       : undefined;
 
-  let intent;
+  /** @type {{ action: string, label: string, detail?: string, intent?: object }} */
+  const out = { action, label };
+  if (detail) out.detail = detail;
+
   if (action === "propose_trade") {
     if (!isRecord(value.intent)) return null;
     const amountUsd = Number(value.intent.amountUsd);
     if (!Number.isFinite(amountUsd) || amountUsd <= 0) return null;
-    intent = { amountUsd };
+    /** @type {{ amountUsd: number, symbol?: string, side?: string, note?: string }} */
+    const intent = { amountUsd };
     if (typeof value.intent.symbol === "string" && value.intent.symbol.trim()) {
       intent.symbol = value.intent.symbol.trim().toUpperCase();
     }
@@ -96,7 +100,8 @@ export function parseStrategyTickDecision(value) {
     if (typeof value.intent.note === "string" && value.intent.note.trim()) {
       intent.note = value.intent.note.trim();
     }
+    out.intent = intent;
   }
 
-  return { action, label, detail, intent };
+  return out;
 }

@@ -260,26 +260,37 @@ export function apply(ctx) {
         url.searchParams.set("ids", ids.join(","));
         url.searchParams.set("vs_currencies", "usd");
 
-        const response = await fetch(url);
+        const response = await fetch(url, {
+          headers: {
+            Accept: "application/json",
+            // CoinGecko rejects bare fetches / empty UA from some hosts.
+            "User-Agent": "squadrons-host/0.1 (strategy ticks; read-only)",
+          },
+        });
         if (!response.ok) {
+          const body = await response.text().catch(() => "");
           throw new Error(
-            `Spot price feed failed (${response.status}). Try again or use web search.`,
+            `Spot price feed failed (${response.status})${
+              body ? `: ${body.slice(0, 160)}` : ""
+            }. Try again shortly or report_tick with action none/alert.`,
           );
         }
         const payload = await response.json();
 
         const prices = specs.map(({ symbol, coingeckoId }) => {
           const usd = payload?.[coingeckoId]?.usd;
-          return {
+          /** @type {Record<string, unknown>} */
+          const row = {
             symbol,
             usd: typeof usd === "number" ? usd : null,
             source: "coingecko",
             coingeckoId,
-            note:
-              symbol === "USDG"
-                ? "USDG uses usd-coin as a peg reference — verify on-chain before acting"
-                : undefined,
           };
+          if (symbol === "USDG") {
+            row.note =
+              "USDG uses usd-coin as a peg reference — verify on-chain before acting";
+          }
+          return row;
         });
 
         return {

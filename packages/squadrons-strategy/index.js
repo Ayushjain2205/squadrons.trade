@@ -135,11 +135,11 @@ export function apply(ctx) {
       async execute() {
         const state = await readJson(statePath());
         const draft = await readJson(draftPath());
-        return {
-          mode: deskMode(),
-          strategy: state,
-          pendingDraft: draft,
-        };
+        /** @type {Record<string, unknown>} */
+        const out = { mode: deskMode() };
+        if (state != null) out.strategy = state;
+        if (draft != null) out.pendingDraft = draft;
+        return out;
       },
       presentCall: () => ({
         card: "generic",
@@ -214,7 +214,10 @@ export function apply(ctx) {
 
         return {
           ok: true,
-          ...decision,
+          action: decision.action,
+          label: decision.label,
+          ...(decision.detail ? { detail: decision.detail } : {}),
+          ...(decision.intent ? { intent: decision.intent } : {}),
           note: "Tick reported to the host activity trail.",
         };
       },
