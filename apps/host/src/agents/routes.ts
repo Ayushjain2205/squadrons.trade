@@ -18,6 +18,7 @@ import {
   invalidateAgentRuntime,
   runDshTurn,
 } from "../dsh/runner.js";
+import { isSuccessfulProposeStrategyResult } from "../dsh/activity-map.js";
 import type { ActivityHub } from "./activity-hub.js";
 import type { MessageStore } from "./messages.js";
 import { agentWorkspacePath } from "./paths.js";
@@ -640,6 +641,36 @@ export function registerAgentRoutes(
       const workspace = agentWorkspacePath(user.id, agent.id);
       await writeStrategyStateFile(workspace, agent);
 
+      let draftSyncedThisTurn = false;
+      let draftSyncGate: Promise<void> = Promise.resolve();
+      const syncPendingDraft = (announce: boolean) => {
+        const run = draftSyncGate.then(async () => {
+          if (agent.mode !== "operate" || draftSyncedThisTurn) return false;
+          const draft = await readPendingStrategyDraft(workspace);
+          if (!draft) return false;
+          const existingStrategy = strategies.get(agent.id);
+          if (existingStrategy?.status === "running") return false;
+          strategies.upsertDraft(agent.id, draft);
+          draftSyncedThisTurn = true;
+          if (announce) {
+            activity.publish({
+              agentId: agent.id,
+              kind: "info",
+              label: "Saved strategy draft",
+              detail: draft.summary,
+            });
+          }
+          const latest = agents.getForUser(user.id, agent.id);
+          if (latest) await writeStrategyStateFile(workspace, latest);
+          return true;
+        });
+        draftSyncGate = run.then(
+          () => undefined,
+          () => undefined,
+        );
+        return run;
+      };
+
       let turn;
       try {
         turn = await runDshTurn({
@@ -654,6 +685,12 @@ export function registerAgentRoutes(
           })),
           onActivity: (event) => {
             activity.publish(event);
+          },
+          onNotification: (notification) => {
+            if (!isSuccessfulProposeStrategyResult(notification)) return;
+            void syncPendingDraft(true).catch((error) => {
+              console.error("[strategy-draft-mid-turn]", agent.id, error);
+            });
           },
         });
       } catch (error) {
@@ -672,24 +709,10 @@ export function registerAgentRoutes(
 
       const replyText = (turn.finalResponse || "(no response)").trimEnd();
 
-      if (agent.mode === "operate") {
-        const draft = await readPendingStrategyDraft(workspace);
-        if (draft) {
-          try {
-            const existingStrategy = strategies.get(agent.id);
-            if (existingStrategy?.status !== "running") {
-              strategies.upsertDraft(agent.id, draft);
-              activity.publish({
-                agentId: agent.id,
-                kind: "info",
-                label: "Saved strategy draft",
-                detail: draft.summary,
-              });
-            }
-          } catch (error) {
-            console.error("[strategy-draft]", agent.id, error);
-          }
-        }
+      try {
+        await syncPendingDraft(true);
+      } catch (error) {
+        console.error("[strategy-draft]", agent.id, error);
       }
 
       const assistantMessage = messages.append(

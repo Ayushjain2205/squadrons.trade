@@ -161,6 +161,18 @@ function AgentContextSummary({
         agentId={agent.id}
         agentName={agent.name}
         live={isWorking || agent.strategy?.status === "running"}
+        onLiveEvent={(event) => {
+          const shouldRefresh =
+            event.label === "Saved strategy draft" ||
+            event.label === "Armed strategy" ||
+            event.label === "Paused strategy" ||
+            event.label === "Resumed strategy" ||
+            event.label === "Disarmed strategy";
+          if (!shouldRefresh) return;
+          void getAgent(agent.id)
+            .then((latest) => onAgentUpdatedRef.current?.(latest))
+            .catch(() => undefined);
+        }}
       />
     </div>
   );

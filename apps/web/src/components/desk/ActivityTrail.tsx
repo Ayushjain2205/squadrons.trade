@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { displayActivityLabel } from "@squadrons/shared";
 import {
   listActivity,
@@ -44,13 +44,18 @@ export function ActivityTrail({
   agentId,
   agentName,
   live = false,
+  onLiveEvent,
 }: {
   agentId: string;
   agentName: string;
   live?: boolean;
+  /** Fired for each new live activity event (SSE). */
+  onLiveEvent?: (event: ActivityEvent) => void;
 }) {
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const onLiveEventRef = useRef(onLiveEvent);
+  onLiveEventRef.current = onLiveEvent;
 
   useEffect(() => {
     let cancelled = false;
@@ -69,6 +74,7 @@ export function ActivityTrail({
 
     const unsubscribe = subscribeActivity(agentId, (event) => {
       if (!displayActivityLabel(event, { done: false })) return;
+      onLiveEventRef.current?.(event);
       setEvents((prev) => {
         if (prev.some((row) => row.id === event.id)) return prev;
         return [...prev, event];

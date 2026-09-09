@@ -14,6 +14,7 @@ import {
 import { mapNotificationToActivity } from "./activity-map.js";
 import type { NewActivityEvent } from "../agents/activity.js";
 import type { Strategy } from "@squadrons/shared";
+import type { HarnessNotification } from "./activity-map.js";
 
 export type DshTurnResult = {
   sessionId: string;
@@ -49,6 +50,8 @@ export type DshTurnOptions = {
   history?: Array<{ role: string; content: string }>;
   /** Live activity sink (persist + SSE). */
   onActivity?: (event: NewActivityEvent) => void;
+  /** Raw dsh notifications (e.g. mid-turn strategy draft sync). */
+  onNotification?: (notification: HarnessNotification) => void;
   /** Shared per-user wallet injected as SQUADRONS_USER_WALLET. */
   walletAddress?: string | null;
   /**
@@ -251,6 +254,7 @@ export async function runDshTurn(
       result = await runtime.harness.run(prompt, {
         sessionId: runtime.sessionId ?? undefined,
         onNotification: (notification) => {
+          options.onNotification?.(notification);
           if (!options.onActivity) return;
           const mapped = mapNotificationToActivity(
             options.agentId,
