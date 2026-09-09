@@ -50,6 +50,7 @@ Cherry Bomb One (wordmark), Manrope (UI + display), IBM Plex Mono (chain ids / m
 - Composer: full pill, `+` affordance, circular send
 - Right rail: soft identity line + abstracted Activity trail (human verbs, no tool dumps); gear opens settings
 - Orbs: 8 faces × 7 colors, chosen independently
+- Loading: desk-shaped skeletons (rail rows, chat bubbles, context trail) with soft shimmer; BrandMark stays live
 
 ## Activity
 

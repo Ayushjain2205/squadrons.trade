@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DeskShell } from "@/components/desk/DeskShell";
 import { EmptyAgents } from "@/components/desk/EmptyAgents";
+import { HomeCenterSkeleton } from "@/components/desk/DeskSkeleton";
 import { AgentOrb } from "@/components/AgentOrb";
 import { BrandMark } from "@/components/BrandMark";
 import { getHostUrl, listAgents, type AgentWithWorkspace } from "@/lib/host";
@@ -43,10 +44,8 @@ export default function HomePage() {
 
   if (!ready) {
     return (
-      <DeskShell agents={[]} selectedId={null}>
-        <div className="type-ui flex flex-1 items-center justify-center text-[var(--muted)]">
-          Loading agents…
-        </div>
+      <DeskShell agents={[]} selectedId={null} loading>
+        <HomeCenterSkeleton />
       </DeskShell>
     );
   }

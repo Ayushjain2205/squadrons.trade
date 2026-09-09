@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DeskShell } from "@/components/desk/DeskShell";
+import { ChatSkeleton } from "@/components/desk/DeskSkeleton";
 import {
   getAgent,
   listAgents,
@@ -52,10 +53,8 @@ export default function AgentDetailPage() {
 
   if (state.status === "loading") {
     return (
-      <DeskShell agents={[]} selectedId={id}>
-        <div className="type-ui flex flex-1 items-center justify-center text-[var(--muted)]">
-          Loading agent…
-        </div>
+      <DeskShell agents={[]} selectedId={id} loading>
+        <ChatSkeleton />
       </DeskShell>
     );
   }

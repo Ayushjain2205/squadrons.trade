@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { AgentOrb } from "@/components/AgentOrb";
 import { BrandMark } from "@/components/BrandMark";
+import { RailListSkeleton, SkeletonBone } from "@/components/desk/DeskSkeleton";
 import { getMe, type AgentWithWorkspace } from "@/lib/host";
 import { formatRelativeTime } from "@/lib/time";
 
@@ -17,10 +18,12 @@ export function AgentRail({
   agents,
   selectedId,
   hostError,
+  loading = false,
 }: {
   agents: AgentWithWorkspace[];
   selectedId?: string | null;
   hostError?: string | null;
+  loading?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const { logout } = usePrivy();
@@ -82,7 +85,11 @@ export function AgentRail({
           </p>
         ) : null}
 
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div aria-busy="true" aria-label="Loading agents">
+            <RailListSkeleton />
+          </div>
+        ) : filtered.length === 0 ? (
           <p className="type-ui px-3 py-6 text-[var(--muted)]">
             {agents.length === 0 ? "No agents yet." : "No matches."}
           </p>
@@ -141,16 +148,27 @@ export function AgentRail({
             0x
           </span>
           <div className="min-w-0 flex-1">
-            <p className="type-data truncate !text-[length:var(--text-ui)] font-medium !text-[var(--ink-soft)]">
-              {walletAddress ? truncateAddress(walletAddress) : "No wallet yet"}
-            </p>
-            <button
-              type="button"
-              onClick={() => void logout()}
-              className="type-meta cursor-pointer transition hover:!text-[var(--ink)]"
-            >
-              Log out
-            </button>
+            {loading && !walletAddress ? (
+              <div className="space-y-1.5" aria-hidden>
+                <SkeletonBone className="h-3.5 w-28" />
+                <SkeletonBone className="h-2.5 w-14" />
+              </div>
+            ) : (
+              <>
+                <p className="type-data truncate !text-[length:var(--text-ui)] font-medium !text-[var(--ink-soft)]">
+                  {walletAddress
+                    ? truncateAddress(walletAddress)
+                    : "No wallet yet"}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void logout()}
+                  className="type-meta cursor-pointer transition hover:!text-[var(--ink)]"
+                >
+                  Log out
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>

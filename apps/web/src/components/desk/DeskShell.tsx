@@ -1,6 +1,7 @@
 import type { AgentWithWorkspace } from "@/lib/host-types";
 import { AgentContextPanel } from "./AgentContextPanel";
 import { AgentRail } from "./AgentRail";
+import { ContextPanelSkeleton } from "./DeskSkeleton";
 
 /**
  * THESIS: Operator desk — agent roster left, live chat center, agent context right; refuse page-per-agent chrome.
@@ -15,6 +16,7 @@ export function DeskShell({
   selectedId,
   selectedAgent,
   hostError,
+  loading = false,
   onAgentUpdated,
   children,
 }: {
@@ -22,6 +24,7 @@ export function DeskShell({
   selectedId?: string | null;
   selectedAgent?: AgentWithWorkspace | null;
   hostError?: string | null;
+  loading?: boolean;
   onAgentUpdated?: (agent: AgentWithWorkspace) => void;
   children: React.ReactNode;
 }) {
@@ -31,6 +34,7 @@ export function DeskShell({
         agents={agents}
         selectedId={selectedId}
         hostError={hostError}
+        loading={loading}
       />
 
       <main className="flex min-w-0 flex-1 flex-col bg-[var(--canvas)]">
@@ -38,10 +42,14 @@ export function DeskShell({
       </main>
 
       <aside className="hidden min-h-0 w-[var(--rail-right)] shrink-0 flex-col border-l border-[var(--line-soft)] bg-[var(--rail)] lg:flex">
-        <AgentContextPanel
-          agent={selectedAgent ?? null}
-          onAgentUpdated={onAgentUpdated}
-        />
+        {loading && !selectedAgent ? (
+          <ContextPanelSkeleton />
+        ) : (
+          <AgentContextPanel
+            agent={selectedAgent ?? null}
+            onAgentUpdated={onAgentUpdated}
+          />
+        )}
       </aside>
     </div>
   );

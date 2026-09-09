@@ -611,3 +611,41 @@ textarea.chat-input:focus-visible,
   background: #333;
   border-radius: 999px;
 }
+
+/* --- Skeleton loading (desk-shaped placeholders) --- */
+
+.skeleton-bone {
+  position: relative;
+  overflow: hidden;
+  background: var(--panel);
+  border-radius: 0.5rem;
+}
+
+.skeleton-bone::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--panel-2) 85%, transparent) 45%,
+    color-mix(in srgb, var(--ink) 8%, transparent) 50%,
+    color-mix(in srgb, var(--panel-2) 85%, transparent) 55%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-bone::after {
+    animation: none;
+    background: color-mix(in srgb, var(--panel-2) 70%, transparent);
+  }
+}
