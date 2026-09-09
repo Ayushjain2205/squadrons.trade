@@ -1,23 +1,25 @@
 import type { StrategyTickDecision } from "@squadrons/shared";
 import { resolveRpcUrl } from "./rpc.js";
+import { isNativeAsset, resolveKnownToken } from "./tokens.js";
 import type { RecipeContext } from "./types.js";
 
 function isAddress(value: unknown): value is `0x${string}` {
   return typeof value === "string" && /^0x[a-fA-F0-9]{40}$/.test(value);
 }
 
-async function ethGetBalance(
+async function rpcCall(
   rpcUrl: string,
-  address: `0x${string}`,
-): Promise<bigint> {
+  method: string,
+  params: unknown[],
+): Promise<string> {
   const response = await fetch(rpcUrl, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       jsonrpc: "2.0",
       id: 1,
-      method: "eth_getBalance",
-      params: [address, "latest"],
+      method,
+      params,
     }),
   });
   if (!response.ok) {
@@ -31,9 +33,38 @@ async function ethGetBalance(
     throw new Error(payload.error.message);
   }
   if (typeof payload.result !== "string") {
-    throw new Error("RPC returned no balance");
+    throw new Error(`RPC ${method} returned no result`);
   }
-  return BigInt(payload.result);
+  return payload.result;
+}
+
+async function ethGetBalance(
+  rpcUrl: string,
+  address: `0x${string}`,
+): Promise<bigint> {
+  return BigInt(await rpcCall(rpcUrl, "eth_getBalance", [address, "latest"]));
+}
+
+/** ERC-20 balanceOf(address) via eth_call. */
+async function erc20BalanceOf(
+  rpcUrl: string,
+  token: `0x${string}`,
+  owner: `0x${string}`,
+): Promise<bigint> {
+  const data = `0x70a08231000000000000000000000000${owner.slice(2).toLowerCase()}`;
+  const result = await rpcCall(rpcUrl, "eth_call", [
+    { to: token, data },
+    "latest",
+  ]);
+  return BigInt(result);
+}
+
+function formatUnits(raw: bigint, decimals: number): number {
+  if (decimals === 0) return Number(raw);
+  const base = 10n ** BigInt(decimals);
+  const whole = raw / base;
+  const frac = raw % base;
+  return Number(whole) + Number(frac) / Number(base);
 }
 
 export async function executeBalanceThresholdAlert(
@@ -41,9 +72,7 @@ export async function executeBalanceThresholdAlert(
 ): Promise<StrategyTickDecision> {
   const params = ctx.strategy.params;
   const wallet =
-    (isAddress(params.walletAddress)
-      ? params.walletAddress
-      : null) ??
+    (isAddress(params.walletAddress) ? params.walletAddress : null) ??
     (isAddress(ctx.walletAddress) ? ctx.walletAddress : null);
 
   if (!wallet) {
@@ -56,14 +85,6 @@ export async function executeBalanceThresholdAlert(
 
   const asset =
     typeof params.asset === "string" ? params.asset.trim() : "native";
-  if (asset !== "native" && asset.toUpperCase() !== "ETH") {
-    return {
-      action: "alert",
-      label: "Balance check skipped",
-      detail: `Asset ${asset} not supported yet — use native/ETH`,
-    };
-  }
-
   const op = params.op === "above" ? "above" : "below";
   const threshold = Number(params.threshold);
   if (!Number.isFinite(threshold) || threshold < 0) {
@@ -75,11 +96,29 @@ export async function executeBalanceThresholdAlert(
   }
 
   const rpcUrl = resolveRpcUrl(ctx.agent.chainId);
-  const wei = await ethGetBalance(rpcUrl, wallet);
-  const eth = Number(wei) / 1e18;
-  const fired = op === "below" ? eth < threshold : eth > threshold;
+  let amount: number;
+  let symbol: string;
 
-  const detail = `${wallet.slice(0, 6)}…${wallet.slice(-4)} has ${eth.toFixed(4)} ETH (threshold ${op} ${threshold})`;
+  if (isNativeAsset(asset)) {
+    const wei = await ethGetBalance(rpcUrl, wallet);
+    amount = formatUnits(wei, 18);
+    symbol = "ETH";
+  } else {
+    const token = resolveKnownToken(ctx.agent.chainId, asset);
+    if (!token) {
+      return {
+        action: "alert",
+        label: "Balance check skipped",
+        detail: `Unknown asset ${asset} on chain ${ctx.agent.chainId}`,
+      };
+    }
+    const raw = await erc20BalanceOf(rpcUrl, token.address, wallet);
+    amount = formatUnits(raw, token.decimals);
+    symbol = token.symbol;
+  }
+
+  const fired = op === "below" ? amount < threshold : amount > threshold;
+  const detail = `${wallet.slice(0, 6)}…${wallet.slice(-4)} has ${amount.toFixed(4)} ${symbol} (threshold ${op} ${threshold})`;
 
   if (!fired) {
     return {
@@ -90,11 +129,11 @@ export async function executeBalanceThresholdAlert(
   }
 
   return {
-    action: ctx.strategy.action.type === "propose_trade" ? "alert" : "alert",
+    action: "alert",
     label:
       op === "below"
-        ? `Balance below ${threshold} ETH`
-        : `Balance above ${threshold} ETH`,
+        ? `Balance below ${threshold} ${symbol}`
+        : `Balance above ${threshold} ${symbol}`,
     detail,
   };
 }
