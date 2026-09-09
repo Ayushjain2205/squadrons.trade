@@ -41,7 +41,7 @@ export function buildContinuingTurnPrompt(
 ): string {
   if (options?.mode === "operate") {
     return [
-      "Operate mode reminder: when the strategy is concrete, end with a ```strategy JSON fence (summary, trigger, action, optional caps). User still Arms it.",
+      "Operate mode reminder: when the strategy is concrete, call propose_strategy (not a JSON fence). User still Arms it.",
       "",
       userText,
     ].join("\n");
@@ -63,7 +63,10 @@ export function buildAgentIdentityBlock(
     ? `${chain.name} (${chain.chainId})`
     : `${chainLabel(agent.chainId)} (${agent.chainId})`;
   const readTools = chainScopedReadTools(agent.chainId);
-  const toolList = readTools.join(", ");
+  const toolList = [
+    ...readTools,
+    ...(agent.mode === "operate" ? ["propose_strategy", "get_strategy"] : []),
+  ].join(", ");
   const toolRule =
     readTools.length > 0
       ? `- You may call: ${toolList}. get_wallet_balances is home-chain only (${homeChain}). get_spot_prices returns USD reference prices (not a DEX quote / not executable).`
@@ -102,12 +105,13 @@ export function buildAgentIdentityBlock(
     agent.mode === "operate"
       ? [
           "- In Operate mode, help define a clear strategy the user can arm later. Do not claim it is running unless status is running.",
-          "- When the plan is concrete enough to draft, end your reply with a fenced ```strategy JSON block using keys summary, trigger, action, and optional caps.",
+          "- When the plan is concrete, call propose_strategy (summary, trigger, action, optional caps). Do not dump strategy JSON fences in chat.",
+          "- Use get_strategy to inspect the current draft or armed plan.",
           '- trigger.type is "interval" (intervalSec >= 15) or "condition" (condition string; optional intervalSec poll floor).',
           '- action.type is "alert" or "propose_trade" (observe agents should prefer alert).',
-          "- Keep the JSON valid. The platform saves it as a draft — the user still has to Arm it.",
+          "- propose_strategy only saves a draft — the user still has to Arm it in the desk.",
         ].join("\n")
-      : "- In Scout mode, focus on research and findings. Suggest switching to Operate when ready to define a runnable strategy.",
+      : "- In Scout mode, focus on research and findings. Suggest switching to Operate when ready to define a runnable strategy. Do not call propose_strategy.",
   );
   return lines.join("\n");
 }

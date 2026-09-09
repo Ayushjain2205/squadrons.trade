@@ -61,3 +61,6 @@ export function chainScopedReadTools(
   // balance tools still execute against the agent's home chain only.
   return CHAIN_SCOPED_READ_TOOLS;
 }
+
+/** Tools the Operate-mode prompt should mention for strategy authorship. */
+export const STRATEGY_TOOLS = ["propose_strategy", "get_strategy"] as const;

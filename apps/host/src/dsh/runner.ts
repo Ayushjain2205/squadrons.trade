@@ -63,6 +63,7 @@ type PooledRuntime = {
   sessionId: string | null;
   workspace: string;
   chainId: number;
+  mode: string;
   walletAddress: string | null;
   provider: string;
   model: string;
@@ -108,11 +109,13 @@ function resolveRoute(options: Pick<DshTurnOptions, "provider" | "model">): {
 function buildChildEnv(
   chainId: number,
   walletAddress?: string | null,
+  mode?: string | null,
 ): NodeJS.ProcessEnv {
   const childEnv: NodeJS.ProcessEnv = { ...process.env };
   delete childEnv.DSH_MODEL;
   delete childEnv.DSH_PROVIDER;
   childEnv.SQUADRONS_AGENT_CHAIN_ID = String(chainId);
+  childEnv.SQUADRONS_AGENT_MODE = mode === "operate" ? "operate" : "scout";
   if (walletAddress) {
     childEnv.SQUADRONS_USER_WALLET = walletAddress;
   } else {
@@ -168,11 +171,13 @@ async function ensureRuntime(
 ): Promise<PooledRuntime> {
   const poolKey = options.poolKey ?? options.agentId;
   const walletAddress = options.walletAddress ?? null;
+  const mode = options.agent.mode === "operate" ? "operate" : "scout";
   const existing = pool.get(poolKey);
   if (
     existing &&
     existing.workspace === options.workspace &&
     existing.chainId === options.agent.chainId &&
+    existing.mode === mode &&
     existing.walletAddress === walletAddress &&
     existing.provider === provider &&
     existing.model === model
@@ -193,7 +198,7 @@ async function ensureRuntime(
     provider,
     model,
     patches,
-    env: buildChildEnv(options.agent.chainId, walletAddress),
+    env: buildChildEnv(options.agent.chainId, walletAddress, mode),
     initializeTimeoutMs: 60_000,
   });
   await harness.start();
@@ -203,6 +208,7 @@ async function ensureRuntime(
     sessionId: null,
     workspace: options.workspace,
     chainId: options.agent.chainId,
+    mode,
     walletAddress,
     provider,
     model,

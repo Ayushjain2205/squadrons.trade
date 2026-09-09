@@ -8,6 +8,7 @@ import type { AgentStore } from "../agents/store.js";
 import type { StrategyStore } from "../agents/strategy-store.js";
 import type { UserStore } from "../auth/privy.js";
 import { runDshStrategyTick } from "../dsh/runner.js";
+import { writeStrategyStateFile } from "./workspace-draft.js";
 
 const DEFAULT_SCAN_MS = 15_000;
 const DEFAULT_INTERVAL_SEC = 60;
@@ -43,6 +44,7 @@ export function startStrategyScheduler(deps: {
 
       const user = deps.users.get(agent.userId);
       const workspace = agentWorkspacePath(agent.userId, agent.id);
+      await writeStrategyStateFile(workspace, agent);
 
       deps.activity.publish({
         agentId: agent.id,

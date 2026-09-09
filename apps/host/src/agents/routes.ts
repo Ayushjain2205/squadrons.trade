@@ -2,7 +2,6 @@ import { mkdir } from "node:fs/promises";
 import type { Express, NextFunction, Request, Response } from "express";
 import type { CreateAgentInput, UpdateAgentInput } from "@squadrons/shared";
 import {
-  extractStrategyDraftFromText,
   isAgentMode,
   isAvatarId,
   isOrbColorId,
@@ -24,6 +23,10 @@ import type { MessageStore } from "./messages.js";
 import { agentWorkspacePath } from "./paths.js";
 import type { AgentStore } from "./store.js";
 import type { StrategyStore } from "./strategy-store.js";
+import {
+  readPendingStrategyDraft,
+  writeStrategyStateFile,
+} from "../strategy/workspace-draft.js";
 
 const GREETING =
   "Hey — I'm ready when you are. What should we dig into?";
@@ -374,17 +377,16 @@ export function registerAgentRoutes(
       });
 
       const agent = agents.getForUser(user.id, existing.id);
+      const workspace = agentWorkspacePath(user.id, existing.id);
+      if (agent) await writeStrategyStateFile(workspace, agent);
       res.json({
         ok: true,
         agent: agent
-          ? {
-              ...agent,
-              workspace: agentWorkspacePath(user.id, agent.id),
-            }
+          ? { ...agent, workspace }
           : {
               ...existing,
               strategy: strategies.get(existing.id),
-              workspace: agentWorkspacePath(user.id, existing.id),
+              workspace,
             },
       });
     } catch (error) {
@@ -423,12 +425,14 @@ export function registerAgentRoutes(
       });
 
       const agent = agents.getForUser(user.id, existing.id);
+      const workspace = agentWorkspacePath(user.id, existing.id);
+      if (agent) await writeStrategyStateFile(workspace, agent);
       res.json({
         ok: true,
         agent: {
           ...(agent ?? existing),
           strategy: agent?.strategy ?? strategy,
-          workspace: agentWorkspacePath(user.id, existing.id),
+          workspace,
         },
       });
     } catch (error) {
@@ -460,12 +464,14 @@ export function registerAgentRoutes(
       });
 
       const agent = agents.getForUser(user.id, existing.id);
+      const workspace = agentWorkspacePath(user.id, existing.id);
+      if (agent) await writeStrategyStateFile(workspace, agent);
       res.json({
         ok: true,
         agent: {
           ...(agent ?? existing),
           strategy: agent?.strategy ?? strategy,
-          workspace: agentWorkspacePath(user.id, existing.id),
+          workspace,
         },
       });
     } catch (error) {
@@ -504,12 +510,14 @@ export function registerAgentRoutes(
       });
 
       const agent = agents.getForUser(user.id, existing.id);
+      const workspace = agentWorkspacePath(user.id, existing.id);
+      if (agent) await writeStrategyStateFile(workspace, agent);
       res.json({
         ok: true,
         agent: {
           ...(agent ?? existing),
           strategy: agent?.strategy ?? strategy,
-          workspace: agentWorkspacePath(user.id, existing.id),
+          workspace,
         },
       });
     } catch (error) {
@@ -541,12 +549,14 @@ export function registerAgentRoutes(
       });
 
       const agent = agents.getForUser(user.id, existing.id);
+      const workspace = agentWorkspacePath(user.id, existing.id);
+      if (agent) await writeStrategyStateFile(workspace, agent);
       res.json({
         ok: true,
         agent: {
           ...(agent ?? existing),
           strategy: agent?.strategy ?? strategy,
-          workspace: agentWorkspacePath(user.id, existing.id),
+          workspace,
         },
       });
     } catch (error) {
@@ -628,6 +638,7 @@ export function registerAgentRoutes(
       agent = agents.getForUser(user.id, agent.id) ?? agent;
 
       const workspace = agentWorkspacePath(user.id, agent.id);
+      await writeStrategyStateFile(workspace, agent);
 
       let turn;
       try {
@@ -662,16 +673,19 @@ export function registerAgentRoutes(
       const replyText = (turn.finalResponse || "(no response)").trimEnd();
 
       if (agent.mode === "operate") {
-        const draft = extractStrategyDraftFromText(replyText);
+        const draft = await readPendingStrategyDraft(workspace);
         if (draft) {
           try {
-            strategies.upsertDraft(agent.id, draft);
-            activity.publish({
-              agentId: agent.id,
-              kind: "info",
-              label: "Saved strategy draft",
-              detail: draft.summary,
-            });
+            const existingStrategy = strategies.get(agent.id);
+            if (existingStrategy?.status !== "running") {
+              strategies.upsertDraft(agent.id, draft);
+              activity.publish({
+                agentId: agent.id,
+                kind: "info",
+                label: "Saved strategy draft",
+                detail: draft.summary,
+              });
+            }
           } catch (error) {
             console.error("[strategy-draft]", agent.id, error);
           }
@@ -688,6 +702,10 @@ export function registerAgentRoutes(
         status: "idle",
         lastDshSessionId: turn.sessionId,
       });
+
+      if (updated) {
+        await writeStrategyStateFile(workspace, updated);
+      }
 
       res.json({
         ok: true,

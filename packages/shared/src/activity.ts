@@ -2,6 +2,8 @@
 export const ACTIVITY_STEP_LABELS: Record<string, string> = {
   get_wallet_balances: "Looking up balances",
   get_spot_prices: "Checking prices",
+  propose_strategy: "Drafting strategy",
+  get_strategy: "Checking strategy",
   web_search: "Searching the web",
   WebSearch: "Searching the web",
   web_fetch: "Reading a page",
@@ -15,6 +17,8 @@ export const ACTIVITY_STEP_LABELS: Record<string, string> = {
 export const ACTIVITY_STEP_LABELS_DONE: Record<string, string> = {
   get_wallet_balances: "Looked up balances",
   get_spot_prices: "Checked prices",
+  propose_strategy: "Drafted strategy",
+  get_strategy: "Checked strategy",
   web_search: "Searched the web",
   WebSearch: "Searched the web",
   web_fetch: "Read a page",
