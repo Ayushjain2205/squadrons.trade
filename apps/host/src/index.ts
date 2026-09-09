@@ -27,6 +27,7 @@ import { UserStore } from "./auth/privy.js";
 import { openDatabase } from "./db.js";
 import { closeAllAgentRuntimes, runDshSmoke } from "./dsh/runner.js";
 import { startStrategyScheduler } from "./strategy/scheduler.js";
+import { TradeIntentStore } from "./strategy/trade-intents.js";
 
 const port = Number(process.env.PORT ?? 8787);
 const host = process.env.HOST ?? "0.0.0.0";
@@ -37,11 +38,13 @@ const agents = new AgentStore(db, strategies);
 const messages = new MessageStore(db);
 const users = new UserStore(db);
 const activity = new ActivityHub(new ActivityStore(db));
+const tradeIntents = new TradeIntentStore(db);
 const strategyScheduler = startStrategyScheduler({
   agents,
   strategies,
   users,
   activity,
+  tradeIntents,
 });
 
 const app = express();

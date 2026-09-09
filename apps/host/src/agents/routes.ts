@@ -161,6 +161,7 @@ export function registerAgentRoutes(
         avatarId?: string;
         colorId?: string;
         mode?: string;
+        spendMode?: string;
       };
       const patch: UpdateAgentInput = {};
 
@@ -192,6 +193,14 @@ export function registerAgentRoutes(
         }
         patch.mode = mode;
       }
+      if (body.spendMode !== undefined) {
+        const spendMode = String(body.spendMode);
+        if (spendMode !== "observe" && spendMode !== "spend_enabled") {
+          res.status(400).json({ ok: false, error: "invalid spendMode" });
+          return;
+        }
+        patch.spendMode = spendMode;
+      }
       if (
         body.chainId !== undefined &&
         body.chainId !== null &&
@@ -211,7 +220,8 @@ export function registerAgentRoutes(
         patch.avatarId === undefined &&
         patch.colorId === undefined &&
         patch.chainId === undefined &&
-        patch.mode === undefined
+        patch.mode === undefined &&
+        patch.spendMode === undefined
       ) {
         res.status(400).json({ ok: false, error: "no settings to update" });
         return;
@@ -221,6 +231,9 @@ export function registerAgentRoutes(
         patch.chainId !== undefined && patch.chainId !== existing.chainId;
       const modeChanged =
         patch.mode !== undefined && patch.mode !== existing.mode;
+      const spendChanged =
+        patch.spendMode !== undefined &&
+        patch.spendMode !== existing.spendMode;
 
       const agent = agents.updateSettings(user.id, agentId, patch);
       if (!agent) {
@@ -228,8 +241,27 @@ export function registerAgentRoutes(
         return;
       }
 
-      if (chainChanged || modeChanged) {
+      if (chainChanged || modeChanged || spendChanged) {
         await invalidateAgentRuntime(agent.id);
+      }
+
+      if (spendChanged) {
+        activity.publish({
+          agentId: agent.id,
+          kind: "info",
+          label:
+            agent.spendMode === "spend_enabled"
+              ? "Spend enabled"
+              : "Spend set to observe",
+          detail:
+            agent.spendMode === "spend_enabled"
+              ? "Ticks may propose trades within caps (no broadcast yet)"
+              : "Ticks are alert-only",
+        });
+        await writeStrategyStateFile(
+          agentWorkspacePath(user.id, agent.id),
+          agent,
+        );
       }
 
       res.json({

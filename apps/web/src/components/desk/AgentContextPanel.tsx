@@ -169,7 +169,9 @@ function AgentContextSummary({
             event.label === "Armed strategy" ||
             event.label === "Paused strategy" ||
             event.label === "Resumed strategy" ||
-            event.label === "Disarmed strategy";
+            event.label === "Disarmed strategy" ||
+            event.label === "Spend enabled" ||
+            event.label === "Spend set to observe";
           if (!shouldRefresh) return;
           void getAgent(agent.id)
             .then((latest) => onAgentUpdatedRef.current?.(latest))
@@ -194,6 +196,9 @@ function AgentSettingsForm({
   const [avatarId, setAvatarId] = useState<AvatarId>(agent.avatarId);
   const [colorId, setColorId] = useState<OrbColorId>(agent.colorId);
   const [chainId, setChainId] = useState<SupportedChainId>(agent.chainId);
+  const [spendMode, setSpendMode] = useState<"observe" | "spend_enabled">(
+    agent.spendMode,
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -205,6 +210,7 @@ function AgentSettingsForm({
     setAvatarId(agent.avatarId);
     setColorId(agent.colorId);
     setChainId(agent.chainId);
+    setSpendMode(agent.spendMode);
     setError(null);
   }, [agent]);
 
@@ -219,6 +225,7 @@ function AgentSettingsForm({
           avatarId,
           colorId,
           chainId: chainLocked ? undefined : chainId,
+          spendMode,
         });
         onSaved(updated);
       } catch (err) {
@@ -323,6 +330,46 @@ function AgentSettingsForm({
             Chat history is kept.
           </p>
         ) : null}
+      </fieldset>
+
+      <fieldset className="space-y-2">
+        <legend className="type-label">Spend</legend>
+        <div className="flex gap-1.5">
+          {(
+            [
+              {
+                id: "observe" as const,
+                label: "Observe",
+                hint: "Ticks alert only",
+              },
+              {
+                id: "spend_enabled" as const,
+                label: "Enabled",
+                hint: "Propose trades (no broadcast yet)",
+              },
+            ] as const
+          ).map((option) => {
+            const selected = spendMode === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setSpendMode(option.id)}
+                aria-pressed={selected}
+                className={`flex flex-1 cursor-pointer flex-col items-start rounded-xl border px-3 py-2.5 text-left transition ${
+                  selected
+                    ? "border-[var(--accent)] bg-[var(--panel)]"
+                    : "border-[var(--line)] hover:border-[var(--line)] hover:bg-[var(--panel)]"
+                }`}
+              >
+                <span className="type-ui text-[var(--ink)]">{option.label}</span>
+                <span className="type-meta text-[var(--muted)]">
+                  {option.hint}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </fieldset>
 
       {error ? (

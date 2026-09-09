@@ -126,5 +126,22 @@ function migrate(db: Database.Database): void {
 
     CREATE INDEX IF NOT EXISTS idx_strategies_status
       ON strategies (status);
+
+    CREATE TABLE IF NOT EXISTS trade_intents (
+      id TEXT PRIMARY KEY,
+      agent_id TEXT NOT NULL,
+      status TEXT NOT NULL,
+      amount_usd REAL NOT NULL,
+      symbol TEXT,
+      side TEXT,
+      label TEXT NOT NULL,
+      detail TEXT,
+      reason TEXT,
+      created_at INTEGER NOT NULL,
+      FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_trade_intents_agent_created
+      ON trade_intents (agent_id, created_at DESC);
   `);
 }

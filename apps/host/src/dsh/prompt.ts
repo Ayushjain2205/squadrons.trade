@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import {
   chainLabel,
   chainScopedReadTools,
+  DEFAULT_POLICY,
   getSupportedChain,
   type Agent,
   type Strategy,
@@ -133,7 +134,19 @@ export function buildStrategyTickPrompt(
   const action =
     strategy.action.type === "alert"
       ? `alert${strategy.action.detail ? ` — ${strategy.action.detail}` : ""}`
-      : `propose_trade${strategy.action.detail ? ` — ${strategy.action.detail}` : ""} (observe: do not execute; alert/propose only)`;
+      : `propose_trade${strategy.action.detail ? ` — ${strategy.action.detail}` : ""}`;
+
+  const spendRules =
+    agent.spendMode === "spend_enabled" && strategy.action.type === "propose_trade"
+      ? [
+          "- Spend is enabled for this agent. If the trigger warrants a trade within caps, call report_tick with action propose_trade and intent { amountUsd, symbol?, side?, note? }.",
+          `- Respect maxTradeUsd caps (strategy + platform default $${DEFAULT_POLICY.maxTradeUsd}). Host fail-closes oversized intents.`,
+          "- Do not claim a tx was broadcast. Host records proposals only until signing ships.",
+        ]
+      : [
+          "- Spend is observe-only (or strategy is alert-only). Use action none or alert — never propose_trade.",
+          "- Never invent txs or claim funds moved.",
+        ];
 
   return [
     identity,
@@ -148,8 +161,8 @@ export function buildStrategyTickPrompt(
     "- Do not claim the strategy is disarmed or that you changed Arm state.",
     "- Prefer tools over guessing balances/prices.",
     "- If nothing actionable, action is none.",
-    "- If the trigger warrants the configured action and spend is observe-only, use action alert (never invent txs).",
-    '- Call report_tick once with action "none"|"alert", a short label, and optional detail. Do not dump ```tick fences.',
+    ...spendRules,
+    '- Call report_tick once. Do not dump ```tick fences.',
     "- Keep label short and operator-facing (present or past tense).",
   ].join("\n");
 }

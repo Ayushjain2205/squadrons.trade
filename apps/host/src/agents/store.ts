@@ -252,6 +252,7 @@ export class AgentStore {
 
     let chainId = existing.chainId;
     let mode = existing.mode;
+    let spendMode = existing.spendMode;
 
     if (input.chainId !== undefined && input.chainId !== existing.chainId) {
       if (!isSupportedChainId(input.chainId)) {
@@ -274,6 +275,13 @@ export class AgentStore {
       mode = input.mode;
     }
 
+    if (input.spendMode !== undefined && input.spendMode !== existing.spendMode) {
+      if (input.spendMode !== "observe" && input.spendMode !== "spend_enabled") {
+        throw new Error("invalid spendMode");
+      }
+      spendMode = input.spendMode;
+    }
+
     const updatedAt = Date.now();
     this.db
       .prepare(
@@ -284,6 +292,7 @@ export class AgentStore {
              color_id = @colorId,
              chain_id = @chainId,
              mode = @mode,
+             spend_mode = @spendMode,
              current_goal = NULL,
              updated_at = @updatedAt
          WHERE id = @id AND user_id = @userId`,
@@ -297,6 +306,7 @@ export class AgentStore {
         colorId,
         chainId,
         mode,
+        spendMode,
         updatedAt,
       });
 

@@ -138,9 +138,18 @@ export function extractStrategyDraftFromText(
 }
 
 export type StrategyTickDecision = {
-  action: "none" | "alert";
+  action: "none" | "alert" | "propose_trade";
   label: string;
   detail?: string;
+  /** Required when action is propose_trade. */
+  intent?: StrategyTradeIntent;
+};
+
+export type StrategyTradeIntent = {
+  amountUsd: number;
+  symbol?: string;
+  side?: "buy" | "sell";
+  note?: string;
 };
 
 export function parseStrategyTickDecision(
@@ -148,18 +157,40 @@ export function parseStrategyTickDecision(
 ): StrategyTickDecision | null {
   if (!isRecord(value)) return null;
   const action = value.action;
-  if (action !== "none" && action !== "alert") return null;
+  if (action !== "none" && action !== "alert" && action !== "propose_trade") {
+    return null;
+  }
   const label =
     typeof value.label === "string" && value.label.trim()
       ? value.label.trim()
       : action === "alert"
         ? "Alert"
-        : "Checked strategy";
+        : action === "propose_trade"
+          ? "Proposed trade"
+          : "Checked strategy";
   const detail =
     typeof value.detail === "string" && value.detail.trim()
       ? value.detail.trim()
       : undefined;
-  return { action, label, detail };
+
+  let intent: StrategyTradeIntent | undefined;
+  if (action === "propose_trade") {
+    if (!isRecord(value.intent)) return null;
+    const amountUsd = Number(value.intent.amountUsd);
+    if (!Number.isFinite(amountUsd) || amountUsd <= 0) return null;
+    intent = { amountUsd };
+    if (typeof value.intent.symbol === "string" && value.intent.symbol.trim()) {
+      intent.symbol = value.intent.symbol.trim().toUpperCase();
+    }
+    if (value.intent.side === "buy" || value.intent.side === "sell") {
+      intent.side = value.intent.side;
+    }
+    if (typeof value.intent.note === "string" && value.intent.note.trim()) {
+      intent.note = value.intent.note.trim();
+    }
+  }
+
+  return { action, label, detail, intent };
 }
 
 export function extractStrategyTickDecisionFromText(

@@ -60,21 +60,43 @@ export function parseStrategyDraftInput(value) {
 /**
  * Validate report_tick args. Mirrors @squadrons/shared parseStrategyTickDecision.
  * @param {unknown} value
- * @returns {{ action: "none"|"alert", label: string, detail?: string } | null}
+ * @returns {{ action: "none"|"alert"|"propose_trade", label: string, detail?: string, intent?: object } | null}
  */
 export function parseStrategyTickDecision(value) {
   if (!isRecord(value)) return null;
   const action = value.action;
-  if (action !== "none" && action !== "alert") return null;
+  if (action !== "none" && action !== "alert" && action !== "propose_trade") {
+    return null;
+  }
   const label =
     typeof value.label === "string" && value.label.trim()
       ? value.label.trim()
       : action === "alert"
         ? "Alert"
-        : "Checked strategy";
+        : action === "propose_trade"
+          ? "Proposed trade"
+          : "Checked strategy";
   const detail =
     typeof value.detail === "string" && value.detail.trim()
       ? value.detail.trim()
       : undefined;
-  return { action, label, detail };
+
+  let intent;
+  if (action === "propose_trade") {
+    if (!isRecord(value.intent)) return null;
+    const amountUsd = Number(value.intent.amountUsd);
+    if (!Number.isFinite(amountUsd) || amountUsd <= 0) return null;
+    intent = { amountUsd };
+    if (typeof value.intent.symbol === "string" && value.intent.symbol.trim()) {
+      intent.symbol = value.intent.symbol.trim().toUpperCase();
+    }
+    if (value.intent.side === "buy" || value.intent.side === "sell") {
+      intent.side = value.intent.side;
+    }
+    if (typeof value.intent.note === "string" && value.intent.note.trim()) {
+      intent.note = value.intent.note.trim();
+    }
+  }
+
+  return { action, label, detail, intent };
 }

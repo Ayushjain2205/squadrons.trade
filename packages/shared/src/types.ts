@@ -44,6 +44,7 @@ export interface UpdateAgentInput {
   description?: string;
   chainId?: SupportedChainId;
   mode?: AgentMode;
+  spendMode?: SpendMode;
 }
 
 /** Product-facing activity trail kinds (mapped from dsh session events). */

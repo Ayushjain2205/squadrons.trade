@@ -6,6 +6,8 @@ import type { StrategyStore } from "../agents/strategy-store.js";
 import type { UserStore } from "../auth/privy.js";
 import { isSuccessfulReportTickResult } from "../dsh/activity-map.js";
 import { runDshStrategyTick } from "../dsh/runner.js";
+import { gateStrategyTickSpend } from "./spend-gate.js";
+import type { TradeIntentStore } from "./trade-intents.js";
 import {
   clearStrategyTickReport,
   readStrategyTickReport,
@@ -29,6 +31,7 @@ export function startStrategyScheduler(deps: {
   strategies: StrategyStore;
   users: UserStore;
   activity: ActivityHub;
+  tradeIntents: TradeIntentStore;
   scanIntervalMs?: number;
 }): StrategyScheduler {
   const scanMs = deps.scanIntervalMs ?? DEFAULT_SCAN_MS;
@@ -59,15 +62,59 @@ export function startStrategyScheduler(deps: {
       let decision: StrategyTickDecision | null = null;
       let publishedDecision = false;
 
-      const publishDecision = (next: StrategyTickDecision) => {
+      const publishDecision = (raw: StrategyTickDecision) => {
         if (publishedDecision) return;
         publishedDecision = true;
-        decision = next;
+
+        const gated = gateStrategyTickSpend({
+          agent,
+          strategy,
+          decision: raw,
+        });
+
+        if (gated.kind === "blocked") {
+          deps.tradeIntents.append({
+            agentId: strategy.agentId,
+            status: "blocked",
+            intent: raw.intent,
+            label: gated.decision.label,
+            detail: gated.decision.detail ?? null,
+            reason: gated.reason,
+          });
+          decision = gated.decision;
+          deps.activity.publish({
+            agentId: strategy.agentId,
+            kind: "error",
+            label: gated.decision.label,
+            detail: gated.decision.detail ?? gated.reason,
+          });
+          return;
+        }
+
+        if (gated.kind === "proposed") {
+          deps.tradeIntents.append({
+            agentId: strategy.agentId,
+            status: "proposed",
+            intent: gated.intent,
+            label: gated.decision.label,
+            detail: gated.decision.detail ?? null,
+          });
+          decision = gated.decision;
+          deps.activity.publish({
+            agentId: strategy.agentId,
+            kind: "info",
+            label: gated.decision.label,
+            detail: gated.decision.detail ?? null,
+          });
+          return;
+        }
+
+        decision = gated.decision;
         deps.activity.publish({
           agentId: strategy.agentId,
           kind: "info",
-          label: next.label,
-          detail: next.detail ?? null,
+          label: gated.decision.label,
+          detail: gated.decision.detail ?? null,
         });
       };
 

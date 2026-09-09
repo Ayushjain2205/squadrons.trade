@@ -154,12 +154,12 @@ export function apply(ctx) {
     defineTool({
       name: "report_tick",
       description:
-        "Report the outcome of a background strategy tick. Call once per tick after evaluating tools. Prefer this over dumping tick JSON in the reply. action is none (no alert) or alert.",
+        "Report the outcome of a background strategy tick. Call once per tick after evaluating tools. Prefer this over dumping tick JSON in the reply. action is none, alert, or propose_trade (spend-enabled agents only; host still fail-closes and does not broadcast yet).",
       parameters: {
         action: {
           type: "string",
-          description: 'Tick outcome: "none" or "alert".',
-          enum: ["none", "alert"],
+          description: 'Tick outcome: "none", "alert", or "propose_trade".',
+          enum: ["none", "alert", "propose_trade"],
         },
         label: {
           type: "string",
@@ -169,6 +169,12 @@ export function apply(ctx) {
         detail: {
           type: "string",
           description: "Optional extra detail for the activity trail.",
+        },
+        intent: {
+          type: "object",
+          description:
+            "Required for propose_trade: { amountUsd, symbol?, side?: buy|sell, note? }.",
+          additionalProperties: true,
         },
       },
       output: {
@@ -187,7 +193,7 @@ export function apply(ctx) {
         const decision = parseStrategyTickDecision(args);
         if (!decision) {
           throw new Error(
-            'Invalid tick report. Need action "none"|"alert" and a short label.',
+            'Invalid tick report. Need action "none"|"alert"|"propose_trade" (with intent.amountUsd for trades) and a short label.',
           );
         }
 

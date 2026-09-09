@@ -42,8 +42,9 @@ export async function writeStrategyStateFile(
         caps: agent.strategy.caps,
         lastTickAt: agent.strategy.lastTickAt,
         updatedAt: agent.strategy.updatedAt,
+        spendMode: agent.spendMode,
       }
-    : { status: "none" };
+    : { status: "none", spendMode: agent.spendMode };
   await writeFile(
     strategyStatePath(workspace),
     `${JSON.stringify(payload, null, 2)}\n`,
