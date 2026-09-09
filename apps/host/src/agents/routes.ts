@@ -392,6 +392,168 @@ export function registerAgentRoutes(
     }
   });
 
+  app.post("/v1/agents/:id/strategy/arm", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      const agentId = req.params.id;
+      if (!agentId) {
+        res.status(400).json({ ok: false, error: "missing agent id" });
+        return;
+      }
+
+      const existing = agents.getForUser(user.id, agentId);
+      if (!existing) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+      if (existing.mode !== "operate") {
+        res.status(400).json({
+          ok: false,
+          error: "switch to Operate mode before arming a strategy",
+        });
+        return;
+      }
+
+      const strategy = strategies.arm(existing.id);
+      activity.publish({
+        agentId: existing.id,
+        kind: "info",
+        label: "Armed strategy",
+        detail: strategy.summary,
+      });
+
+      const agent = agents.getForUser(user.id, existing.id);
+      res.json({
+        ok: true,
+        agent: {
+          ...(agent ?? existing),
+          strategy: agent?.strategy ?? strategy,
+          workspace: agentWorkspacePath(user.id, existing.id),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/v1/agents/:id/strategy/pause", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      const agentId = req.params.id;
+      if (!agentId) {
+        res.status(400).json({ ok: false, error: "missing agent id" });
+        return;
+      }
+
+      const existing = agents.getForUser(user.id, agentId);
+      if (!existing) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+
+      const strategy = strategies.pause(existing.id);
+      activity.publish({
+        agentId: existing.id,
+        kind: "info",
+        label: "Paused strategy",
+        detail: strategy.summary,
+      });
+
+      const agent = agents.getForUser(user.id, existing.id);
+      res.json({
+        ok: true,
+        agent: {
+          ...(agent ?? existing),
+          strategy: agent?.strategy ?? strategy,
+          workspace: agentWorkspacePath(user.id, existing.id),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/v1/agents/:id/strategy/resume", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      const agentId = req.params.id;
+      if (!agentId) {
+        res.status(400).json({ ok: false, error: "missing agent id" });
+        return;
+      }
+
+      const existing = agents.getForUser(user.id, agentId);
+      if (!existing) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+      if (existing.mode !== "operate") {
+        res.status(400).json({
+          ok: false,
+          error: "switch to Operate mode before resuming a strategy",
+        });
+        return;
+      }
+
+      const strategy = strategies.resume(existing.id);
+      activity.publish({
+        agentId: existing.id,
+        kind: "info",
+        label: "Resumed strategy",
+        detail: strategy.summary,
+      });
+
+      const agent = agents.getForUser(user.id, existing.id);
+      res.json({
+        ok: true,
+        agent: {
+          ...(agent ?? existing),
+          strategy: agent?.strategy ?? strategy,
+          workspace: agentWorkspacePath(user.id, existing.id),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/v1/agents/:id/strategy/disarm", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      const agentId = req.params.id;
+      if (!agentId) {
+        res.status(400).json({ ok: false, error: "missing agent id" });
+        return;
+      }
+
+      const existing = agents.getForUser(user.id, agentId);
+      if (!existing) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+
+      const strategy = strategies.disarm(existing.id);
+      activity.publish({
+        agentId: existing.id,
+        kind: "info",
+        label: "Disarmed strategy",
+        detail: strategy.summary,
+      });
+
+      const agent = agents.getForUser(user.id, existing.id);
+      res.json({
+        ok: true,
+        agent: {
+          ...(agent ?? existing),
+          strategy: agent?.strategy ?? strategy,
+          workspace: agentWorkspacePath(user.id, existing.id),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   /** Halt a working agent by killing its dsh runtime; status → paused. */
   app.post("/v1/agents/:id/pause", async (req, res, next) => {
     try {

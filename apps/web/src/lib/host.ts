@@ -129,6 +129,33 @@ export async function upsertStrategyDraft(
   return data.agent;
 }
 
+async function strategyAction(
+  agentId: string,
+  action: "arm" | "pause" | "resume" | "disarm",
+): Promise<AgentWithWorkspace> {
+  const data = await hostFetch<{ agent: AgentWithWorkspace }>(
+    `/v1/agents/${agentId}/strategy/${action}`,
+    { method: "POST", body: "{}" },
+  );
+  return data.agent;
+}
+
+export function armStrategy(agentId: string) {
+  return strategyAction(agentId, "arm");
+}
+
+export function pauseStrategy(agentId: string) {
+  return strategyAction(agentId, "pause");
+}
+
+export function resumeStrategy(agentId: string) {
+  return strategyAction(agentId, "resume");
+}
+
+export function disarmStrategy(agentId: string) {
+  return strategyAction(agentId, "disarm");
+}
+
 export async function listMessages(agentId: string): Promise<AgentMessage[]> {
   const data = await hostFetch<{ messages: AgentMessage[] }>(
     `/v1/agents/${agentId}/messages`,

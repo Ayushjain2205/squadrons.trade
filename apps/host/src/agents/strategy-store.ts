@@ -140,6 +140,49 @@ export class StrategyStore {
     return this.get(agentId);
   }
 
+  arm(agentId: string): Strategy {
+    const existing = this.get(agentId);
+    if (!existing) throw new Error("strategy not found");
+    if (existing.status !== "draft" && existing.status !== "paused") {
+      throw new Error("only draft or paused strategies can be armed");
+    }
+    const armed = this.setStatus(agentId, "running");
+    if (!armed) throw new Error("failed to arm strategy");
+    return armed;
+  }
+
+  pause(agentId: string): Strategy {
+    const existing = this.get(agentId);
+    if (!existing) throw new Error("strategy not found");
+    if (existing.status !== "running") {
+      throw new Error("only a running strategy can be paused");
+    }
+    const paused = this.setStatus(agentId, "paused");
+    if (!paused) throw new Error("failed to pause strategy");
+    return paused;
+  }
+
+  resume(agentId: string): Strategy {
+    const existing = this.get(agentId);
+    if (!existing) throw new Error("strategy not found");
+    if (existing.status !== "paused") {
+      throw new Error("only a paused strategy can be resumed");
+    }
+    const resumed = this.setStatus(agentId, "running");
+    if (!resumed) throw new Error("failed to resume strategy");
+    return resumed;
+  }
+
+  /** Stop live run and keep the plan as a draft. */
+  disarm(agentId: string): Strategy {
+    const existing = this.get(agentId);
+    if (!existing) throw new Error("strategy not found");
+    if (existing.status === "draft") return existing;
+    const draft = this.setStatus(agentId, "draft");
+    if (!draft) throw new Error("failed to disarm strategy");
+    return draft;
+  }
+
   delete(agentId: string): boolean {
     const result = this.db
       .prepare(`DELETE FROM strategies WHERE agent_id = ?`)

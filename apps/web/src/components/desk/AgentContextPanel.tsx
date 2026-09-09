@@ -12,7 +12,14 @@ import {
 import { AgentOrb } from "@/components/AgentOrb";
 import { ChainName, ChainPicker } from "@/components/ChainLogo";
 import { OrbColorSwatch } from "@/components/OrbColorSwatch";
-import { updateAgent, type AgentWithWorkspace } from "@/lib/host";
+import {
+  armStrategy,
+  disarmStrategy,
+  pauseStrategy,
+  resumeStrategy,
+  updateAgent,
+  type AgentWithWorkspace,
+} from "@/lib/host";
 import { ActivityTrail } from "./ActivityTrail";
 import { StrategyCard } from "./StrategyCard";
 
@@ -71,14 +78,23 @@ export function AgentContextPanel({
             onCancel={() => setSettingsOpen(false)}
           />
         ) : (
-          <AgentContextSummary agent={agent} />
+          <AgentContextSummary
+            agent={agent}
+            onAgentUpdated={onAgentUpdated}
+          />
         )}
       </div>
     </div>
   );
 }
 
-function AgentContextSummary({ agent }: { agent: AgentWithWorkspace }) {
+function AgentContextSummary({
+  agent,
+  onAgentUpdated,
+}: {
+  agent: AgentWithWorkspace;
+  onAgentUpdated?: (agent: AgentWithWorkspace) => void;
+}) {
   const isWorking = agent.status === "working";
 
   return (
@@ -100,12 +116,27 @@ function AgentContextSummary({ agent }: { agent: AgentWithWorkspace }) {
         </p>
       </section>
 
-      <StrategyCard mode={agent.mode} strategy={agent.strategy} />
+      <StrategyCard
+        mode={agent.mode}
+        strategy={agent.strategy}
+        onAction={async (action) => {
+          const updated =
+            action === "arm"
+              ? await armStrategy(agent.id)
+              : action === "pause"
+                ? await pauseStrategy(agent.id)
+                : action === "resume"
+                  ? await resumeStrategy(agent.id)
+                  : await disarmStrategy(agent.id);
+          onAgentUpdated?.(updated);
+          return updated;
+        }}
+      />
 
       <ActivityTrail
         agentId={agent.id}
         agentName={agent.name}
-        live={isWorking}
+        live={isWorking || agent.strategy?.status === "running"}
       />
     </div>
   );

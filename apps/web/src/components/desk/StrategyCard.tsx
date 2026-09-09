@@ -1,14 +1,35 @@
 "use client";
 
+import { useState, useTransition, type ReactNode } from "react";
 import type { Strategy } from "@squadrons/shared";
+import type { AgentWithWorkspace } from "@/lib/host";
 
 export function StrategyCard({
   mode,
   strategy,
+  onAction,
 }: {
   mode: "scout" | "operate";
   strategy: Strategy | null;
+  onAction?: (
+    action: "arm" | "pause" | "resume" | "disarm",
+  ) => Promise<AgentWithWorkspace>;
 }) {
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function run(action: "arm" | "pause" | "resume" | "disarm") {
+    if (!onAction || pending) return;
+    setError(null);
+    startTransition(async () => {
+      try {
+        await onAction(action);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Strategy action failed");
+      }
+    });
+  }
+
   if (!strategy) {
     return (
       <section className="shrink-0 space-y-2 rounded-xl bg-[var(--panel)] px-3 py-3">
@@ -21,7 +42,9 @@ export function StrategyCard({
             ? "Define a plan in chat — when it’s concrete, the draft lands here."
             : "Scout first, then switch to Operate to draft and arm."}
         </p>
-        <ArmButton disabled title="Arming comes next — draft a strategy first" />
+        <PrimaryButton disabled title="Draft a strategy first">
+          Arm strategy
+        </PrimaryButton>
       </section>
     );
   }
@@ -41,6 +64,14 @@ export function StrategyCard({
       : strategy.action.detail
         ? `Propose trade — ${strategy.action.detail}`
         : "Propose trade";
+
+  const canArm =
+    mode === "operate" &&
+    (strategy.status === "draft" || strategy.status === "paused");
+  const canPause = strategy.status === "running";
+  const canResume = mode === "operate" && strategy.status === "paused";
+  const canDisarm =
+    strategy.status === "running" || strategy.status === "paused";
 
   return (
     <section className="shrink-0 space-y-3 rounded-xl bg-[var(--panel)] px-3 py-3">
@@ -72,33 +103,79 @@ export function StrategyCard({
         ) : null}
       </dl>
 
-      <ArmButton
-        disabled
-        title={
-          strategy.status === "draft"
-            ? "Arming ships next — draft is ready"
-            : "Strategy controls ship next"
-        }
-      />
+      <div className="flex flex-col gap-2">
+        {strategy.status === "running" ? (
+          <PrimaryButton
+            disabled={pending || !canPause}
+            onClick={() => run("pause")}
+          >
+            {pending ? "Working…" : "Pause strategy"}
+          </PrimaryButton>
+        ) : strategy.status === "paused" ? (
+          <PrimaryButton
+            disabled={pending || !canResume}
+            onClick={() => run("resume")}
+            title={
+              mode !== "operate"
+                ? "Switch to Operate to resume"
+                : undefined
+            }
+          >
+            {pending ? "Working…" : "Resume strategy"}
+          </PrimaryButton>
+        ) : (
+          <PrimaryButton
+            disabled={pending || !canArm}
+            onClick={() => run("arm")}
+            title={
+              mode !== "operate"
+                ? "Switch to Operate to arm"
+                : undefined
+            }
+          >
+            {pending ? "Working…" : "Arm strategy"}
+          </PrimaryButton>
+        )}
+
+        {canDisarm ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => run("disarm")}
+            className="type-ui w-full cursor-pointer rounded-full px-4 py-2 text-[var(--muted)] transition hover:bg-[var(--panel-2)] hover:text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Disarm
+          </button>
+        ) : null}
+      </div>
+
+      {error ? (
+        <p className="type-meta text-[var(--danger)]">{error}</p>
+      ) : null}
     </section>
   );
 }
 
-function ArmButton({
+function PrimaryButton({
+  children,
   disabled,
   title,
+  onClick,
 }: {
+  children: ReactNode;
   disabled?: boolean;
   title?: string;
+  onClick?: () => void;
 }) {
   return (
     <button
       type="button"
       disabled={disabled}
       title={title}
+      onClick={onClick}
       className="type-ui w-full cursor-pointer rounded-full bg-[var(--ink)] px-4 py-2 font-semibold text-[var(--canvas)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
     >
-      Arm strategy
+      {children}
     </button>
   );
 }
