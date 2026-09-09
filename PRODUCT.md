@@ -22,8 +22,11 @@ Not a chat with tools — a roster of characterful crypto agents with memory and
 
 - My Agents roster; create with fixed orb avatars + colors
 - Continuous per-agent chat (no mandatory goal intake)
-- Live + historical activity trail (dsh tools → SSE + SQLite)
-- Observe-mode tools (balances, web, etc.); spend later
+- Scout / Operate modes; Arm starts a host-run strategy loop
+- Deterministic strategy **recipes** + params (not LLM-on-every-tick)
+- Optional **self-improvement** cadence → approve param patches in the desk
+- Live + historical activity trail (chat tools vs strategy ticks split by `source`)
+- Observe-mode tools (balances, web, etc.); spend later (propose-only)
 - In-app chat / activity (no Discord in v1)
 
 ## Constraints
@@ -31,7 +34,7 @@ Not a chat with tools — a roster of characterful crypto agents with memory and
 - First chains: Base, Ethereum, Robinhood
 - Default auto-trade cap: $10 (when spend exists)
 - No user-facing skill/playbook manager in v1
-- No cron / routines UI in v1
+- Strategy playbooks are platform recipes (see docs/STRATEGY.md), not user-uploaded code
 - Auth: Privy required (email / wallet); one shared embedded EVM wallet per user
 
 ## Brand Commitments

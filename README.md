@@ -3,6 +3,7 @@
 Multi-tenant platform for persistent, named crypto agents.
 
 See [PRD.md](./PRD.md) for product and implementation orientation.
+See [docs/STRATEGY.md](./docs/STRATEGY.md) for Scout → Operate → Arm → deterministic recipes → self-improvement.
 
 ## Monorepo
 
