@@ -5,12 +5,12 @@ import {
   AGENT_COLORS,
   AGENT_FACES,
   SUPPORTED_CHAINS,
-  chainLabel,
   type AvatarId,
   type OrbColorId,
   type SupportedChainId,
 } from "@squadrons/shared";
 import { AgentOrb } from "@/components/AgentOrb";
+import { ChainName, ChainPicker } from "@/components/ChainLogo";
 import { OrbColorSwatch } from "@/components/OrbColorSwatch";
 import { updateAgent, type AgentWithWorkspace } from "@/lib/host";
 import { ActivityTrail } from "./ActivityTrail";
@@ -84,10 +84,14 @@ function AgentContextSummary({ agent }: { agent: AgentWithWorkspace }) {
     <div className="flex min-h-0 flex-1 flex-col gap-6">
       <section className="shrink-0 space-y-1.5">
         <p className="type-ui text-[var(--ink-soft)]">{agent.description}</p>
-        <p className="type-data text-[var(--muted)]">
-          {chainLabel(agent.chainId)}
-          {" · "}
-          {agent.spendMode === "observe" ? "observe" : "spend on"}
+        <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[var(--muted)]">
+          <ChainName chainId={agent.chainId} size={18} />
+          <span className="type-data" aria-hidden>
+            ·
+          </span>
+          <span className="type-data">
+            {agent.spendMode === "observe" ? "observe" : "spend on"}
+          </span>
         </p>
       </section>
 
@@ -227,32 +231,11 @@ function AgentSettingsForm({
 
       <fieldset className="space-y-2">
         <legend className="type-label">Chain</legend>
-        <div className="grid grid-cols-1 gap-1.5">
-          {SUPPORTED_CHAINS.map((chain) => {
-            const selected = chain.chainId === chainId;
-            return (
-              <button
-                key={chain.chainId}
-                type="button"
-                disabled={chainLocked}
-                onClick={() => setChainId(chain.chainId)}
-                aria-pressed={selected}
-                className={`rounded-xl border px-3 py-2.5 text-left transition ${
-                  selected
-                    ? "border-[var(--accent)] bg-[var(--panel)]"
-                    : "border-[var(--line)] bg-transparent hover:bg-[var(--panel)]"
-                } ${chainLocked ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
-              >
-                <span className="type-label block !text-[var(--ink)]">
-                  {chain.shortName}
-                </span>
-                <span className="type-data mt-0.5 block text-[var(--muted)]">
-                  {chain.chainId}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <ChainPicker
+          value={chainId}
+          onChange={setChainId}
+          disabled={chainLocked}
+        />
         {chainLocked ? (
           <p className="type-meta">
             Chain can change when the agent is not working.

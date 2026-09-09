@@ -649,3 +649,47 @@ textarea.chat-input:focus-visible,
     background: color-mix(in srgb, var(--panel-2) 70%, transparent);
   }
 }
+
+/* Chain name / picker hover tip */
+.chain-tip-bubble {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  z-index: 30;
+  display: block;
+  width: max-content;
+  max-width: 16rem;
+  transform: translateX(-50%) translateY(2px);
+  white-space: nowrap;
+  border-radius: 0.5rem;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  padding: 0.35rem 0.55rem;
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: var(--text-meta);
+  font-weight: 500;
+  line-height: var(--leading-meta);
+  letter-spacing: var(--tracking-meta);
+  color: var(--ink);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease,
+    visibility 140ms ease;
+}
+
+.chain-tip:hover .chain-tip-bubble,
+.chain-tip:focus-visible .chain-tip-bubble {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chain-tip-bubble {
+    transition: none;
+  }
+}

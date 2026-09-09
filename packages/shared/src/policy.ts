@@ -11,16 +11,20 @@ export const SUPPORTED_CHAINS = [
     chainId: 8453,
     name: "Base",
     shortName: "Base",
+    /** Vendored CoinGecko asset-platform icon — see apps/web/public/chains/README.md */
+    logoUrl: "/chains/base.png",
   },
   {
     chainId: 1,
     name: "Ethereum",
     shortName: "Ethereum",
+    logoUrl: "/chains/ethereum.png",
   },
   {
     chainId: 4663,
     name: "Robinhood Chain",
     shortName: "Robinhood",
+    logoUrl: "/chains/robinhood.png",
   },
 ] as const;
 

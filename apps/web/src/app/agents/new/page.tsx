@@ -8,12 +8,12 @@ import {
   AGENT_FACES,
   DEFAULT_ORB_COLOR,
   DEFAULT_POLICY,
-  SUPPORTED_CHAINS,
   type AvatarId,
   type OrbColorId,
   type SupportedChainId,
 } from "@squadrons/shared";
 import { AgentOrb } from "@/components/AgentOrb";
+import { ChainPicker } from "@/components/ChainLogo";
 import { OrbColorSwatch } from "@/components/OrbColorSwatch";
 import { DeskShell } from "@/components/desk/DeskShell";
 import { createAgent, listAgents, type AgentWithWorkspace } from "@/lib/host";
@@ -136,31 +136,7 @@ export default function NewAgentPage() {
 
           <fieldset className="space-y-3">
             <legend className="type-label">Chain</legend>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              {SUPPORTED_CHAINS.map((chain) => {
-                const selected = chain.chainId === chainId;
-                return (
-                  <button
-                    key={chain.chainId}
-                    type="button"
-                    onClick={() => setChainId(chain.chainId)}
-                    aria-pressed={selected}
-                    className={`cursor-pointer rounded-xl border px-3 py-3 text-left transition ${
-                      selected
-                        ? "border-[var(--accent)] bg-[var(--panel)]"
-                        : "border-[var(--line)] bg-transparent hover:bg-[var(--panel)]"
-                    }`}
-                  >
-                    <span className="type-label block !text-[var(--ink)]">
-                      {chain.shortName}
-                    </span>
-                    <span className="type-data mt-0.5 block text-[var(--muted)]">
-                      {chain.chainId}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            <ChainPicker value={chainId} onChange={setChainId} />
           </fieldset>
 
           <label className="block space-y-2">
