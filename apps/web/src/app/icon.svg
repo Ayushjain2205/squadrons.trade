@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="orb" cx="35%" cy="28%" r="72%">
+      <stop offset="0%" stop-color="#9B8BC4" />
+      <stop offset="58%" stop-color="#6B5B95" />
+      <stop offset="100%" stop-color="#4A3F6A" />
+    </radialGradient>
+  </defs>
+  <circle cx="50" cy="50" r="48" fill="url(#orb)" />
+  <ellipse cx="38" cy="30" rx="18" ry="10" fill="#fff" opacity="0.18" />
+  <!-- Face 01: slit bars -->
+  <rect x="26" y="46" width="16" height="5" rx="1.5" fill="#C4B5FD" />
+  <rect x="58" y="46" width="16" height="5" rx="1.5" fill="#C4B5FD" />
+</svg>
