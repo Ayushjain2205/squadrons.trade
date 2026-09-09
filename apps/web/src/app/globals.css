@@ -100,6 +100,39 @@ textarea.chat-input:focus-visible,
   animation: pulse-soft 1.4s ease-in-out infinite;
 }
 
+/* --- Brand mark orb (rail wordmark) --- */
+
+.brand-orb {
+  transform-origin: center;
+  transition: transform 0.45s cubic-bezier(0.22, 1.2, 0.36, 1);
+}
+
+.brand-mark:hover .brand-orb,
+.brand-mark:focus-visible .brand-orb {
+  transform: scale(1.1) rotate(-8deg);
+}
+
+.brand-mark:focus-visible {
+  outline: none;
+}
+
+.brand-mark:focus-visible .brand-orb {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-orb {
+    transition: none;
+  }
+
+  .brand-mark:hover .brand-orb,
+  .brand-mark:focus-visible .brand-orb {
+    transform: none;
+  }
+}
+
 /* --- Orb eye animations (working / selected face) --- */
 
 .orb-eye {

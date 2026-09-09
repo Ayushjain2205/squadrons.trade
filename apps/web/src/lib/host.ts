@@ -1,29 +1,29 @@
+"use client";
+
 import { getAccessToken } from "@privy-io/react-auth";
 import type {
   Agent,
-  AvatarId,
   CreateAgentInput,
   UpdateAgentInput,
 } from "@squadrons/shared";
+import type {
+  ActivityEvent,
+  AgentMessage,
+  AgentWithWorkspace,
+  MeResponse,
+} from "@/lib/host-types";
+
+export type {
+  ActivityEvent,
+  AgentMessage,
+  AgentWithWorkspace,
+  MeResponse,
+} from "@/lib/host-types";
+export type { AvatarId, UpdateAgentInput } from "@/lib/host-types";
 
 const hostUrl =
   process.env.NEXT_PUBLIC_HOST_URL?.replace(/\/$/, "") ??
   "http://localhost:8787";
-
-export type AgentWithWorkspace = Agent & { workspace: string };
-
-export type AgentMessage = {
-  id: string;
-  agentId: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-  createdAt: number;
-};
-
-export type MeResponse = {
-  userId: string;
-  walletAddress: string | null;
-};
 
 async function authHeaders(): Promise<Record<string, string>> {
   const token = await getAccessToken();
@@ -139,22 +139,6 @@ export async function pauseAgent(agentId: string): Promise<AgentWithWorkspace> {
   return data.agent;
 }
 
-export type ActivityEvent = {
-  id: string;
-  agentId: string;
-  kind:
-    | "turn_start"
-    | "turn_end"
-    | "tool_call"
-    | "tool_result"
-    | "error"
-    | "info";
-  label: string;
-  detail: string | null;
-  toolName: string | null;
-  createdAt: number;
-};
-
 export async function listActivity(
   agentId: string,
   limit = 100,
@@ -197,5 +181,3 @@ export function subscribeActivity(
     source?.close();
   };
 }
-
-export type { AvatarId, UpdateAgentInput };

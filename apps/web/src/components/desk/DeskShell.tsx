@@ -1,4 +1,4 @@
-import type { AgentWithWorkspace } from "@/lib/host";
+import type { AgentWithWorkspace } from "@/lib/host-types";
 import { AgentContextPanel } from "./AgentContextPanel";
 import { AgentRail } from "./AgentRail";
 

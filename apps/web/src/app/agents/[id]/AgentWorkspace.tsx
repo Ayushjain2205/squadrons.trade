@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { AgentMessage, AgentWithWorkspace } from "@/lib/host";
+import type { AgentMessage, AgentWithWorkspace } from "@/lib/host-types";
 import { DeskShell } from "@/components/desk/DeskShell";
 import { AgentChat } from "./AgentChat";
 

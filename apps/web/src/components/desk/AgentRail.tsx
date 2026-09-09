@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { AgentOrb } from "@/components/AgentOrb";
+import { BrandMark } from "@/components/BrandMark";
 import { getMe, type AgentWithWorkspace } from "@/lib/host";
 import { formatRelativeTime } from "@/lib/time";
 
@@ -51,12 +52,7 @@ export function AgentRail({
   return (
     <aside className="flex h-full w-[min(100%,var(--rail-left))] shrink-0 flex-col border-r border-[var(--line-soft)] bg-[var(--rail)] max-md:absolute max-md:z-20 max-md:hidden md:relative md:flex">
       <div className="shrink-0 space-y-3 p-3 pb-2">
-        <Link
-          href="/"
-          className="block px-1 pt-1 font-[family-name:var(--font-brand)] text-[1.65rem] leading-none tracking-wide text-[var(--ink)] transition hover:opacity-90"
-        >
-          Squadrons
-        </Link>
+        <BrandMark />
         <label className="relative block">
           <span className="sr-only">Search agents</span>
           <svg

@@ -1,3 +1,4 @@
+import { useId } from "react";
 import type { AvatarId, OrbColorId } from "@squadrons/shared";
 import { DEFAULT_ORB_COLOR, getOrbColor, AGENT_FACES } from "@squadrons/shared";
 
@@ -265,9 +266,10 @@ export function AgentOrb({
   title,
   animate = false,
 }: AgentOrbProps) {
+  const reactId = useId().replace(/:/g, "");
   const face = AGENT_FACES.find((entry) => entry.id === id);
   const palette = getOrbColor(colorId);
-  const gradientId = `orb-${id}-${colorId}-${animate ? "a" : "s"}`;
+  const gradientId = `orb-${id}-${colorId}-${reactId}`;
 
   return (
     <svg

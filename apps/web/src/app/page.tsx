@@ -1,31 +1,60 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { DeskShell } from "@/components/desk/DeskShell";
 import { AgentOrb } from "@/components/AgentOrb";
-import { getHostUrl, listAgents } from "@/lib/host";
+import { BrandMark } from "@/components/BrandMark";
+import { getHostUrl, listAgents, type AgentWithWorkspace } from "@/lib/host";
 import { formatRelativeTime } from "@/lib/time";
 
-export const dynamic = "force-dynamic";
+export default function HomePage() {
+  const [agents, setAgents] = useState<AgentWithWorkspace[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
 
-export default async function HomePage() {
-  let agents: Awaited<ReturnType<typeof listAgents>> = [];
-  let error: string | null = null;
+  useEffect(() => {
+    let cancelled = false;
+    void listAgents()
+      .then((rows) => {
+        if (!cancelled) {
+          setAgents(rows);
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setAgents([]);
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Could not reach the host. Is it running on :8787?",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  try {
-    agents = await listAgents();
-  } catch (err) {
-    error =
-      err instanceof Error
-        ? err.message
-        : "Could not reach the host. Is it running on :8787?";
+  if (!ready) {
+    return (
+      <DeskShell agents={[]} selectedId={null}>
+        <div className="flex flex-1 items-center justify-center text-sm text-[var(--muted)]">
+          Loading agents…
+        </div>
+      </DeskShell>
+    );
   }
 
   return (
     <DeskShell agents={agents} hostError={error} selectedId={null}>
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="flex shrink-0 items-center border-b border-[var(--line-soft)] px-5 py-3 md:hidden">
-          <p className="font-[family-name:var(--font-brand)] text-[1.45rem] leading-none tracking-wide">
-            Squadrons
-          </p>
+          <BrandMark className="pt-0" textClassName="text-[1.45rem]" orbSize={32} />
         </header>
 
         {/* Mobile list (rail is desktop-only) */}

@@ -1,16 +1,18 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { DeskShell } from "@/components/desk/DeskShell";
-import { listAgents } from "@/lib/host";
+import { listAgents, type AgentWithWorkspace } from "@/lib/host";
 
-export const dynamic = "force-dynamic";
+export default function NotFound() {
+  const [agents, setAgents] = useState<AgentWithWorkspace[]>([]);
 
-export default async function NotFound() {
-  let agents: Awaited<ReturnType<typeof listAgents>> = [];
-  try {
-    agents = await listAgents();
-  } catch {
-    agents = [];
-  }
+  useEffect(() => {
+    void listAgents()
+      .then(setAgents)
+      .catch(() => setAgents([]));
+  }, []);
 
   return (
     <DeskShell agents={agents} selectedId={null}>

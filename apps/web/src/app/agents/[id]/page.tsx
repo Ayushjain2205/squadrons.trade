@@ -1,32 +1,88 @@
-import { notFound } from "next/navigation";
-import { getAgent, listAgents, listMessages } from "@/lib/host";
+"use client";
+
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { DeskShell } from "@/components/desk/DeskShell";
+import {
+  getAgent,
+  listAgents,
+  listMessages,
+  type AgentMessage,
+  type AgentWithWorkspace,
+} from "@/lib/host";
 import { AgentWorkspace } from "./AgentWorkspace";
 
-export const dynamic = "force-dynamic";
+export default function AgentDetailPage() {
+  const params = useParams<{ id: string }>();
+  const id = params.id;
 
-type PageProps = {
-  params: Promise<{ id: string }>;
-};
+  const [state, setState] = useState<
+    | { status: "loading" }
+    | { status: "missing" }
+    | {
+        status: "ready";
+        agents: AgentWithWorkspace[];
+        agent: AgentWithWorkspace;
+        messages: AgentMessage[];
+      }
+  >({ status: "loading" });
 
-export default async function AgentDetailPage({ params }: PageProps) {
-  const { id } = await params;
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [agents, agent, messages] = await Promise.all([
+          listAgents(),
+          getAgent(id),
+          listMessages(id),
+        ]);
+        if (!cancelled) {
+          setState({ status: "ready", agents, agent, messages });
+        }
+      } catch {
+        if (!cancelled) setState({ status: "missing" });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
-  let agents: Awaited<ReturnType<typeof listAgents>> = [];
-  let agent;
-  let messages;
+  if (state.status === "loading") {
+    return (
+      <DeskShell agents={[]} selectedId={id}>
+        <div className="flex flex-1 items-center justify-center text-sm text-[var(--muted)]">
+          Loading agent…
+        </div>
+      </DeskShell>
+    );
+  }
 
-  try {
-    agents = await listAgents();
-    [agent, messages] = await Promise.all([getAgent(id), listMessages(id)]);
-  } catch {
-    notFound();
+  if (state.status === "missing") {
+    return (
+      <DeskShell agents={[]} selectedId={null}>
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+          <p className="font-[family-name:var(--font-display)] text-xl font-semibold">
+            Agent not found
+          </p>
+          <Link
+            href="/"
+            className="text-sm text-[var(--link)] transition hover:underline"
+          >
+            Back to agents
+          </Link>
+        </div>
+      </DeskShell>
+    );
   }
 
   return (
     <AgentWorkspace
-      initialAgents={agents}
-      initialAgent={agent}
-      initialMessages={messages}
+      initialAgents={state.agents}
+      initialAgent={state.agent}
+      initialMessages={state.messages}
     />
   );
 }
