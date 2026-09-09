@@ -51,13 +51,17 @@ export function apply(ctx) {
         recipeId: {
           type: "string",
           description:
-            'Built-in recipe: "balance_threshold_alert" or "price_band_alert".',
-          enum: ["balance_threshold_alert", "price_band_alert"],
+            'Built-in recipe: "balance_threshold_alert", "price_band_alert", or "price_cross_alert".',
+          enum: [
+            "balance_threshold_alert",
+            "price_band_alert",
+            "price_cross_alert",
+          ],
         },
         params: {
           type: "object",
           description:
-            "Recipe params. balance_threshold_alert: { walletAddress?, asset, op: below|above, threshold }. price_band_alert: { symbol, low, high }.",
+            "Recipe params. balance_threshold_alert: { walletAddress?, asset: native|ETH|USDC|WETH, op, threshold }. price_band_alert: { symbol, low, high }. price_cross_alert: { symbol, level, direction: above|below|either } — pair with trigger.type event + event price_cross.",
           additionalProperties: true,
         },
         trigger: {

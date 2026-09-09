@@ -112,9 +112,10 @@ export function buildAgentIdentityBlock(
       ? [
           "- In Operate mode, help define a clear strategy the user can arm later. Do not claim it is running unless status is running.",
           "- When the plan is concrete, call propose_strategy with: summary, recipeId, params, trigger, action, optional caps/improvement.",
-          '- recipeId must be "balance_threshold_alert" or "price_band_alert". Runtime is deterministic — the host runs the recipe, not an LLM tick.',
-          "- balance_threshold_alert params: { walletAddress?, asset: native|ETH, op: below|above, threshold }.",
+          '- recipeId must be "balance_threshold_alert", "price_band_alert", or "price_cross_alert". Runtime is deterministic — the host runs the recipe, not an LLM tick.',
+          "- balance_threshold_alert params: { walletAddress?, asset: native|ETH|USDC|WETH, op: below|above, threshold }.",
           "- price_band_alert params: { symbol, low, high }.",
+          '- price_cross_alert params: { symbol, level, direction: above|below|either }. Prefer trigger { type: "event", event: "price_cross", intervalSec }.',
           '- trigger.type is "interval" (intervalSec >= 15) or "event" (event string + optional intervalSec poll floor).',
           '- action.type is "alert" or "propose_trade" (observe agents should prefer alert).',
           "- Optional improvement: { enabled, cadence: hourly|daily|weekly, allowedKeys }. Self-improvement proposes param patches for desk approve.",

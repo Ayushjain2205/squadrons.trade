@@ -3,6 +3,7 @@
 export const RECIPE_IDS = [
   "balance_threshold_alert",
   "price_band_alert",
+  "price_cross_alert",
 ] as const;
 
 export type RecipeId = (typeof RECIPE_IDS)[number];
@@ -26,7 +27,7 @@ export const RECIPE_CATALOG: Record<RecipeId, RecipeParamSchema> = {
   balance_threshold_alert: {
     label: "Balance threshold",
     description:
-      "Alert when a wallet's native (or token) balance crosses a threshold.",
+      "Alert when a wallet's native or known ERC-20 balance crosses a threshold.",
     paramKeys: ["walletAddress", "asset", "op", "threshold"],
     defaultParams: {
       asset: "native",
@@ -42,6 +43,17 @@ export const RECIPE_CATALOG: Record<RecipeId, RecipeParamSchema> = {
       symbol: "ETH",
       low: 1000,
       high: 10000,
+    },
+  },
+  price_cross_alert: {
+    label: "Price cross",
+    description:
+      "Event-style: alert when spot USD price crosses a level (host tracks edge).",
+    paramKeys: ["symbol", "level", "direction"],
+    defaultParams: {
+      symbol: "ETH",
+      level: 3000,
+      direction: "below",
     },
   },
 };
@@ -92,6 +104,22 @@ export function parseRecipeParams(
       return null;
     }
     return { symbol, low, high };
+  }
+
+  if (recipeId === "price_cross_alert") {
+    const symbol =
+      typeof raw.symbol === "string" && raw.symbol.trim()
+        ? raw.symbol.trim().toUpperCase()
+        : String(base.symbol);
+    const level = Number(raw.level ?? base.level);
+    const direction =
+      raw.direction === "above" ||
+      raw.direction === "below" ||
+      raw.direction === "either"
+        ? raw.direction
+        : base.direction;
+    if (!Number.isFinite(level) || level < 0) return null;
+    return { symbol, level, direction };
   }
 
   return null;

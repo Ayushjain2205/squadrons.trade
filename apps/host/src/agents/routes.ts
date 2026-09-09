@@ -4,6 +4,7 @@ import type { CreateAgentInput, UpdateAgentInput } from "@squadrons/shared";
 import {
   isAgentMode,
   isAvatarId,
+  isImprovementCadence,
   isOrbColorId,
   isSupportedChainId,
   parseStrategyDraftInput,
@@ -24,6 +25,7 @@ import type { MessageStore } from "./messages.js";
 import { agentWorkspacePath } from "./paths.js";
 import type { AgentStore } from "./store.js";
 import type { StrategyStore } from "./strategy-store.js";
+import { clearEventEdgeState } from "../strategy/events.js";
 import type { ImprovementProposalStore } from "../strategy/improvement-store.js";
 import { applyImprovementProposalFromWorkspace } from "../strategy/improvement.js";
 import {
@@ -584,6 +586,7 @@ export function registerAgentRoutes(
       }
 
       const strategy = strategies.disarm(existing.id);
+      clearEventEdgeState(existing.id);
       activity.publish({
         agentId: existing.id,
         kind: "info",
@@ -602,6 +605,91 @@ export function registerAgentRoutes(
           strategy: agent?.strategy ?? strategy,
           workspace,
         },
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch("/v1/agents/:id/strategy/improvement", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      const agentId = req.params.id;
+      if (!agentId) {
+        res.status(400).json({ ok: false, error: "missing agent id" });
+        return;
+      }
+      const existing = agents.getForUser(user.id, agentId);
+      if (!existing) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+      if (existing.mode !== "operate") {
+        res.status(400).json({
+          ok: false,
+          error: "switch to Operate mode before editing self-improvement",
+        });
+        return;
+      }
+      if (!existing.strategy) {
+        res.status(400).json({ ok: false, error: "no strategy to update" });
+        return;
+      }
+
+      const body = req.body as {
+        enabled?: unknown;
+        cadence?: unknown;
+        allowedKeys?: unknown;
+      };
+      const patch: {
+        enabled?: boolean;
+        cadence?: "hourly" | "daily" | "weekly";
+        allowedKeys?: string[];
+      } = {};
+      if (body.enabled !== undefined) {
+        if (typeof body.enabled !== "boolean") {
+          res.status(400).json({ ok: false, error: "enabled must be boolean" });
+          return;
+        }
+        patch.enabled = body.enabled;
+      }
+      if (body.cadence !== undefined) {
+        if (!isImprovementCadence(body.cadence)) {
+          res.status(400).json({ ok: false, error: "invalid cadence" });
+          return;
+        }
+        patch.cadence = body.cadence;
+      }
+      if (body.allowedKeys !== undefined) {
+        if (
+          !Array.isArray(body.allowedKeys) ||
+          !body.allowedKeys.every((k) => typeof k === "string")
+        ) {
+          res.status(400).json({ ok: false, error: "invalid allowedKeys" });
+          return;
+        }
+        patch.allowedKeys = body.allowedKeys;
+      }
+
+      const strategy = strategies.patchImprovement(existing.id, patch);
+      activity.publish({
+        agentId: existing.id,
+        kind: "info",
+        source: "system",
+        label: "Updated self-improvement",
+        detail: strategy.improvement.enabled
+          ? strategy.improvement.cadence
+          : "off",
+      });
+
+      const agent = agents.getForUser(user.id, existing.id);
+      const workspace = agentWorkspacePath(user.id, existing.id);
+      if (agent) await writeStrategyStateFile(workspace, agent);
+      res.json({
+        ok: true,
+        agent: agent
+          ? { ...agent, workspace }
+          : { ...existing, strategy, workspace },
       });
     } catch (error) {
       next(error);

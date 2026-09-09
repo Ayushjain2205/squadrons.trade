@@ -4,19 +4,11 @@ import { agentWorkspacePath } from "../agents/paths.js";
 import type { AgentStore } from "../agents/store.js";
 import type { StrategyStore } from "../agents/strategy-store.js";
 import type { UserStore } from "../auth/privy.js";
-import { isSuccessfulReportTickResult } from "../dsh/activity-map.js";
-import { runDshStrategyTick } from "../dsh/runner.js";
+import { evaluateEventEdge } from "./events.js";
 import { gateStrategyTickSpend } from "./spend-gate.js";
 import type { TradeIntentStore } from "./trade-intents.js";
-import {
-  executeStrategyRecipe,
-  hasRecipeExecutor,
-} from "./recipes/index.js";
-import {
-  clearStrategyTickReport,
-  readStrategyTickReport,
-  writeStrategyStateFile,
-} from "./workspace-draft.js";
+import { executeStrategyRecipe } from "./recipes/index.js";
+import { writeStrategyStateFile } from "./workspace-draft.js";
 
 const DEFAULT_SCAN_MS = 15_000;
 const DEFAULT_INTERVAL_SEC = 60;
@@ -28,8 +20,7 @@ export type StrategyScheduler = {
 
 /**
  * In-process wake loop for armed strategies.
- * Host owns liveness; recipe-backed strategies run deterministically.
- * Legacy strategies without recipeId still use a dsh tick (compat).
+ * Host owns liveness; recipes run deterministically (no LLM ticks).
  */
 export function startStrategyScheduler(deps: {
   agents: AgentStore;
@@ -52,13 +43,55 @@ export function startStrategyScheduler(deps: {
       const agent = deps.agents.getById(strategy.agentId);
       if (!agent || agent.strategy?.status !== "running") return;
 
+      if (!strategy.recipeId) {
+        deps.activity.publish({
+          agentId: agent.id,
+          kind: "error",
+          source: "strategy",
+          label: "Strategy has no recipe",
+          detail: "Disarm and re-propose a recipe-backed plan in Operate",
+        });
+        deps.strategies.pause(strategy.agentId);
+        return;
+      }
+
       // Stamp immediately so a long/failing turn cannot overlap the next due scan.
       deps.strategies.markTicked(strategy.agentId);
 
       const user = deps.users.get(agent.userId);
       const workspace = agentWorkspacePath(agent.userId, agent.id);
       await writeStrategyStateFile(workspace, agent);
-      await clearStrategyTickReport(workspace);
+
+      if (strategy.trigger.type === "event") {
+        const edge = await evaluateEventEdge(
+          deps.strategies.get(strategy.agentId) ?? strategy,
+        );
+        if (edge.kind === "skip") {
+          deps.activity.publish({
+            agentId: agent.id,
+            kind: "error",
+            source: "strategy",
+            label: "Event watch failed",
+            detail: edge.reason,
+          });
+          return;
+        }
+        if (edge.kind === "armed") {
+          deps.activity.publish({
+            agentId: agent.id,
+            kind: "info",
+            source: "strategy",
+            label: "Event watch armed",
+            detail: edge.detail,
+          });
+          return;
+        }
+        if (edge.kind === "quiet") {
+          // Poll advanced; stay silent until a cross fires.
+          return;
+        }
+        // kind === fire → fall through to recipe
+      }
 
       deps.activity.publish({
         agentId: agent.id,
@@ -68,7 +101,6 @@ export function startStrategyScheduler(deps: {
         detail: strategy.summary,
       });
 
-      let decision: StrategyTickDecision | null = null;
       let publishedDecision = false;
 
       const publishDecision = (raw: StrategyTickDecision) => {
@@ -90,7 +122,6 @@ export function startStrategyScheduler(deps: {
             detail: gated.decision.detail ?? null,
             reason: gated.reason,
           });
-          decision = gated.decision;
           deps.activity.publish({
             agentId: strategy.agentId,
             kind: "error",
@@ -109,7 +140,6 @@ export function startStrategyScheduler(deps: {
             label: gated.decision.label,
             detail: gated.decision.detail ?? null,
           });
-          decision = gated.decision;
           deps.activity.publish({
             agentId: strategy.agentId,
             kind: "info",
@@ -120,7 +150,6 @@ export function startStrategyScheduler(deps: {
           return;
         }
 
-        decision = gated.decision;
         deps.activity.publish({
           agentId: strategy.agentId,
           kind: "info",
@@ -131,45 +160,13 @@ export function startStrategyScheduler(deps: {
       };
 
       try {
-        if (hasRecipeExecutor(strategy.recipeId)) {
-          const fresh = deps.strategies.get(strategy.agentId) ?? strategy;
-          const result = await executeStrategyRecipe({
-            agent,
-            strategy: fresh,
-            walletAddress: user?.walletAddress ?? null,
-          });
-          publishDecision(result);
-        } else {
-          // Legacy path — LLM tick until re-proposed with a recipe.
-          await runDshStrategyTick({
-            agent,
-            strategy,
-            workspace,
-            walletAddress: user?.walletAddress ?? null,
-            onActivity: (event) => {
-              deps.activity.publish({ ...event, source: "strategy" });
-            },
-            onNotification: (notification) => {
-              if (!isSuccessfulReportTickResult(notification)) return;
-              void readStrategyTickReport(workspace)
-                .then((reported) => {
-                  if (reported) publishDecision(reported);
-                })
-                .catch((error) => {
-                  console.error(
-                    "[strategy-tick-report]",
-                    strategy.agentId,
-                    error,
-                  );
-                });
-            },
-          });
-
-          if (!decision) {
-            const reported = await readStrategyTickReport(workspace);
-            if (reported) publishDecision(reported);
-          }
-        }
+        const fresh = deps.strategies.get(strategy.agentId) ?? strategy;
+        const result = await executeStrategyRecipe({
+          agent,
+          strategy: fresh,
+          walletAddress: user?.walletAddress ?? null,
+        });
+        publishDecision(result);
       } catch (error) {
         console.error("[strategy-tick]", strategy.agentId, error);
         deps.activity.publish({
@@ -179,7 +176,6 @@ export function startStrategyScheduler(deps: {
           label: "Strategy tick failed",
           detail: error instanceof Error ? error.message : String(error),
         });
-        deps.strategies.markTicked(strategy.agentId);
         return;
       }
 
@@ -195,8 +191,6 @@ export function startStrategyScheduler(deps: {
           detail: null,
         });
       }
-
-      deps.strategies.markTicked(strategy.agentId);
     } finally {
       inFlight.delete(strategy.agentId);
     }
