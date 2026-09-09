@@ -1,11 +1,16 @@
 import { randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
-import type { ActivityEvent, ActivityKind } from "@squadrons/shared";
+import type {
+  ActivityEvent,
+  ActivityKind,
+  ActivitySource,
+} from "@squadrons/shared";
 
 type ActivityRow = {
   id: string;
   agent_id: string;
   kind: string;
+  source: string | null;
   label: string;
   detail: string | null;
   tool_name: string | null;
@@ -13,10 +18,15 @@ type ActivityRow = {
 };
 
 function rowToEvent(row: ActivityRow): ActivityEvent {
+  const source =
+    row.source === "chat" || row.source === "strategy" || row.source === "system"
+      ? row.source
+      : "system";
   return {
     id: row.id,
     agentId: row.agent_id,
     kind: row.kind as ActivityKind,
+    source,
     label: row.label,
     detail: row.detail,
     toolName: row.tool_name,
@@ -27,6 +37,7 @@ function rowToEvent(row: ActivityRow): ActivityEvent {
 export type NewActivityEvent = {
   agentId: string;
   kind: ActivityKind;
+  source?: ActivitySource;
   label: string;
   detail?: string | null;
   toolName?: string | null;
@@ -53,6 +64,7 @@ export class ActivityStore {
       id: randomUUID(),
       agentId: input.agentId,
       kind: input.kind,
+      source: input.source ?? "system",
       label: input.label,
       detail: input.detail ?? null,
       toolName: input.toolName ?? null,
@@ -61,13 +73,17 @@ export class ActivityStore {
 
     this.db
       .prepare(
-        `INSERT INTO activity (id, agent_id, kind, label, detail, tool_name, created_at)
-         VALUES (@id, @agentId, @kind, @label, @detail, @toolName, @createdAt)`,
+        `INSERT INTO activity (
+          id, agent_id, kind, source, label, detail, tool_name, created_at
+        ) VALUES (
+          @id, @agentId, @kind, @source, @label, @detail, @toolName, @createdAt
+        )`,
       )
       .run({
         id: event.id,
         agentId: event.agentId,
         kind: event.kind,
+        source: event.source,
         label: event.label,
         detail: event.detail,
         toolName: event.toolName,

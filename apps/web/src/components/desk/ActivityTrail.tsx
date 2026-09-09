@@ -17,6 +17,7 @@ function collapseSteps(
   const out: ActivityEvent[] = [];
 
   for (const event of events) {
+    if (event.source === "chat") continue;
     if (!displayActivityLabel(event, { done: false })) continue;
     const last = out[out.length - 1];
     if (
@@ -73,6 +74,7 @@ export function ActivityTrail({
       });
 
     const unsubscribe = subscribeActivity(agentId, (event) => {
+      if (event.source === "chat") return;
       if (!displayActivityLabel(event, { done: false })) return;
       onLiveEventRef.current?.(event);
       setEvents((prev) => {
@@ -95,7 +97,7 @@ export function ActivityTrail({
   return (
     <section className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 items-baseline justify-between gap-2">
-        <h3 className="type-title">Activity</h3>
+        <h3 className="type-title">Strategy activity</h3>
         {live ? (
           <span className="type-meta flex items-center gap-1.5 font-medium !text-[var(--accent)]">
             <span className="working-dot size-1.5 rounded-full bg-[var(--accent)]" />
@@ -111,8 +113,8 @@ export function ActivityTrail({
       {steps.length === 0 && !error ? (
         <p className="type-ui mt-3 text-[var(--muted)]">
           {live
-            ? `${agentName} is working…`
-            : `When ${agentName} works, steps show up here.`}
+            ? `${agentName}'s strategy is working…`
+            : `When the armed strategy ticks, steps show up here.`}
         </p>
       ) : (
         <ol className="mt-4 space-y-0">

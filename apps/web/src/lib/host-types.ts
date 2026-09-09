@@ -1,5 +1,6 @@
 import type {
   Agent,
+  ActivityEvent as SharedActivityEvent,
   AvatarId,
   CreateAgentInput,
   UpdateAgentInput,
@@ -20,20 +21,6 @@ export type MeResponse = {
   walletAddress: string | null;
 };
 
-export type ActivityEvent = {
-  id: string;
-  agentId: string;
-  kind:
-    | "turn_start"
-    | "turn_end"
-    | "tool_call"
-    | "tool_result"
-    | "error"
-    | "info";
-  label: string;
-  detail: string | null;
-  toolName: string | null;
-  createdAt: number;
-};
+export type ActivityEvent = SharedActivityEvent;
 
 export type { AvatarId, CreateAgentInput, UpdateAgentInput, Agent };

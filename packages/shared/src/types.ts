@@ -56,10 +56,17 @@ export type ActivityKind =
   | "error"
   | "info";
 
+/**
+ * Where the activity came from.
+ * chat = desk conversation tools; strategy = armed tick loop; system = arm/pause/etc.
+ */
+export type ActivitySource = "chat" | "strategy" | "system";
+
 export interface ActivityEvent {
   id: string;
   agentId: string;
   kind: ActivityKind;
+  source: ActivitySource;
   /** Short operator-facing line. */
   label: string;
   /** Optional truncated detail (args, result snippet). */

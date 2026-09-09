@@ -2,19 +2,33 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
-import type { AgentMode, AvatarId, OrbColorId } from "@squadrons/shared";
+import {
+  displayActivityLabel,
+  type AgentMode,
+  type AvatarId,
+  type OrbColorId,
+} from "@squadrons/shared";
 import { AgentOrb } from "@/components/AgentOrb";
 import {
   getAgent,
   listMessages,
   pauseAgent,
   sendMessage,
+  subscribeActivity,
   updateAgent,
   type AgentMessage,
   type AgentWithWorkspace,
 } from "@/lib/host";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { sanitizeAssistantContent } from "@/lib/sanitize-assistant";
+
+type ChatToolStep = {
+  id: string;
+  label: string;
+  toolName: string | null;
+  status: "running" | "done" | "error";
+  detail: string | null;
+};
 
 export function AgentChat({
   agent: initialAgent,
@@ -32,8 +46,17 @@ export function AgentChat({
   const [pending, startTransition] = useTransition();
   const [pausing, setPausing] = useState(false);
   const [modePending, setModePending] = useState(false);
+  const [liveSteps, setLiveSteps] = useState<ChatToolStep[]>([]);
+  const [stepsByUserMessageId, setStepsByUserMessageId] = useState<
+    Record<string, ChatToolStep[]>
+  >({});
+  const [activeUserMessageId, setActiveUserMessageId] = useState<string | null>(
+    null,
+  );
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const liveStepsRef = useRef<ChatToolStep[]>([]);
+  liveStepsRef.current = liveSteps;
 
   useEffect(() => {
     setAgent(initialAgent);
@@ -41,12 +64,79 @@ export function AgentChat({
 
   useEffect(() => {
     setMessages(initialMessages);
+    setStepsByUserMessageId({});
+    setLiveSteps([]);
+    setActiveUserMessageId(null);
   }, [initialAgent.id]); // eslint-disable-line react-hooks/exhaustive-deps -- only reset transcript when switching agents
-
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, pending]);
+  }, [messages, pending, liveSteps]);
+
+  // Live chat tool steps while a turn is in flight (Cursor-style).
+  useEffect(() => {
+    if (!pending && agent.status !== "working") return;
+    const unsubscribe = subscribeActivity(agent.id, (event) => {
+      if (event.source === "strategy") return;
+      if (event.kind !== "tool_call" && event.kind !== "error") return;
+      if (event.kind === "error" && !event.toolName) return;
+
+      setLiveSteps((prev) => {
+        if (event.kind === "tool_call") {
+          const label =
+            displayActivityLabel(event, { done: false }) ?? event.label;
+          const next = prev.map((step) =>
+            step.status === "running" ? { ...step, status: "done" as const } : step,
+          );
+          return [
+            ...next,
+            {
+              id: event.id,
+              label,
+              toolName: event.toolName,
+              status: "running",
+              detail: null,
+            },
+          ];
+        }
+
+        // tool error — mark matching/running step failed
+        const label =
+          displayActivityLabel(event, { done: true }) ?? event.label;
+        const idx = [...prev]
+          .reverse()
+          .findIndex(
+            (step) =>
+              step.status === "running" ||
+              (event.toolName != null && step.toolName === event.toolName),
+          );
+        if (idx === -1) {
+          return [
+            ...prev,
+            {
+              id: event.id,
+              label,
+              toolName: event.toolName,
+              status: "error",
+              detail: event.detail,
+            },
+          ];
+        }
+        const realIndex = prev.length - 1 - idx;
+        return prev.map((step, i) =>
+          i === realIndex
+            ? {
+                ...step,
+                status: "error" as const,
+                label,
+                detail: event.detail,
+              }
+            : step,
+        );
+      });
+    });
+    return unsubscribe;
+  }, [agent.id, agent.status, pending]);
 
   function applyAgent(next: AgentWithWorkspace) {
     setAgent(next);
@@ -61,6 +151,8 @@ export function AgentChat({
     setError(null);
     setDraft("");
     const optimisticId = `local-${Date.now()}`;
+    setActiveUserMessageId(optimisticId);
+    setLiveSteps([]);
     setMessages((prev) => [
       ...prev,
       {
@@ -77,12 +169,22 @@ export function AgentChat({
       try {
         const result = await sendMessage(agent.id, content);
         applyAgent(result.agent);
+        const userMsg = result.messages.find((m) => m.role === "user");
+        const steps = liveStepsRef.current.map((step) =>
+          step.status === "running" ? { ...step, status: "done" as const } : step,
+        );
         setMessages((prev) => {
           const withoutOptimistic = prev.filter((m) => m.id !== optimisticId);
           return [...withoutOptimistic, ...result.messages];
         });
-        // Avoid router.refresh() here — it can briefly replace chat with stale
-        // server props and make a successful reply look like it never arrived.
+        if (userMsg && steps.length > 0) {
+          setStepsByUserMessageId((prev) => ({
+            ...prev,
+            [userMsg.id]: steps,
+          }));
+        }
+        setLiveSteps([]);
+        setActiveUserMessageId(userMsg?.id ?? null);
       } catch (err) {
         try {
           const latest = await getAgent(agent.id);
@@ -92,6 +194,8 @@ export function AgentChat({
             setMessages(stored);
             setDraft("");
             setError(null);
+            setLiveSteps([]);
+            setActiveUserMessageId(null);
             return;
           }
         } catch {
@@ -101,6 +205,8 @@ export function AgentChat({
         setDraft(content);
         setError(err instanceof Error ? err.message : "Send failed");
         applyAgent({ ...agent, status: "paused" });
+        setLiveSteps([]);
+        setActiveUserMessageId(null);
       }
     });
   }
@@ -201,9 +307,33 @@ export function AgentChat({
               </p>
             </div>
           ) : (
-            messages.map((message) => (
-              <MessageBubble key={message.id} message={message} />
-            ))
+            messages.map((message) => {
+              const isActiveUser =
+                message.role === "user" &&
+                message.id === activeUserMessageId &&
+                isWorking;
+              const stepsForMessage =
+                message.role === "user"
+                  ? isActiveUser
+                    ? liveSteps
+                    : stepsByUserMessageId[message.id]
+                  : undefined;
+              const showTurnChrome =
+                message.role === "user" &&
+                !!stepsForMessage &&
+                stepsForMessage.length > 0;
+              return (
+                <div key={message.id} className="flex flex-col gap-2">
+                  <MessageBubble message={message} />
+                  {showTurnChrome ? (
+                    <ChatToolSteps
+                      steps={stepsForMessage}
+                      live={isActiveUser}
+                    />
+                  ) : null}
+                </div>
+              );
+            })
           )}
           <div ref={bottomRef} />
         </div>
@@ -482,23 +612,69 @@ function ModeIcon({ mode }: { mode: AgentMode }) {
   );
 }
 
-function MessageBubble({ message }: { message: AgentMessage }) {
-  const isUser = message.role === "user";
+function ChatToolSteps({
+  steps,
+  live,
+}: {
+  steps: ChatToolStep[];
+  live?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const failed = steps.some((step) => step.status === "error");
+
   return (
-    <div className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`type-body max-w-[min(100%,var(--measure-chat))] rounded-2xl px-4 py-3 ${
-          isUser
-            ? "bg-[var(--msg-user)] text-[var(--ink)]"
-            : "bg-[var(--msg-bot)] text-[var(--ink)]"
+    <div className="max-w-[min(100%,var(--measure-chat))]">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        aria-label={
+          open
+            ? "Hide tools used"
+            : failed
+              ? "Show tools used (one failed)"
+              : `Show ${steps.length} tool${steps.length === 1 ? "" : "s"} used`
+        }
+        className={`flex cursor-pointer items-center rounded-lg px-1 py-1 transition hover:bg-[var(--panel)] ${
+          failed ? "text-[var(--danger)]" : "text-[var(--muted)]"
         }`}
       >
-        {isUser ? (
-          <p className="whitespace-pre-wrap">{message.content}</p>
-        ) : (
-          <MarkdownContent content={sanitizeAssistantContent(message.content)} />
-        )}
-      </div>
+        <Caret open={open} />
+      </button>
+      {open ? (
+        <ol className="mt-1 space-y-1 border-l border-[var(--line-soft)] py-1 pl-3 ml-1.5">
+          {steps.map((step) => {
+            const stepRunning = step.status === "running";
+            const stepFailed = step.status === "error";
+            return (
+              <li key={step.id} className="min-w-0">
+                <p
+                  className={`type-meta leading-snug ${
+                    stepFailed
+                      ? "text-[var(--danger)]"
+                      : stepRunning && live
+                        ? "text-[var(--ink-soft)]"
+                        : "text-[var(--muted)]"
+                  }`}
+                >
+                  {step.label}
+                  {step.toolName ? (
+                    <span className="text-[var(--muted)]">
+                      {" "}
+                      · {step.toolName}
+                    </span>
+                  ) : null}
+                </p>
+                {stepFailed && step.detail ? (
+                  <p className="type-meta mt-0.5 truncate text-[var(--muted)]">
+                    {step.detail}
+                  </p>
+                ) : null}
+              </li>
+            );
+          })}
+        </ol>
+      ) : null}
     </div>
   );
 }
@@ -530,5 +706,49 @@ function AgentWorkingStatus({
         <span className="text-[var(--ink)]">{name}</span> is working
       </span>
     </p>
+  );
+}
+
+function Caret({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 12 12"
+      fill="none"
+      className={`shrink-0 text-[var(--muted)] transition-transform ${
+        open ? "rotate-90" : ""
+      }`}
+      aria-hidden
+    >
+      <path
+        d="M4.5 2.5L8 6L4.5 9.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function MessageBubble({ message }: { message: AgentMessage }) {
+  const isUser = message.role === "user";
+  return (
+    <div className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
+      <div
+        className={`type-body max-w-[min(100%,var(--measure-chat))] rounded-2xl px-4 py-3 ${
+          isUser
+            ? "bg-[var(--msg-user)] text-[var(--ink)]"
+            : "bg-[var(--msg-bot)] text-[var(--ink)]"
+        }`}
+      >
+        {isUser ? (
+          <p className="whitespace-pre-wrap">{message.content}</p>
+        ) : (
+          <MarkdownContent content={sanitizeAssistantContent(message.content)} />
+        )}
+      </div>
+    </div>
   );
 }

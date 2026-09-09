@@ -61,6 +61,7 @@ function migrate(db: Database.Database): void {
       id TEXT PRIMARY KEY,
       agent_id TEXT NOT NULL,
       kind TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'system',
       label TEXT NOT NULL,
       detail TEXT,
       tool_name TEXT,
@@ -107,6 +108,15 @@ function migrate(db: Database.Database): void {
   if (!columns.some((column) => column.name === "mode")) {
     db.exec(
       `ALTER TABLE agents ADD COLUMN mode TEXT NOT NULL DEFAULT 'scout'`,
+    );
+  }
+
+  const activityColumns = db
+    .prepare(`PRAGMA table_info(activity)`)
+    .all() as Array<{ name: string }>;
+  if (!activityColumns.some((column) => column.name === "source")) {
+    db.exec(
+      `ALTER TABLE activity ADD COLUMN source TEXT NOT NULL DEFAULT 'system'`,
     );
   }
 

@@ -58,6 +58,7 @@ export function startStrategyScheduler(deps: {
       deps.activity.publish({
         agentId: agent.id,
         kind: "info",
+          source: "strategy",
         label: "Strategy tick",
         detail: strategy.summary,
       });
@@ -88,6 +89,7 @@ export function startStrategyScheduler(deps: {
           deps.activity.publish({
             agentId: strategy.agentId,
             kind: "error",
+          source: "strategy",
             label: gated.decision.label,
             detail: gated.decision.detail ?? gated.reason,
           });
@@ -106,6 +108,7 @@ export function startStrategyScheduler(deps: {
           deps.activity.publish({
             agentId: strategy.agentId,
             kind: "info",
+          source: "strategy",
             label: gated.decision.label,
             detail: gated.decision.detail ?? null,
           });
@@ -116,6 +119,7 @@ export function startStrategyScheduler(deps: {
         deps.activity.publish({
           agentId: strategy.agentId,
           kind: "info",
+          source: "strategy",
           label: gated.decision.label,
           detail: gated.decision.detail ?? null,
         });
@@ -128,7 +132,7 @@ export function startStrategyScheduler(deps: {
           workspace,
           walletAddress: user?.walletAddress ?? null,
           onActivity: (event) => {
-            deps.activity.publish(event);
+            deps.activity.publish({ ...event, source: "strategy" });
           },
           onNotification: (notification) => {
             if (!isSuccessfulReportTickResult(notification)) return;
@@ -151,6 +155,7 @@ export function startStrategyScheduler(deps: {
         deps.activity.publish({
           agentId: strategy.agentId,
           kind: "error",
+          source: "strategy",
           label: "Strategy tick failed",
           detail: error instanceof Error ? error.message : String(error),
         });
@@ -166,6 +171,7 @@ export function startStrategyScheduler(deps: {
         deps.activity.publish({
           agentId: strategy.agentId,
           kind: "info",
+          source: "strategy",
           label: "Checked strategy",
           detail: null,
         });

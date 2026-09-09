@@ -249,6 +249,7 @@ export function registerAgentRoutes(
         activity.publish({
           agentId: agent.id,
           kind: "info",
+          source: "system",
           label:
             agent.spendMode === "spend_enabled"
               ? "Spend enabled"
@@ -405,6 +406,7 @@ export function registerAgentRoutes(
       activity.publish({
         agentId: existing.id,
         kind: "info",
+          source: "system",
         label: "Saved strategy draft",
         detail: draft.summary,
       });
@@ -453,6 +455,7 @@ export function registerAgentRoutes(
       activity.publish({
         agentId: existing.id,
         kind: "info",
+          source: "system",
         label: "Armed strategy",
         detail: strategy.summary,
       });
@@ -492,6 +495,7 @@ export function registerAgentRoutes(
       activity.publish({
         agentId: existing.id,
         kind: "info",
+          source: "system",
         label: "Paused strategy",
         detail: strategy.summary,
       });
@@ -538,6 +542,7 @@ export function registerAgentRoutes(
       activity.publish({
         agentId: existing.id,
         kind: "info",
+          source: "system",
         label: "Resumed strategy",
         detail: strategy.summary,
       });
@@ -577,6 +582,7 @@ export function registerAgentRoutes(
       activity.publish({
         agentId: existing.id,
         kind: "info",
+          source: "system",
         label: "Disarmed strategy",
         detail: strategy.summary,
       });
@@ -618,6 +624,7 @@ export function registerAgentRoutes(
       activity.publish({
         agentId: existing.id,
         kind: "info",
+          source: "system",
         label: "Stopped",
       });
 
@@ -688,6 +695,7 @@ export function registerAgentRoutes(
             activity.publish({
               agentId: agent.id,
               kind: "info",
+          source: "system",
               label: "Saved strategy draft",
               detail: draft.summary,
             });
@@ -716,7 +724,7 @@ export function registerAgentRoutes(
             content: m.content,
           })),
           onActivity: (event) => {
-            activity.publish(event);
+            activity.publish({ ...event, source: "chat" });
           },
           onNotification: (notification) => {
             if (!isSuccessfulProposeStrategyResult(notification)) return;
@@ -732,6 +740,7 @@ export function registerAgentRoutes(
           activity.publish({
             agentId: agent.id,
             kind: "error",
+          source: "chat",
             label: "Something went wrong",
             detail: error instanceof Error ? error.message : String(error),
           });
