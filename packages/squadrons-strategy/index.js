@@ -3,12 +3,14 @@ import path from "node:path";
 import { defineTool } from "@deepseek-ai/dsh-tools";
 import {
   draftPath,
+  improvementPath,
   paramsPatchPath,
   statePath,
   tickPath,
   STRATEGY_DIR,
 } from "./paths.js";
 import {
+  parseProposeImprovementInput,
   parseStrategyDraftInput,
   parseStrategyParamsPatch,
   parseStrategyTickDecision,
@@ -201,6 +203,75 @@ export function apply(ctx) {
       presentCall: (args) => ({
         card: "generic",
         title: "Update strategy params",
+        kind: "other",
+        rawInput: args,
+      }),
+    }),
+  );
+
+  ctx.tools.register(
+    defineTool({
+      name: "propose_improvement",
+      description:
+        "Queue a self-improvement param patch for desk Approve/Dismiss. Use during a host self-improvement review, or in Operate when suggesting a retune. Does not apply params immediately.",
+      parameters: {
+        patch: {
+          type: "object",
+          description: "Param keys/values to change (must be allowed keys).",
+          additionalProperties: true,
+        },
+        reason: {
+          type: "string",
+          description: "Short operator-facing reason for the change.",
+        },
+      },
+      output: {
+        schema: {
+          type: "object",
+          additionalProperties: true,
+        },
+        render: (_args, value) => [
+          {
+            type: "text",
+            text: JSON.stringify(value, null, 2),
+          },
+        ],
+      },
+      async execute(args) {
+        const proposal = parseProposeImprovementInput(args);
+        if (!proposal) {
+          throw new Error(
+            "Invalid improvement. Need { patch: { ... }, reason? } with at least one key.",
+          );
+        }
+
+        const state = await readJson(statePath());
+        if (!state || state.status === "none") {
+          throw new Error("No strategy to improve. Propose a draft first.");
+        }
+
+        const dir = path.join(process.cwd(), STRATEGY_DIR);
+        await mkdir(dir, { recursive: true });
+        const payload = {
+          ...proposal,
+          proposedAt: Date.now(),
+        };
+        await writeFile(
+          improvementPath(),
+          `${JSON.stringify(payload, null, 2)}\n`,
+          "utf8",
+        );
+
+        return {
+          ok: true,
+          note: "Improvement proposal saved for desk Approve/Dismiss.",
+          patch: proposal.patch,
+          ...(proposal.reason ? { reason: proposal.reason } : {}),
+        };
+      },
+      presentCall: (args) => ({
+        card: "generic",
+        title: "Propose improvement",
         kind: "other",
         rawInput: args,
       }),

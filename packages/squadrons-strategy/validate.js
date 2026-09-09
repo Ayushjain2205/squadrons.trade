@@ -156,6 +156,21 @@ export function parseStrategyParamsPatch(value) {
 }
 
 /**
+ * @param {unknown} value
+ */
+export function parseProposeImprovementInput(value) {
+  if (!isRecord(value)) return null;
+  if (!isRecord(value.patch)) return null;
+  const patch = { ...value.patch };
+  if (Object.keys(patch).length === 0) return null;
+  const reason =
+    typeof value.reason === "string" && value.reason.trim()
+      ? value.reason.trim()
+      : undefined;
+  return reason ? { patch, reason } : { patch };
+}
+
+/**
  * Validate report_tick args. Mirrors @squadrons/shared parseStrategyTickDecision.
  * @param {unknown} value
  */

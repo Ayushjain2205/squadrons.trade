@@ -353,3 +353,39 @@ export function improvementCadenceMs(
       return 24 * 60 * 60 * 1000;
   }
 }
+
+/** Pending / resolved self-improvement param patch. */
+export type ImprovementProposalStatus =
+  | "pending"
+  | "approved"
+  | "dismissed";
+
+export interface StrategyImprovementProposal {
+  id: string;
+  agentId: string;
+  status: ImprovementProposalStatus;
+  patch: Record<string, unknown>;
+  reason: string | null;
+  createdAt: number;
+  resolvedAt: number | null;
+}
+
+export interface ProposeImprovementInput {
+  patch: Record<string, unknown>;
+  reason?: string;
+}
+
+export function parseProposeImprovementInput(
+  value: unknown,
+): ProposeImprovementInput | null {
+  if (!isRecord(value)) return null;
+  if (!isRecord(value.patch)) return null;
+  const patch: Record<string, unknown> = { ...value.patch };
+  if (Object.keys(patch).length === 0) return null;
+  const reason =
+    typeof value.reason === "string" && value.reason.trim()
+      ? value.reason.trim()
+      : undefined;
+  return reason ? { patch, reason } : { patch };
+}
+
