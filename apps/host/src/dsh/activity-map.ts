@@ -70,6 +70,16 @@ export function isSuccessfulUpdateStrategyParamsResult(
   return toolNameFromData(event.data) === "update_strategy_params";
 }
 
+/** True when dsh reports a successful propose_improvement tool result. */
+export function isSuccessfulProposeImprovementResult(
+  notification: HarnessNotification,
+): boolean {
+  const event = sessionEvent(notification);
+  if (!event || event.type !== "tool/result") return false;
+  if (event.data.error) return false;
+  return toolNameFromData(event.data) === "propose_improvement";
+}
+
 /** True when dsh reports a successful report_tick tool result. */
 export function isSuccessfulReportTickResult(
   notification: HarnessNotification,

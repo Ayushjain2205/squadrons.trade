@@ -18,12 +18,14 @@ import {
   invalidateAgentRuntime,
   runDshTurn,
 } from "../dsh/runner.js";
-import { isSuccessfulProposeStrategyResult, isSuccessfulUpdateStrategyParamsResult } from "../dsh/activity-map.js";
+import { isSuccessfulProposeStrategyResult, isSuccessfulUpdateStrategyParamsResult, isSuccessfulProposeImprovementResult } from "../dsh/activity-map.js";
 import type { ActivityHub } from "./activity-hub.js";
 import type { MessageStore } from "./messages.js";
 import { agentWorkspacePath } from "./paths.js";
 import type { AgentStore } from "./store.js";
 import type { StrategyStore } from "./strategy-store.js";
+import type { ImprovementProposalStore } from "../strategy/improvement-store.js";
+import { applyImprovementProposalFromWorkspace } from "../strategy/improvement.js";
 import {
   readPendingParamsPatch,
   readPendingStrategyDraft,
@@ -41,6 +43,7 @@ export function registerAgentRoutes(
   activity: ActivityHub,
   users: UserStore,
   strategies: StrategyStore,
+  improvements: ImprovementProposalStore,
 ): void {
   app.get("/v1/me", async (req, res, next) => {
     try {
@@ -605,6 +608,129 @@ export function registerAgentRoutes(
     }
   });
 
+  app.get("/v1/agents/:id/strategy/improvements", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      const agentId = req.params.id;
+      if (!agentId) {
+        res.status(400).json({ ok: false, error: "missing agent id" });
+        return;
+      }
+      const existing = agents.getForUser(user.id, agentId);
+      if (!existing) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+      res.json({
+        ok: true,
+        pending: improvements.getPending(existing.id),
+        proposals: improvements.list(existing.id, 20),
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post(
+    "/v1/agents/:id/strategy/improvements/:proposalId/approve",
+    async (req, res, next) => {
+      try {
+        const user = await requireUser(req, users);
+        const agentId = req.params.id;
+        const proposalId = req.params.proposalId;
+        if (!agentId || !proposalId) {
+          res.status(400).json({ ok: false, error: "missing id" });
+          return;
+        }
+        const existing = agents.getForUser(user.id, agentId);
+        if (!existing) {
+          res.status(404).json({ ok: false, error: "agent not found" });
+          return;
+        }
+
+        const proposal = improvements.get(existing.id, proposalId);
+        if (!proposal || proposal.status !== "pending") {
+          res.status(404).json({ ok: false, error: "proposal not found" });
+          return;
+        }
+
+        strategies.patchParams(existing.id, proposal.patch);
+        const resolved = improvements.resolve(
+          existing.id,
+          proposalId,
+          "approved",
+        );
+        activity.publish({
+          agentId: existing.id,
+          kind: "info",
+          source: "system",
+          label: "Self-improvement approved",
+          detail: proposal.reason ?? Object.keys(proposal.patch).join(", "),
+        });
+
+        const agent = agents.getForUser(user.id, existing.id);
+        const workspace = agentWorkspacePath(user.id, existing.id);
+        if (agent) await writeStrategyStateFile(workspace, agent);
+        res.json({
+          ok: true,
+          proposal: resolved,
+          agent: agent
+            ? { ...agent, workspace }
+            : {
+                ...existing,
+                strategy: strategies.get(existing.id),
+                workspace,
+              },
+        });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  app.post(
+    "/v1/agents/:id/strategy/improvements/:proposalId/dismiss",
+    async (req, res, next) => {
+      try {
+        const user = await requireUser(req, users);
+        const agentId = req.params.id;
+        const proposalId = req.params.proposalId;
+        if (!agentId || !proposalId) {
+          res.status(400).json({ ok: false, error: "missing id" });
+          return;
+        }
+        const existing = agents.getForUser(user.id, agentId);
+        if (!existing) {
+          res.status(404).json({ ok: false, error: "agent not found" });
+          return;
+        }
+
+        const proposal = improvements.get(existing.id, proposalId);
+        if (!proposal || proposal.status !== "pending") {
+          res.status(404).json({ ok: false, error: "proposal not found" });
+          return;
+        }
+
+        const resolved = improvements.resolve(
+          existing.id,
+          proposalId,
+          "dismissed",
+        );
+        activity.publish({
+          agentId: existing.id,
+          kind: "info",
+          source: "system",
+          label: "Self-improvement dismissed",
+          detail: proposal.reason ?? Object.keys(proposal.patch).join(", "),
+        });
+
+        res.json({ ok: true, proposal: resolved });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
   /** Halt a working agent by killing its dsh runtime; status → paused. */
   app.post("/v1/agents/:id/pause", async (req, res, next) => {
     try {
@@ -768,6 +894,17 @@ export function registerAgentRoutes(
                 console.error("[strategy-params-mid-turn]", agent.id, error);
               });
             }
+            if (isSuccessfulProposeImprovementResult(notification)) {
+              void applyImprovementProposalFromWorkspace({
+                agent,
+                workspace,
+                strategies,
+                improvements,
+                activity,
+              }).catch((error) => {
+                console.error("[strategy-improve-mid-turn]", agent.id, error);
+              });
+            }
           },
         });
       } catch (error) {
@@ -796,6 +933,17 @@ export function registerAgentRoutes(
         await syncPendingParamsPatch(true);
       } catch (error) {
         console.error("[strategy-params]", agent.id, error);
+      }
+      try {
+        await applyImprovementProposalFromWorkspace({
+          agent,
+          workspace,
+          strategies,
+          improvements,
+          activity,
+        });
+      } catch (error) {
+        console.error("[strategy-improve]", agent.id, error);
       }
 
       const assistantMessage = messages.append(

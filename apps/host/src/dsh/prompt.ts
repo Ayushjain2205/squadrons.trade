@@ -177,3 +177,57 @@ export function buildStrategyTickPrompt(
     "- Keep label short and operator-facing (present or past tense).",
   ].join("\n");
 }
+
+/** Constrained review turn — may only propose a param patch (or no change). */
+export function buildSelfImprovementPrompt(
+  agent: Agent,
+  strategy: Strategy,
+  recentActivity: Array<{
+    label: string;
+    detail: string | null;
+    createdAt: number;
+  }>,
+  walletAddress?: string | null,
+): string {
+  const identity = buildAgentIdentityBlock(agent, walletAddress);
+  const allowed =
+    strategy.improvement.allowedKeys.length > 0
+      ? strategy.improvement.allowedKeys.join(", ")
+      : Object.keys(strategy.params).join(", ") || "(none)";
+  const activityLines =
+    recentActivity.length === 0
+      ? "- (no recent strategy activity)"
+      : recentActivity
+          .map((event) => {
+            const when = new Date(event.createdAt).toISOString();
+            return `- [${when}] ${event.label}${
+              event.detail ? ` — ${event.detail}` : ""
+            }`;
+          })
+          .join("\n");
+
+  return [
+    identity,
+    "",
+    "This is a SELF-IMPROVEMENT review — not a user chat and not a strategy tick.",
+    "Decide whether strategy params should change based on recent outcomes.",
+    `Mandate: ${strategy.summary}`,
+    `Recipe: ${strategy.recipeId ?? "none"}`,
+    `Current params: ${JSON.stringify(strategy.params)}`,
+    `Allowed keys to change: ${allowed}`,
+    `Cadence: ${strategy.improvement.cadence}`,
+    "",
+    "Recent strategy activity:",
+    activityLines,
+    "",
+    "Rules:",
+    "- Do not arm, pause, disarm, or claim you changed runtime state.",
+    "- Do not propose trades or call report_tick.",
+    "- You may use read tools if needed to verify current market/wallet state.",
+    "- If no change is warranted, reply briefly and do not call propose_improvement.",
+    "- If a change is warranted, call propose_improvement once with { patch, reason }.",
+    "- patch may only include allowed keys. Keep changes small and justified.",
+    "- Host will queue a desk proposal for Approve/Dismiss — nothing auto-applies.",
+  ].join("\n");
+}
+

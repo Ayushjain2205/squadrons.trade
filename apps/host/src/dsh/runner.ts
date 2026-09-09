@@ -8,6 +8,7 @@ import { hostRoot } from "../db.js";
 import {
   buildAgentTurnPrompt,
   buildContinuingTurnPrompt,
+  buildSelfImprovementPrompt,
   buildStrategyTickPrompt,
   LLM_PATCH_PATH,
   OBSERVE_PATCH_PATH,
@@ -315,6 +316,39 @@ export async function runDshStrategyTick(options: {
   return runDshTurn({
     agentId: options.agent.id,
     poolKey: tickPoolKey(options.agent.id),
+    agent: options.agent,
+    userText: prompt,
+    workspace: options.workspace,
+    walletAddress: options.walletAddress,
+    onActivity: options.onActivity,
+    onNotification: options.onNotification,
+    promptMode: "raw",
+  });
+}
+
+/** Cadence self-improvement review — separate pool key from ticks/chat. */
+export async function runDshSelfImprovement(options: {
+  agent: Agent;
+  strategy: Strategy;
+  workspace: string;
+  walletAddress?: string | null;
+  recentActivity: Array<{
+    label: string;
+    detail: string | null;
+    createdAt: number;
+  }>;
+  onActivity?: (event: NewActivityEvent) => void;
+  onNotification?: DshTurnOptions["onNotification"];
+}): Promise<DshTurnResult> {
+  const prompt = buildSelfImprovementPrompt(
+    options.agent,
+    options.strategy,
+    options.recentActivity,
+    options.walletAddress,
+  );
+  return runDshTurn({
+    agentId: options.agent.id,
+    poolKey: `improve:${options.agent.id}`,
     agent: options.agent,
     userText: prompt,
     workspace: options.workspace,

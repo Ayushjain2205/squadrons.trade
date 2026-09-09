@@ -27,6 +27,8 @@ import { UserStore } from "./auth/privy.js";
 import { openDatabase } from "./db.js";
 import { closeAllAgentRuntimes, runDshSmoke } from "./dsh/runner.js";
 import { startStrategyScheduler } from "./strategy/scheduler.js";
+import { startImprovementScheduler } from "./strategy/improvement.js";
+import { ImprovementProposalStore } from "./strategy/improvement-store.js";
 import { TradeIntentStore } from "./strategy/trade-intents.js";
 
 const port = Number(process.env.PORT ?? 8787);
@@ -34,6 +36,7 @@ const host = process.env.HOST ?? "0.0.0.0";
 
 const db = openDatabase();
 const strategies = new StrategyStore(db);
+const improvements = new ImprovementProposalStore(db);
 const agents = new AgentStore(db, strategies);
 const messages = new MessageStore(db);
 const users = new UserStore(db);
@@ -45,6 +48,13 @@ const strategyScheduler = startStrategyScheduler({
   users,
   activity,
   tradeIntents,
+});
+const improvementScheduler = startImprovementScheduler({
+  agents,
+  strategies,
+  users,
+  activity,
+  improvements,
 });
 
 const app = express();
@@ -71,7 +81,15 @@ app.get("/v1/meta", (_req, res) => {
   });
 });
 
-registerAgentRoutes(app, agents, messages, activity, users, strategies);
+registerAgentRoutes(
+  app,
+  agents,
+  messages,
+  activity,
+  users,
+  strategies,
+  improvements,
+);
 
 app.post("/v1/dsh/smoke", async (req, res) => {
   const prompt =
@@ -100,6 +118,7 @@ const server = app.listen(port, host, () => {
 async function shutdown(signal: string) {
   console.log(`[host] ${signal} — closing strategy scheduler + dsh runtimes`);
   strategyScheduler.stop();
+  improvementScheduler.stop();
   server.close();
   await closeAllAgentRuntimes();
   process.exit(0);
