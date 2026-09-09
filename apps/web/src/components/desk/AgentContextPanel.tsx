@@ -142,7 +142,9 @@ function AgentContextSummary({
 
       <StrategyCard
         mode={agent.mode}
+        spendMode={agent.spendMode}
         strategy={agent.strategy}
+        agentWorking={isWorking}
         onAction={async (action) => {
           const updated =
             action === "arm"

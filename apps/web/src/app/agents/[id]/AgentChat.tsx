@@ -15,6 +15,7 @@ import {
   type AgentWithWorkspace,
 } from "@/lib/host";
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { sanitizeAssistantContent } from "@/lib/sanitize-assistant";
 
 export function AgentChat({
   agent: initialAgent,
@@ -492,7 +493,7 @@ function MessageBubble({ message }: { message: AgentMessage }) {
         {isUser ? (
           <p className="whitespace-pre-wrap">{message.content}</p>
         ) : (
-          <MarkdownContent content={message.content} />
+          <MarkdownContent content={sanitizeAssistantContent(message.content)} />
         )}
       </div>
     </div>

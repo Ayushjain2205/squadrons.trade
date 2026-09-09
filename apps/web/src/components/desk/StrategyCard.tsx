@@ -6,20 +6,26 @@ import type { AgentWithWorkspace } from "@/lib/host";
 
 export function StrategyCard({
   mode,
+  spendMode = "observe",
   strategy,
+  agentWorking = false,
   onAction,
 }: {
   mode: "scout" | "operate";
+  spendMode?: "observe" | "spend_enabled";
   strategy: Strategy | null;
+  /** True while a chat turn is in flight — freeze strategy controls. */
+  agentWorking?: boolean;
   onAction?: (
     action: "arm" | "pause" | "resume" | "disarm",
   ) => Promise<AgentWithWorkspace>;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const busy = pending || agentWorking;
 
   function run(action: "arm" | "pause" | "resume" | "disarm") {
-    if (!onAction || pending) return;
+    if (!onAction || busy) return;
     setError(null);
     startTransition(async () => {
       try {
@@ -35,14 +41,21 @@ export function StrategyCard({
       <section className="shrink-0 space-y-2 rounded-xl bg-[var(--panel)] px-3 py-3">
         <div className="flex items-center justify-between gap-2">
           <h3 className="type-ui text-[var(--ink)]">Strategy</h3>
-          <span className="type-meta text-[var(--muted)]">none</span>
+          <StatusPill status="none" />
         </div>
         <p className="type-meta text-[var(--muted)]">
           {mode === "operate"
-            ? "Define a plan in chat — when it’s concrete, the draft lands here."
-            : "Scout first, then switch to Operate to draft and arm."}
+            ? "Shape a concrete plan in chat. When the agent saves a draft, it shows up here for Arm."
+            : "Scout first. Switch to Operate when you’re ready to draft and arm a plan."}
         </p>
-        <PrimaryButton disabled title="Draft a strategy first">
+        <PrimaryButton
+          disabled
+          title={
+            mode === "operate"
+              ? "Waiting for a strategy draft"
+              : "Switch to Operate after scouting"
+          }
+        >
           Arm strategy
         </PrimaryButton>
       </section>
@@ -60,7 +73,7 @@ export function StrategyCard({
     strategy.action.type === "alert"
       ? strategy.action.detail
         ? `Alert — ${strategy.action.detail}`
-        : "Alert"
+        : "Alert in-app"
       : strategy.action.detail
         ? `Propose trade — ${strategy.action.detail}`
         : "Propose trade";
@@ -73,13 +86,18 @@ export function StrategyCard({
   const canDisarm =
     strategy.status === "running" || strategy.status === "paused";
 
+  const armHint =
+    mode !== "operate"
+      ? "Switch to Operate to arm"
+      : spendMode === "observe"
+        ? "Arms in observe mode — alerts only, no spend"
+        : "Arms with spend enabled — still policy-gated";
+
   return (
     <section className="shrink-0 space-y-3 rounded-xl bg-[var(--panel)] px-3 py-3">
       <div className="flex items-center justify-between gap-2">
         <h3 className="type-ui text-[var(--ink)]">Strategy</h3>
-        <span className="type-meta capitalize text-[var(--ink-soft)]">
-          {strategy.status}
-        </span>
+        <StatusPill status={strategy.status} />
       </div>
 
       <p className="type-ui text-[var(--ink-soft)]">{strategy.summary}</p>
@@ -92,6 +110,12 @@ export function StrategyCard({
         <div>
           <dt className="type-meta text-[var(--muted)]">Action</dt>
           <dd className="type-meta text-[var(--ink-soft)]">{actionLabel}</dd>
+        </div>
+        <div>
+          <dt className="type-meta text-[var(--muted)]">Spend</dt>
+          <dd className="type-meta text-[var(--ink-soft)]">
+            {spendMode === "observe" ? "observe only" : "spend enabled"}
+          </dd>
         </div>
         {strategy.caps.maxTradeUsd !== undefined ? (
           <div>
@@ -111,53 +135,67 @@ export function StrategyCard({
         ) : strategy.status === "running" ? (
           <div>
             <dt className="type-meta text-[var(--muted)]">Last tick</dt>
-            <dd className="type-meta text-[var(--ink-soft)]">pending</dd>
+            <dd className="type-meta text-[var(--ink-soft)]">waiting for first tick</dd>
           </div>
         ) : null}
       </dl>
 
+      {strategy.status === "running" ? (
+        <p className="type-meta flex items-center gap-1.5 text-[var(--accent)]">
+          <span className="working-dot size-1.5 rounded-full bg-[var(--accent)]" />
+          Host is ticking this strategy in the background
+        </p>
+      ) : null}
+
+      {agentWorking ? (
+        <p className="type-meta text-[var(--muted)]">
+          Controls pause while the agent is mid-reply.
+        </p>
+      ) : null}
+
       <div className="flex flex-col gap-2">
         {strategy.status === "running" ? (
           <PrimaryButton
-            disabled={pending || !canPause}
+            disabled={busy || !canPause}
             onClick={() => run("pause")}
+            title={agentWorking ? "Wait for the chat turn to finish" : undefined}
           >
-            {pending ? "Working…" : "Pause strategy"}
+            {pending ? "Pausing…" : "Pause strategy"}
           </PrimaryButton>
         ) : strategy.status === "paused" ? (
           <PrimaryButton
-            disabled={pending || !canResume}
+            disabled={busy || !canResume}
             onClick={() => run("resume")}
             title={
               mode !== "operate"
                 ? "Switch to Operate to resume"
-                : undefined
+                : agentWorking
+                  ? "Wait for the chat turn to finish"
+                  : undefined
             }
           >
-            {pending ? "Working…" : "Resume strategy"}
+            {pending ? "Resuming…" : "Resume strategy"}
           </PrimaryButton>
         ) : (
           <PrimaryButton
-            disabled={pending || !canArm}
+            disabled={busy || !canArm}
             onClick={() => run("arm")}
             title={
-              mode !== "operate"
-                ? "Switch to Operate to arm"
-                : undefined
+              agentWorking ? "Wait for the chat turn to finish" : armHint
             }
           >
-            {pending ? "Working…" : "Arm strategy"}
+            {pending ? "Arming…" : "Arm strategy"}
           </PrimaryButton>
         )}
 
         {canDisarm ? (
           <button
             type="button"
-            disabled={pending}
+            disabled={busy}
             onClick={() => run("disarm")}
             className="type-ui w-full cursor-pointer rounded-full px-4 py-2 text-[var(--muted)] transition hover:bg-[var(--panel-2)] hover:text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Disarm
+            {pending ? "Disarming…" : "Disarm"}
           </button>
         ) : null}
       </div>
@@ -166,6 +204,27 @@ export function StrategyCard({
         <p className="type-meta text-[var(--danger)]">{error}</p>
       ) : null}
     </section>
+  );
+}
+
+function StatusPill({
+  status,
+}: {
+  status: "none" | "draft" | "running" | "paused";
+}) {
+  const styles =
+    status === "running"
+      ? "text-[var(--accent)]"
+      : status === "draft"
+        ? "text-[var(--link)]"
+        : status === "paused"
+          ? "text-[var(--ink-soft)]"
+          : "text-[var(--muted)]";
+
+  return (
+    <span className={`type-meta capitalize ${styles}`}>
+      {status === "running" ? "running" : status}
+    </span>
   );
 }
 
