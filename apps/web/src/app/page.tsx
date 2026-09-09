@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DeskShell } from "@/components/desk/DeskShell";
+import { EmptyAgents } from "@/components/desk/EmptyAgents";
 import { AgentOrb } from "@/components/AgentOrb";
 import { BrandMark } from "@/components/BrandMark";
 import { getHostUrl, listAgents, type AgentWithWorkspace } from "@/lib/host";
@@ -68,7 +69,7 @@ export default function HomePage() {
               </p>
             </div>
           ) : agents.length === 0 ? (
-            <EmptyCreate />
+            <EmptyAgents />
           ) : (
             <ul className="divide-y divide-[var(--line-soft)]">
               {agents.map((agent) => (
@@ -113,7 +114,7 @@ export default function HomePage() {
               </p>
             </div>
           ) : agents.length === 0 ? (
-            <EmptyCreate />
+            <EmptyAgents />
           ) : (
             <div className="max-w-sm space-y-2">
               <p className="font-[family-name:var(--font-display)] text-xl font-semibold tracking-[-0.02em]">
@@ -127,25 +128,5 @@ export default function HomePage() {
         </div>
       </div>
     </DeskShell>
-  );
-}
-
-function EmptyCreate() {
-  return (
-    <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
-      <p className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-[-0.03em]">
-        Create your first agent
-      </p>
-      <p className="max-w-md text-[var(--ink-soft)]">
-        Name it, pick a face, then tell it what to work on — observe by default
-        on Base.
-      </p>
-      <Link
-        href="/agents/new"
-        className="inline-flex cursor-pointer rounded-full bg-[var(--ink)] px-5 py-2.5 text-sm font-semibold text-[var(--canvas)] transition hover:opacity-90"
-      >
-        New agent
-      </Link>
-    </div>
   );
 }

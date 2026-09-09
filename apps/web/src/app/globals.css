@@ -133,6 +133,58 @@ textarea.chat-input:focus-visible,
   }
 }
 
+/* --- Empty desk: waiting squadron --- */
+
+.empty-squadron-glow {
+  background: radial-gradient(
+    circle at 48% 42%,
+    color-mix(in srgb, var(--accent) 16%, transparent),
+    transparent 68%
+  );
+}
+
+.empty-squadron-orb {
+  animation: empty-orb-float 4.4s ease-in-out infinite;
+  animation-delay: var(--orb-delay, 0s);
+}
+
+.empty-squadron-orb-face {
+  transform: rotate(var(--orb-rotate, 0deg));
+  filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.5));
+  transition:
+    transform 0.4s cubic-bezier(0.22, 1.15, 0.36, 1),
+    filter 0.35s ease;
+}
+
+.empty-squadron-orb-face.is-awake {
+  transform: rotate(var(--orb-rotate, 0deg)) scale(1.12);
+  filter: drop-shadow(0 14px 22px rgb(0 0 0 / 0.55));
+}
+
+@keyframes empty-orb-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .empty-squadron-orb {
+    animation: none;
+  }
+
+  .empty-squadron-orb-face {
+    transition: none;
+  }
+
+  .empty-squadron-orb-face.is-awake {
+    transform: rotate(var(--orb-rotate, 0deg));
+  }
+}
+
 /* --- Orb eye animations (working / selected face) --- */
 
 .orb-eye {
