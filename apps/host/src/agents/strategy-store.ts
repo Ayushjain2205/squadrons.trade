@@ -183,6 +183,19 @@ export class StrategyStore {
     return draft;
   }
 
+  markTicked(agentId: string, at = Date.now()): Strategy | null {
+    const existing = this.get(agentId);
+    if (!existing) return null;
+    this.db
+      .prepare(
+        `UPDATE strategies
+         SET last_tick_at = @at, updated_at = @at
+         WHERE agent_id = @agentId`,
+      )
+      .run({ agentId, at });
+    return this.get(agentId);
+  }
+
   delete(agentId: string): boolean {
     const result = this.db
       .prepare(`DELETE FROM strategies WHERE agent_id = ?`)

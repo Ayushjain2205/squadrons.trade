@@ -101,6 +101,19 @@ export function StrategyCard({
             </dd>
           </div>
         ) : null}
+        {strategy.lastTickAt ? (
+          <div>
+            <dt className="type-meta text-[var(--muted)]">Last tick</dt>
+            <dd className="type-meta text-[var(--ink-soft)]">
+              {formatTickTime(strategy.lastTickAt)}
+            </dd>
+          </div>
+        ) : strategy.status === "running" ? (
+          <div>
+            <dt className="type-meta text-[var(--muted)]">Last tick</dt>
+            <dd className="type-meta text-[var(--ink-soft)]">pending</dd>
+          </div>
+        ) : null}
       </dl>
 
       <div className="flex flex-col gap-2">
@@ -178,4 +191,16 @@ function PrimaryButton({
       {children}
     </button>
   );
+}
+
+function formatTickTime(ts: number): string {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+    }).format(new Date(ts));
+  } catch {
+    return new Date(ts).toLocaleTimeString();
+  }
 }

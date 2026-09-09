@@ -7,11 +7,13 @@ import { hostRoot } from "../db.js";
 import {
   buildAgentTurnPrompt,
   buildContinuingTurnPrompt,
+  buildStrategyTickPrompt,
   LLM_PATCH_PATH,
   OBSERVE_PATCH_PATH,
 } from "./prompt.js";
 import { mapNotificationToActivity } from "./activity-map.js";
 import type { NewActivityEvent } from "../agents/activity.js";
+import type { Strategy } from "@squadrons/shared";
 
 export type DshTurnResult = {
   sessionId: string;
@@ -26,6 +28,11 @@ export type DshTurnResult = {
 export type DshTurnOptions = {
   /** Stable pool key — usually agent id. */
   agentId: string;
+  /**
+   * Optional harness pool key. Defaults to agentId.
+   * Strategy ticks use a separate key so they don't share the chat session.
+   */
+  poolKey?: string;
   agent: Agent;
   userText: string;
   workspace: string;
@@ -44,6 +51,11 @@ export type DshTurnOptions = {
   onActivity?: (event: NewActivityEvent) => void;
   /** Shared per-user wallet injected as SQUADRONS_USER_WALLET. */
   walletAddress?: string | null;
+  /**
+   * raw = use userText as the full harness prompt (strategy ticks).
+   * chat = identity wrap / continuing user message (default).
+   */
+  promptMode?: "chat" | "raw";
 };
 
 type PooledRuntime = {
@@ -123,6 +135,7 @@ async function evict(agentId: string): Promise<void> {
 /** Drop a pooled runtime (e.g. after home-chain change). */
 export async function invalidateAgentRuntime(agentId: string): Promise<void> {
   await evict(agentId);
+  await evict(tickPoolKey(agentId));
 }
 
 /**
@@ -130,9 +143,15 @@ export async function invalidateAgentRuntime(agentId: string): Promise<void> {
  * The in-flight `run()` rejects; there is no wire-level cancel in dsh SDK.
  */
 export async function abortAgentRuntime(agentId: string): Promise<boolean> {
-  const had = pool.has(agentId);
+  const hadChat = pool.has(agentId);
+  const hadTick = pool.has(tickPoolKey(agentId));
   await evict(agentId);
-  return had;
+  await evict(tickPoolKey(agentId));
+  return hadChat || hadTick;
+}
+
+function tickPoolKey(agentId: string): string {
+  return `tick:${agentId}`;
 }
 
 /** Close every pooled harness — call on host shutdown. */
@@ -147,8 +166,9 @@ async function ensureRuntime(
   model: string,
   patches: string[],
 ): Promise<PooledRuntime> {
+  const poolKey = options.poolKey ?? options.agentId;
   const walletAddress = options.walletAddress ?? null;
-  const existing = pool.get(options.agentId);
+  const existing = pool.get(poolKey);
   if (
     existing &&
     existing.workspace === options.workspace &&
@@ -161,7 +181,7 @@ async function ensureRuntime(
   }
 
   if (existing) {
-    await evict(options.agentId);
+    await evict(poolKey);
   }
 
   await mkdir(options.workspace, { recursive: true });
@@ -187,7 +207,7 @@ async function ensureRuntime(
     provider,
     model,
   };
-  pool.set(options.agentId, runtime);
+  pool.set(poolKey, runtime);
   return runtime;
 }
 
@@ -207,14 +227,18 @@ export async function runDshTurn(
       ...(options.observeMode === false ? [] : [OBSERVE_PATCH_PATH]),
       ...(options.patches ?? []),
     ];
+    const poolKey = options.poolKey ?? options.agentId;
 
     const runtime = await ensureRuntime(options, provider, model, patches);
     const continuing = Boolean(runtime.sessionId);
-    const prompt = continuing
-      ? buildContinuingTurnPrompt(options.userText, {
-          mode: options.agent.mode,
-        })
-      : buildColdStartPrompt(options);
+    const prompt =
+      options.promptMode === "raw"
+        ? options.userText
+        : continuing
+          ? buildContinuingTurnPrompt(options.userText, {
+              mode: options.agent.mode,
+            })
+          : buildColdStartPrompt(options);
 
     let result;
     try {
@@ -230,13 +254,13 @@ export async function runDshTurn(
         },
       });
     } catch (error) {
-      await evict(options.agentId);
+      await evict(poolKey);
       throw error;
     }
 
     const turnError = findTurnError(result.events);
     if (turnError) {
-      await evict(options.agentId);
+      await evict(poolKey);
       throw new Error(turnError);
     }
 
@@ -251,6 +275,34 @@ export async function runDshTurn(
       provider,
       model,
     };
+  });
+}
+
+/**
+ * Background strategy evaluation — separate dsh session from chat,
+ * serialized on the same agent lock so tools don't interleave.
+ */
+export async function runDshStrategyTick(options: {
+  agent: Agent;
+  strategy: Strategy;
+  workspace: string;
+  walletAddress?: string | null;
+  onActivity?: (event: NewActivityEvent) => void;
+}): Promise<DshTurnResult> {
+  const prompt = buildStrategyTickPrompt(
+    options.agent,
+    options.strategy,
+    options.walletAddress,
+  );
+  return runDshTurn({
+    agentId: options.agent.id,
+    poolKey: tickPoolKey(options.agent.id),
+    agent: options.agent,
+    userText: prompt,
+    workspace: options.workspace,
+    walletAddress: options.walletAddress,
+    onActivity: options.onActivity,
+    promptMode: "raw",
   });
 }
 

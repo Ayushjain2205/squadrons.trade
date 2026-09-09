@@ -26,6 +26,7 @@ import { StrategyStore } from "./agents/strategy-store.js";
 import { UserStore } from "./auth/privy.js";
 import { openDatabase } from "./db.js";
 import { closeAllAgentRuntimes, runDshSmoke } from "./dsh/runner.js";
+import { startStrategyScheduler } from "./strategy/scheduler.js";
 
 const port = Number(process.env.PORT ?? 8787);
 const host = process.env.HOST ?? "0.0.0.0";
@@ -36,6 +37,12 @@ const agents = new AgentStore(db, strategies);
 const messages = new MessageStore(db);
 const users = new UserStore(db);
 const activity = new ActivityHub(new ActivityStore(db));
+const strategyScheduler = startStrategyScheduler({
+  agents,
+  strategies,
+  users,
+  activity,
+});
 
 const app = express();
 app.use(cors({ origin: true }));
@@ -88,7 +95,8 @@ const server = app.listen(port, host, () => {
 });
 
 async function shutdown(signal: string) {
-  console.log(`[host] ${signal} — closing dsh runtimes`);
+  console.log(`[host] ${signal} — closing strategy scheduler + dsh runtimes`);
+  strategyScheduler.stop();
   server.close();
   await closeAllAgentRuntimes();
   process.exit(0);

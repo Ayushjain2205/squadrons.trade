@@ -5,6 +5,7 @@ import {
   chainScopedReadTools,
   getSupportedChain,
   type Agent,
+  type Strategy,
 } from "@squadrons/shared";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -109,4 +110,42 @@ export function buildAgentIdentityBlock(
       : "- In Scout mode, focus on research and findings. Suggest switching to Operate when ready to define a runnable strategy.",
   );
   return lines.join("\n");
+}
+
+/** Prompt for a background strategy tick — not a user chat turn. */
+export function buildStrategyTickPrompt(
+  agent: Agent,
+  strategy: Strategy,
+  walletAddress?: string | null,
+): string {
+  const identity = buildAgentIdentityBlock(agent, walletAddress);
+  const trigger =
+    strategy.trigger.type === "interval"
+      ? `interval every ${strategy.trigger.intervalSec ?? 60}s`
+      : `condition: ${strategy.trigger.condition ?? "(missing)"}` +
+        (strategy.trigger.intervalSec
+          ? ` (poll floor ${strategy.trigger.intervalSec}s)`
+          : "");
+  const action =
+    strategy.action.type === "alert"
+      ? `alert${strategy.action.detail ? ` — ${strategy.action.detail}` : ""}`
+      : `propose_trade${strategy.action.detail ? ` — ${strategy.action.detail}` : ""} (observe: do not execute; alert/propose only)`;
+
+  return [
+    identity,
+    "",
+    "This is a background STRATEGY TICK — not a user chat message.",
+    "Evaluate the armed strategy using tools if needed.",
+    `Armed strategy: ${strategy.summary}`,
+    `Trigger: ${trigger}`,
+    `Action: ${action}`,
+    "",
+    "Rules for this tick:",
+    "- Do not claim the strategy is disarmed or that you changed Arm state.",
+    "- Prefer tools over guessing balances/prices.",
+    "- If nothing actionable, action is none.",
+    "- If the trigger warrants the configured action and spend is observe-only, use action alert (never invent txs).",
+    "- End with a ```tick JSON fence: {\"action\":\"none\"|\"alert\",\"label\":\"short activity line\",\"detail\":\"optional\"}.",
+    "- Keep label short and operator-facing (present or past tense).",
+  ].join("\n");
 }

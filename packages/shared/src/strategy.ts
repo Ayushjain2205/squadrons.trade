@@ -136,3 +136,42 @@ export function extractStrategyDraftFromText(
   }
   return null;
 }
+
+export type StrategyTickDecision = {
+  action: "none" | "alert";
+  label: string;
+  detail?: string;
+};
+
+export function parseStrategyTickDecision(
+  value: unknown,
+): StrategyTickDecision | null {
+  if (!isRecord(value)) return null;
+  const action = value.action;
+  if (action !== "none" && action !== "alert") return null;
+  const label =
+    typeof value.label === "string" && value.label.trim()
+      ? value.label.trim()
+      : action === "alert"
+        ? "Alert"
+        : "Checked strategy";
+  const detail =
+    typeof value.detail === "string" && value.detail.trim()
+      ? value.detail.trim()
+      : undefined;
+  return { action, label, detail };
+}
+
+export function extractStrategyTickDecisionFromText(
+  text: string,
+): StrategyTickDecision | null {
+  const fenced = text.match(/```tick\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) {
+    try {
+      return parseStrategyTickDecision(JSON.parse(fenced[1].trim()));
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}

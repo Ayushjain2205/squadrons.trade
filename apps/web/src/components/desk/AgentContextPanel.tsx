@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   AGENT_COLORS,
   AGENT_FACES,
@@ -15,6 +15,7 @@ import { OrbColorSwatch } from "@/components/OrbColorSwatch";
 import {
   armStrategy,
   disarmStrategy,
+  getAgent,
   pauseStrategy,
   resumeStrategy,
   updateAgent,
@@ -96,6 +97,29 @@ function AgentContextSummary({
   onAgentUpdated?: (agent: AgentWithWorkspace) => void;
 }) {
   const isWorking = agent.status === "working";
+  const strategyRunning = agent.strategy?.status === "running";
+  const onAgentUpdatedRef = useRef(onAgentUpdated);
+  onAgentUpdatedRef.current = onAgentUpdated;
+
+  useEffect(() => {
+    if (!strategyRunning) return;
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const latest = await getAgent(agent.id);
+        if (!cancelled) onAgentUpdatedRef.current?.(latest);
+      } catch {
+        // ignore transient poll errors
+      }
+    };
+    const id = window.setInterval(() => {
+      void refresh();
+    }, 20_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [agent.id, strategyRunning]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">

@@ -169,6 +169,15 @@ export class AgentStore {
     return rowToAgent(row, this.strategies.get(agentId));
   }
 
+  /** Host-internal lookup (strategy ticker). */
+  getById(agentId: string): Agent | null {
+    const row = this.db
+      .prepare(`SELECT * FROM agents WHERE id = ?`)
+      .get(agentId) as AgentRow | undefined;
+    if (!row) return null;
+    return rowToAgent(row, this.strategies.get(agentId));
+  }
+
   setStatus(userId: string, agentId: string, status: AgentStatus): Agent | null {
     const existing = this.getForUser(userId, agentId);
     if (!existing) return null;
