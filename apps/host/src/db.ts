@@ -125,9 +125,12 @@ function migrate(db: Database.Database): void {
       agent_id TEXT PRIMARY KEY,
       status TEXT NOT NULL,
       summary TEXT NOT NULL,
+      recipe_id TEXT,
+      params_json TEXT,
       trigger_json TEXT NOT NULL,
       action_json TEXT NOT NULL,
       caps_json TEXT NOT NULL,
+      improvement_json TEXT,
       last_tick_at INTEGER,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL,
@@ -153,5 +156,32 @@ function migrate(db: Database.Database): void {
 
     CREATE INDEX IF NOT EXISTS idx_trade_intents_agent_created
       ON trade_intents (agent_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS strategy_improvement_proposals (
+      id TEXT PRIMARY KEY,
+      agent_id TEXT NOT NULL,
+      status TEXT NOT NULL,
+      patch_json TEXT NOT NULL,
+      reason TEXT,
+      created_at INTEGER NOT NULL,
+      resolved_at INTEGER,
+      FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_strategy_improvement_agent
+      ON strategy_improvement_proposals (agent_id, created_at DESC);
   `);
+
+  const strategyColumns = db
+    .prepare(`PRAGMA table_info(strategies)`)
+    .all() as Array<{ name: string }>;
+  if (!strategyColumns.some((column) => column.name === "recipe_id")) {
+    db.exec(`ALTER TABLE strategies ADD COLUMN recipe_id TEXT`);
+  }
+  if (!strategyColumns.some((column) => column.name === "params_json")) {
+    db.exec(`ALTER TABLE strategies ADD COLUMN params_json TEXT`);
+  }
+  if (!strategyColumns.some((column) => column.name === "improvement_json")) {
+    db.exec(`ALTER TABLE strategies ADD COLUMN improvement_json TEXT`);
+  }
 }
