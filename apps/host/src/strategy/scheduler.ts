@@ -9,6 +9,10 @@ import { runDshStrategyTick } from "../dsh/runner.js";
 import { gateStrategyTickSpend } from "./spend-gate.js";
 import type { TradeIntentStore } from "./trade-intents.js";
 import {
+  executeStrategyRecipe,
+  hasRecipeExecutor,
+} from "./recipes/index.js";
+import {
   clearStrategyTickReport,
   readStrategyTickReport,
   writeStrategyStateFile,
@@ -24,7 +28,8 @@ export type StrategyScheduler = {
 
 /**
  * In-process wake loop for armed strategies.
- * Host owns liveness; dsh owns judgment on each due tick.
+ * Host owns liveness; recipe-backed strategies run deterministically.
+ * Legacy strategies without recipeId still use a dsh tick (compat).
  */
 export function startStrategyScheduler(deps: {
   agents: AgentStore;
@@ -47,7 +52,7 @@ export function startStrategyScheduler(deps: {
       const agent = deps.agents.getById(strategy.agentId);
       if (!agent || agent.strategy?.status !== "running") return;
 
-      // Stamp immediately so a long/failing dsh turn cannot overlap the next due scan.
+      // Stamp immediately so a long/failing turn cannot overlap the next due scan.
       deps.strategies.markTicked(strategy.agentId);
 
       const user = deps.users.get(agent.userId);
@@ -58,7 +63,7 @@ export function startStrategyScheduler(deps: {
       deps.activity.publish({
         agentId: agent.id,
         kind: "info",
-          source: "strategy",
+        source: "strategy",
         label: "Strategy tick",
         detail: strategy.summary,
       });
@@ -89,7 +94,7 @@ export function startStrategyScheduler(deps: {
           deps.activity.publish({
             agentId: strategy.agentId,
             kind: "error",
-          source: "strategy",
+            source: "strategy",
             label: gated.decision.label,
             detail: gated.decision.detail ?? gated.reason,
           });
@@ -108,7 +113,7 @@ export function startStrategyScheduler(deps: {
           deps.activity.publish({
             agentId: strategy.agentId,
             kind: "info",
-          source: "strategy",
+            source: "strategy",
             label: gated.decision.label,
             detail: gated.decision.detail ?? null,
           });
@@ -126,29 +131,44 @@ export function startStrategyScheduler(deps: {
       };
 
       try {
-        await runDshStrategyTick({
-          agent,
-          strategy,
-          workspace,
-          walletAddress: user?.walletAddress ?? null,
-          onActivity: (event) => {
-            deps.activity.publish({ ...event, source: "strategy" });
-          },
-          onNotification: (notification) => {
-            if (!isSuccessfulReportTickResult(notification)) return;
-            void readStrategyTickReport(workspace)
-              .then((reported) => {
-                if (reported) publishDecision(reported);
-              })
-              .catch((error) => {
-                console.error("[strategy-tick-report]", strategy.agentId, error);
-              });
-          },
-        });
+        if (hasRecipeExecutor(strategy.recipeId)) {
+          const fresh = deps.strategies.get(strategy.agentId) ?? strategy;
+          const result = await executeStrategyRecipe({
+            agent,
+            strategy: fresh,
+            walletAddress: user?.walletAddress ?? null,
+          });
+          publishDecision(result);
+        } else {
+          // Legacy path — LLM tick until re-proposed with a recipe.
+          await runDshStrategyTick({
+            agent,
+            strategy,
+            workspace,
+            walletAddress: user?.walletAddress ?? null,
+            onActivity: (event) => {
+              deps.activity.publish({ ...event, source: "strategy" });
+            },
+            onNotification: (notification) => {
+              if (!isSuccessfulReportTickResult(notification)) return;
+              void readStrategyTickReport(workspace)
+                .then((reported) => {
+                  if (reported) publishDecision(reported);
+                })
+                .catch((error) => {
+                  console.error(
+                    "[strategy-tick-report]",
+                    strategy.agentId,
+                    error,
+                  );
+                });
+            },
+          });
 
-        if (!decision) {
-          const reported = await readStrategyTickReport(workspace);
-          if (reported) publishDecision(reported);
+          if (!decision) {
+            const reported = await readStrategyTickReport(workspace);
+            if (reported) publishDecision(reported);
+          }
         }
       } catch (error) {
         console.error("[strategy-tick]", strategy.agentId, error);
@@ -163,7 +183,6 @@ export function startStrategyScheduler(deps: {
         return;
       }
 
-      // Re-check after long dsh turn — user may have paused/disarmed.
       const still = deps.strategies.get(strategy.agentId);
       if (!still || still.status !== "running") return;
 
@@ -204,7 +223,6 @@ export function startStrategyScheduler(deps: {
   timer = setInterval(() => {
     void scan();
   }, scanMs);
-  // Kick once on boot so freshly armed bots don't wait a full scan.
   void scan();
 
   return {
