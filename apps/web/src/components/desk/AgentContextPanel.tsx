@@ -89,10 +89,28 @@ function AgentContextSummary({ agent }: { agent: AgentWithWorkspace }) {
           <span className="type-data" aria-hidden>
             ·
           </span>
+          <span className="type-data capitalize">{agent.mode}</span>
+          <span className="type-data" aria-hidden>
+            ·
+          </span>
           <span className="type-data">
             {agent.spendMode === "observe" ? "observe" : "spend on"}
           </span>
         </p>
+        {agent.strategy ? (
+          <p className="type-meta text-[var(--ink-soft)]">
+            Strategy · {agent.strategy.status}
+            {agent.strategy.summary
+              ? ` — ${agent.strategy.summary}`
+              : null}
+          </p>
+        ) : (
+          <p className="type-meta text-[var(--muted)]">
+            {agent.mode === "operate"
+              ? "No strategy draft yet — define one in chat."
+              : "Scout first, then switch to Operate to arm a strategy."}
+          </p>
+        )}
       </section>
 
       <ActivityTrail

@@ -63,10 +63,20 @@ export function buildAgentIdentityBlock(
     `Name: ${agent.name}`,
     `Description: ${agent.description}`,
     `Home chain: ${homeChain}`,
+    `Desk mode: ${
+      agent.mode === "operate"
+        ? "Operate (shape or steer a runnable strategy; do not invent live execution)"
+        : "Scout (research and dig; do not arm or claim a live strategy loop)"
+    }`,
     `Spend mode: ${spendLabel}`,
   ];
   if (walletAddress) {
     lines.push(`Shared user wallet: ${walletAddress}`);
+  }
+  if (agent.strategy) {
+    lines.push(
+      `Strategy (${agent.strategy.status}): ${agent.strategy.summary}`,
+    );
   }
   lines.push(
     "",
@@ -78,6 +88,9 @@ export function buildAgentIdentityBlock(
     "- On-chain tools are scoped to your home chain. Do not claim data from other chains.",
     "- Do not claim you executed on-chain transactions unless the platform confirms them.",
     "- Do not invent balances, quotes, or tx hashes. Prefer tools over guessing.",
+    agent.mode === "operate"
+      ? "- In Operate mode, help define a clear strategy the user can arm later. Do not claim it is running unless status is running."
+      : "- In Scout mode, focus on research and findings. Suggest switching to Operate when ready to define a runnable strategy.",
   );
   return lines.join("\n");
 }

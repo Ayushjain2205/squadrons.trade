@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import type { AvatarId, OrbColorId } from "@squadrons/shared";
+import type { AgentMode, AvatarId, OrbColorId } from "@squadrons/shared";
 import { AgentOrb } from "@/components/AgentOrb";
 import {
   getAgent,
   listMessages,
   pauseAgent,
   sendMessage,
+  updateAgent,
   type AgentMessage,
   type AgentWithWorkspace,
 } from "@/lib/host";
@@ -31,6 +32,7 @@ export function AgentChat({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [pausing, setPausing] = useState(false);
+  const [modePending, setModePending] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -113,6 +115,20 @@ export function AgentChat({
     }
   }
 
+  async function onModeChange(mode: AgentMode) {
+    if (modePending || mode === agent.mode || isWorking) return;
+    setModePending(true);
+    setError(null);
+    try {
+      const updated = await updateAgent(agent.id, { mode });
+      applyAgent(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Mode switch failed");
+    } finally {
+      setModePending(false);
+    }
+  }
+
   function onKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -120,8 +136,12 @@ export function AgentChat({
     }
   }
 
-  const placeholder = `Message ${agent.name}`;
+  const placeholder =
+    agent.mode === "operate"
+      ? `Define or steer ${agent.name}'s strategy…`
+      : `Scout with ${agent.name}…`;
   const isWorking = pending || agent.status === "working";
+  const modeDisabled = pending || modePending || isWorking;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -198,12 +218,11 @@ export function AgentChat({
           onSubmit={onSend}
           className="chat-composer flex w-full items-end gap-2 rounded-full border border-[var(--line)] bg-[var(--msg-bot)] px-2 py-2 shadow-[0_8px_30px_rgba(0,0,0,0.35)]"
         >
-          <span
-            className="mb-0.5 flex size-10 shrink-0 items-center justify-center rounded-full text-[var(--muted)]"
-            aria-hidden
-          >
-            +
-          </span>
+          <ModeToggle
+            mode={agent.mode}
+            disabled={modeDisabled}
+            onChange={(mode) => void onModeChange(mode)}
+          />
           <textarea
             ref={inputRef}
             value={draft}
@@ -244,6 +263,44 @@ export function AgentChat({
           </p>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function ModeToggle({
+  mode,
+  disabled,
+  onChange,
+}: {
+  mode: AgentMode;
+  disabled?: boolean;
+  onChange: (mode: AgentMode) => void;
+}) {
+  return (
+    <div
+      className="mb-0.5 flex shrink-0 rounded-full bg-[var(--panel)] p-0.5"
+      role="group"
+      aria-label="Desk mode"
+    >
+      {(["scout", "operate"] as const).map((value) => {
+        const active = mode === value;
+        return (
+          <button
+            key={value}
+            type="button"
+            disabled={disabled || active}
+            onClick={() => onChange(value)}
+            aria-pressed={active}
+            className={`type-meta cursor-pointer rounded-full px-2.5 py-2 capitalize transition disabled:cursor-not-allowed ${
+              active
+                ? "bg-[var(--panel-2)] text-[var(--ink)]"
+                : "text-[var(--muted)] hover:text-[var(--ink-soft)] disabled:opacity-50"
+            }`}
+          >
+            {value}
+          </button>
+        );
+      })}
     </div>
   );
 }

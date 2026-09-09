@@ -1,7 +1,12 @@
 import { mkdir } from "node:fs/promises";
 import type { Express, NextFunction, Request, Response } from "express";
 import type { CreateAgentInput, UpdateAgentInput } from "@squadrons/shared";
-import { isAvatarId, isOrbColorId, isSupportedChainId } from "@squadrons/shared";
+import {
+  isAgentMode,
+  isAvatarId,
+  isOrbColorId,
+  isSupportedChainId,
+} from "@squadrons/shared";
 import {
   AuthError,
   requireUser,
@@ -147,6 +152,7 @@ export function registerAgentRoutes(
         chainId?: number | string;
         avatarId?: string;
         colorId?: string;
+        mode?: string;
       };
       const patch: UpdateAgentInput = {};
 
@@ -170,6 +176,14 @@ export function registerAgentRoutes(
         }
         patch.colorId = color;
       }
+      if (body.mode !== undefined) {
+        const mode = String(body.mode);
+        if (!isAgentMode(mode)) {
+          res.status(400).json({ ok: false, error: "invalid mode" });
+          return;
+        }
+        patch.mode = mode;
+      }
       if (
         body.chainId !== undefined &&
         body.chainId !== null &&
@@ -188,7 +202,8 @@ export function registerAgentRoutes(
         patch.description === undefined &&
         patch.avatarId === undefined &&
         patch.colorId === undefined &&
-        patch.chainId === undefined
+        patch.chainId === undefined &&
+        patch.mode === undefined
       ) {
         res.status(400).json({ ok: false, error: "no settings to update" });
         return;
@@ -196,6 +211,8 @@ export function registerAgentRoutes(
 
       const chainChanged =
         patch.chainId !== undefined && patch.chainId !== existing.chainId;
+      const modeChanged =
+        patch.mode !== undefined && patch.mode !== existing.mode;
 
       const agent = agents.updateSettings(user.id, agentId, patch);
       if (!agent) {
@@ -203,7 +220,7 @@ export function registerAgentRoutes(
         return;
       }
 
-      if (chainChanged) {
+      if (chainChanged || modeChanged) {
         await invalidateAgentRuntime(agent.id);
       }
 
