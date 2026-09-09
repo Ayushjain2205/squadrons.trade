@@ -89,9 +89,9 @@ export function ActivityTrail({
   return (
     <section className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 items-baseline justify-between gap-2">
-        <h3 className="text-sm font-semibold tracking-[-0.01em]">Activity</h3>
+        <h3 className="type-title">Activity</h3>
         {live ? (
-          <span className="flex items-center gap-1.5 text-[11px] font-medium text-[var(--accent)]">
+          <span className="type-meta flex items-center gap-1.5 font-medium !text-[var(--accent)]">
             <span className="working-dot size-1.5 rounded-full bg-[var(--accent)]" />
             Live
           </span>
@@ -99,11 +99,11 @@ export function ActivityTrail({
       </div>
 
       {error ? (
-        <p className="mt-3 text-xs text-[var(--danger)]">{error}</p>
+        <p className="type-meta mt-3 !text-[var(--danger)]">{error}</p>
       ) : null}
 
       {steps.length === 0 && !error ? (
-        <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">
+        <p className="type-ui mt-3 text-[var(--muted)]">
           {live
             ? `${agentName} is working…`
             : `When ${agentName} works, steps show up here.`}
@@ -136,7 +136,7 @@ export function ActivityTrail({
                   />
                 </span>
                 <p
-                  className={`min-w-0 text-sm leading-snug ${
+                  className={`type-ui min-w-0 leading-snug ${
                     newest && live
                       ? "text-[var(--ink)]"
                       : event.kind === "error"
@@ -147,7 +147,7 @@ export function ActivityTrail({
                   {event.displayLabel}
                 </p>
                 <time
-                  className="pt-0.5 font-[family-name:var(--font-mono)] text-[10px] tabular-nums text-[var(--muted)]"
+                  className="type-data pt-0.5 text-[var(--muted)]"
                   dateTime={new Date(event.createdAt).toISOString()}
                   title={new Date(event.createdAt).toLocaleString()}
                 >

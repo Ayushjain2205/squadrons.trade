@@ -18,7 +18,7 @@ const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? "";
 export function Providers({ children }: { children: ReactNode }) {
   if (!appId) {
     return (
-      <div className="flex h-dvh items-center justify-center bg-[var(--canvas)] px-6 text-center text-sm text-[var(--muted)]">
+      <div className="type-ui flex h-dvh items-center justify-center bg-[var(--canvas)] px-6 text-center text-[var(--muted)]">
         Set NEXT_PUBLIC_PRIVY_APP_ID in apps/web/.env.local to enable login.
       </div>
     );

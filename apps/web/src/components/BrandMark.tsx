@@ -50,7 +50,7 @@ function readStoredOrb(): BrandOrbPick | null {
  */
 export function BrandMark({
   className = "",
-  textClassName = "text-[1.65rem]",
+  textClassName = "text-[length:var(--text-brand-rail)]",
   orbSize = 36,
 }: {
   className?: string;
@@ -97,7 +97,7 @@ export function BrandMark({
         />
       </span>
       <span
-        className={`font-[family-name:var(--font-brand)] leading-none tracking-wide ${textClassName}`}
+        className={`type-brand ${textClassName}`}
       >
         Squadrons
       </span>

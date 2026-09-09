@@ -9,7 +9,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (!ready) {
     return (
-      <div className="flex h-dvh items-center justify-center bg-[var(--canvas)] text-sm text-[var(--muted)]">
+      <div className="type-ui flex h-dvh items-center justify-center bg-[var(--canvas)] text-[var(--muted)]">
         Loading…
       </div>
     );
@@ -23,12 +23,12 @@ export function AuthGate({ children }: { children: ReactNode }) {
         <div className="relative z-10 flex max-w-md flex-col items-center gap-7">
           <div className="flex flex-col items-center gap-1">
             <LoginCrew />
-            <p className="font-[family-name:var(--font-brand)] text-5xl tracking-wide text-[var(--ink)] sm:text-6xl">
+            <p className="type-brand text-[length:clamp(3rem,8vw,4rem)] text-[var(--ink)]">
               Squadrons
             </p>
           </div>
 
-          <p className="max-w-sm text-sm leading-relaxed text-[var(--ink-soft)]">
+          <p className="type-ui max-w-sm text-[var(--ink-soft)]">
             Persistent crypto agents with a shared wallet — sign in to open your
             desk.
           </p>
@@ -36,7 +36,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
           <button
             type="button"
             onClick={() => login()}
-            className="cursor-pointer rounded-full bg-[var(--ink)] px-7 py-3 text-sm font-semibold text-[var(--canvas)] transition hover:opacity-90"
+            className="type-ui cursor-pointer rounded-full bg-[var(--ink)] px-7 py-3 font-semibold text-[var(--canvas)] transition hover:opacity-90"
           >
             Log in
           </button>

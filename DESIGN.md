@@ -30,6 +30,19 @@ Mobile: list on `/`; chat full-bleed with back; right rail hidden.
 
 Cherry Bomb One (wordmark), Manrope (UI + display), IBM Plex Mono (chain ids / meta).
 
+| Role | Token / class | Size | Notes |
+| --- | --- | --- | --- |
+| Brand | `.type-brand` | rail 1.65rem / hero ~3.75rem | Cherry Bomb only |
+| Display | `.type-display` / `-lg` | 1.5rem / 1.875rem | Manrope 600, tight tracking |
+| Title | `.type-title` | 1.0625rem | Panel / chat chrome headings |
+| Body | `.type-body` | 0.9375rem (15px) | Chat + forms; measure `--measure-chat` 38rem |
+| UI | `.type-ui` | 0.875rem | Chrome, CTAs, list chrome |
+| Label | `.type-label` | 0.875rem / 500 | Form legends |
+| Meta | `.type-meta` | 0.75rem floor | Timestamps, hints |
+| Data | `.type-data` | 0.75rem+ mono | Chain ids, clocks, code cells |
+
+`--muted` `#8a8a93` for AA on canvas at meta sizes. Display alias: `--font-display` → `--font-body` (one Manrope load).
+
 ## Components
 
 - Agent list rows: orb + name + preview + relative time; selected = `--panel-2`

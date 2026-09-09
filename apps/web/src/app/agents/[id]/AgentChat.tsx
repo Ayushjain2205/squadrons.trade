@@ -160,13 +160,9 @@ export function AgentChat({
             />
           </div>
           <div className="min-w-0">
-            <h1 className="truncate font-[family-name:var(--font-display)] text-base font-semibold tracking-[-0.02em]">
-              {agent.name}
-            </h1>
+            <h1 className="type-title truncate">{agent.name}</h1>
             {!isWorking && agent.description ? (
-              <p className="truncate text-xs text-[var(--muted)]">
-                {agent.description}
-              </p>
+              <p className="type-meta truncate">{agent.description}</p>
             ) : null}
           </div>
         </div>
@@ -176,7 +172,7 @@ export function AgentChat({
         <div className="flex flex-col gap-3">
           {messages.length === 0 ? (
             <div className="rounded-[var(--radius-msg)] bg-[var(--msg-bot)] px-5 py-8 text-center">
-              <p className="text-sm text-[var(--ink-soft)]">
+              <p className="type-ui text-[var(--ink-soft)]">
                 {`Message ${agent.name} to get started.`}
               </p>
             </div>
@@ -216,7 +212,7 @@ export function AgentChat({
             rows={1}
             placeholder={placeholder}
             disabled={pending}
-            className="chat-input max-h-32 min-h-10 flex-1 resize-none bg-transparent py-2.5 text-[15px] leading-snug text-[var(--ink)] placeholder:text-[var(--muted)] outline-none ring-0 disabled:opacity-60"
+            className="chat-input type-body max-h-32 min-h-10 flex-1 resize-none bg-transparent py-2.5 text-[var(--ink)] placeholder:text-[var(--muted)] outline-none ring-0 disabled:opacity-60"
           />
           {isWorking ? (
             <button
@@ -243,7 +239,7 @@ export function AgentChat({
           )}
         </form>
         {error ? (
-          <p className="mt-3 rounded-xl bg-[#2a1818] px-4 py-3 text-sm text-[var(--danger)]">
+          <p className="type-ui mt-3 rounded-xl bg-[#2a1818] px-4 py-3 text-[var(--danger)]">
             {error}
           </p>
         ) : null}
@@ -257,7 +253,7 @@ function MessageBubble({ message }: { message: AgentMessage }) {
   return (
     <div className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[min(100%,42rem)] rounded-2xl px-4 py-3 text-[15px] leading-relaxed ${
+        className={`type-body max-w-[min(100%,var(--measure-chat))] rounded-2xl px-4 py-3 ${
           isUser
             ? "bg-[var(--msg-user)] text-[var(--ink)]"
             : "bg-[var(--msg-bot)] text-[var(--ink)]"
@@ -286,7 +282,7 @@ function AgentWorkingStatus({
 }) {
   return (
     <p
-      className={`flex items-center gap-2 text-sm text-[var(--ink-soft)] ${className}`}
+      className={`type-ui flex items-center gap-2 text-[var(--ink-soft)] ${className}`}
       aria-live="polite"
     >
       <AgentOrb

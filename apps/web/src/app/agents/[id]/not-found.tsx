@@ -17,12 +17,10 @@ export default function NotFound() {
   return (
     <DeskShell agents={agents} selectedId={null}>
       <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-        <p className="font-[family-name:var(--font-display)] text-xl font-semibold">
-          Agent not found
-        </p>
+        <p className="type-display">Agent not found</p>
         <Link
           href="/"
-          className="text-sm text-[var(--link)] transition hover:underline"
+          className="type-ui text-[var(--link)] transition hover:underline"
         >
           Back to agents
         </Link>

@@ -66,25 +66,21 @@ export default function NewAgentPage() {
         >
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-2">
-              <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-[-0.03em]">
-                New agent
-              </h1>
-              <p className="text-[var(--ink-soft)]">
+              <h1 className="type-display-lg">New agent</h1>
+              <p className="type-body text-[var(--ink-soft)]">
                 Pick a face, color, chain, name, and mandate.
               </p>
             </div>
             <Link
               href="/"
-              className="text-sm text-[var(--muted)] transition hover:text-[var(--ink)]"
+              className="type-ui text-[var(--muted)] transition hover:text-[var(--ink)]"
             >
               Cancel
             </Link>
           </div>
 
           <fieldset className="space-y-3">
-            <legend className="text-sm font-medium text-[var(--ink-soft)]">
-              Face
-            </legend>
+            <legend className="type-label">Face</legend>
             <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
               {AGENT_FACES.map((face) => {
                 const selected = face.id === avatarId;
@@ -114,9 +110,7 @@ export default function NewAgentPage() {
           </fieldset>
 
           <fieldset className="space-y-3">
-            <legend className="text-sm font-medium text-[var(--ink-soft)]">
-              Color
-            </legend>
+            <legend className="type-label">Color</legend>
             <div className="flex flex-nowrap gap-2">
               {AGENT_COLORS.map((color) => {
                 const selected = color.id === colorId;
@@ -141,9 +135,7 @@ export default function NewAgentPage() {
           </fieldset>
 
           <fieldset className="space-y-3">
-            <legend className="text-sm font-medium text-[var(--ink-soft)]">
-              Chain
-            </legend>
+            <legend className="type-label">Chain</legend>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {SUPPORTED_CHAINS.map((chain) => {
                 const selected = chain.chainId === chainId;
@@ -159,10 +151,10 @@ export default function NewAgentPage() {
                         : "border-[var(--line)] bg-transparent hover:bg-[var(--panel)]"
                     }`}
                   >
-                    <span className="block text-sm font-medium text-[var(--ink)]">
+                    <span className="type-label block !text-[var(--ink)]">
                       {chain.shortName}
                     </span>
-                    <span className="mt-0.5 block font-[family-name:var(--font-mono)] text-xs text-[var(--muted)]">
+                    <span className="type-data mt-0.5 block text-[var(--muted)]">
                       {chain.chainId}
                     </span>
                   </button>
@@ -172,38 +164,32 @@ export default function NewAgentPage() {
           </fieldset>
 
           <label className="block space-y-2">
-            <span className="text-sm font-medium text-[var(--ink-soft)]">
-              Name
-            </span>
+            <span className="type-label">Name</span>
             <input
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Base LP Scout"
-              className="w-full rounded-xl border border-[var(--line)] bg-[var(--panel)] px-4 py-3 text-[var(--ink)] placeholder:text-[var(--muted)]"
+              className="type-body w-full rounded-xl border border-[var(--line)] bg-[var(--panel)] px-4 py-3 text-[var(--ink)] placeholder:text-[var(--muted)]"
             />
           </label>
 
           <label className="block space-y-2">
-            <span className="text-sm font-medium text-[var(--ink-soft)]">
-              Description
-            </span>
+            <span className="type-label">Description</span>
             <textarea
               required
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
               placeholder="Scouts LP opportunities and reports findings in-app."
-              className="w-full resize-y rounded-xl border border-[var(--line)] bg-[var(--panel)] px-4 py-3 text-[var(--ink)] placeholder:text-[var(--muted)]"
+              className="type-body w-full resize-y rounded-xl border border-[var(--line)] bg-[var(--panel)] px-4 py-3 text-[var(--ink)] placeholder:text-[var(--muted)]"
             />
           </label>
 
-          <p className="font-[family-name:var(--font-mono)] text-xs text-[var(--muted)]">
-            Spend starts as observe
-          </p>
+          <p className="type-data text-[var(--muted)]">Spend starts as observe</p>
 
           {error ? (
-            <p className="rounded-xl bg-[#2a1818] px-4 py-3 text-sm text-[var(--danger)]">
+            <p className="type-ui rounded-xl bg-[#2a1818] px-4 py-3 text-[var(--danger)]">
               {error}
             </p>
           ) : null}
@@ -211,7 +197,7 @@ export default function NewAgentPage() {
           <button
             type="submit"
             disabled={pending}
-            className="cursor-pointer rounded-full bg-[var(--ink)] px-5 py-3 text-sm font-semibold text-[var(--canvas)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="type-ui cursor-pointer rounded-full bg-[var(--ink)] px-5 py-3 font-semibold text-[var(--canvas)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {pending ? "Creating…" : "Create agent"}
           </button>

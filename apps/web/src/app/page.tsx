@@ -44,7 +44,7 @@ export default function HomePage() {
   if (!ready) {
     return (
       <DeskShell agents={[]} selectedId={null}>
-        <div className="flex flex-1 items-center justify-center text-sm text-[var(--muted)]">
+        <div className="type-ui flex flex-1 items-center justify-center text-[var(--muted)]">
           Loading agents…
         </div>
       </DeskShell>
@@ -55,18 +55,20 @@ export default function HomePage() {
     <DeskShell agents={agents} hostError={error} selectedId={null}>
       <div className="flex min-h-0 flex-1 flex-col">
         <header className="flex shrink-0 items-center border-b border-[var(--line-soft)] px-5 py-3 md:hidden">
-          <BrandMark className="pt-0" textClassName="text-[1.45rem]" orbSize={32} />
+          <BrandMark
+            className="pt-0"
+            textClassName="text-[length:var(--text-brand-rail-sm)]"
+            orbSize={32}
+          />
         </header>
 
         {/* Mobile list (rail is desktop-only) */}
         <div className="desk-scroll min-h-0 flex-1 overflow-y-auto md:hidden">
           {error ? (
             <div className="space-y-2 p-5">
-              <p className="font-semibold text-[var(--danger)]">Host unreachable</p>
-              <p className="text-sm text-[var(--ink-soft)]">{error}</p>
-              <p className="font-[family-name:var(--font-mono)] text-xs text-[var(--muted)]">
-                {getHostUrl()}
-              </p>
+              <p className="type-name text-[var(--danger)]">Host unreachable</p>
+              <p className="type-ui text-[var(--ink-soft)]">{error}</p>
+              <p className="type-data text-[var(--muted)]">{getHostUrl()}</p>
             </div>
           ) : agents.length === 0 ? (
             <EmptyAgents />
@@ -84,13 +86,13 @@ export default function HomePage() {
                       size={44}
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="flex justify-between gap-2">
-                        <span className="truncate font-semibold">{agent.name}</span>
-                        <span className="text-[11px] text-[var(--muted)]">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="type-name truncate">{agent.name}</span>
+                        <span className="type-meta shrink-0">
                           {formatRelativeTime(agent.updatedAt)}
                         </span>
                       </div>
-                      <p className="mt-0.5 line-clamp-1 text-sm text-[var(--ink-soft)]">
+                      <p className="type-meta mt-0.5 line-clamp-1 !text-[var(--ink-soft)]">
                         {agent.description}
                       </p>
                     </div>
@@ -105,11 +107,9 @@ export default function HomePage() {
         <div className="hidden min-h-0 flex-1 flex-col items-center justify-center px-6 text-center md:flex">
           {error ? (
             <div className="max-w-md space-y-3">
-              <p className="font-[family-name:var(--font-display)] text-xl font-semibold">
-                Host unreachable
-              </p>
-              <p className="text-sm text-[var(--ink-soft)]">{error}</p>
-              <p className="font-[family-name:var(--font-mono)] text-xs text-[var(--muted)]">
+              <p className="type-display">Host unreachable</p>
+              <p className="type-ui text-[var(--ink-soft)]">{error}</p>
+              <p className="type-data text-[var(--muted)]">
                 Expected {getHostUrl()} — run `pnpm dev:host`
               </p>
             </div>
@@ -117,10 +117,8 @@ export default function HomePage() {
             <EmptyAgents />
           ) : (
             <div className="max-w-sm space-y-2">
-              <p className="font-[family-name:var(--font-display)] text-xl font-semibold tracking-[-0.02em]">
-                Select an agent
-              </p>
-              <p className="text-sm text-[var(--ink-soft)]">
+              <p className="type-display">Select an agent</p>
+              <p className="type-ui text-[var(--ink-soft)]">
                 Pick one from the list, or create a new scout.
               </p>
             </div>

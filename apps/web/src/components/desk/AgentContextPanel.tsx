@@ -31,7 +31,7 @@ export function AgentContextPanel({
   if (!agent) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-        <p className="text-sm text-[var(--muted)]">
+        <p className="type-ui text-[var(--muted)]">
           Select an agent to see status and details.
         </p>
       </div>
@@ -41,7 +41,7 @@ export function AgentContextPanel({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--line-soft)] px-4 py-3">
-        <h2 className="text-sm font-semibold tracking-[-0.01em] text-[var(--ink)]">
+        <h2 className="type-title text-[var(--ink)]">
           {settingsOpen ? "Settings" : "Context"}
         </h2>
         <button
@@ -83,10 +83,8 @@ function AgentContextSummary({ agent }: { agent: AgentWithWorkspace }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
       <section className="shrink-0 space-y-1.5">
-        <p className="text-sm leading-relaxed text-[var(--ink-soft)]">
-          {agent.description}
-        </p>
-        <p className="font-[family-name:var(--font-mono)] text-[11px] text-[var(--muted)]">
+        <p className="type-ui text-[var(--ink-soft)]">{agent.description}</p>
+        <p className="type-data text-[var(--muted)]">
           {chainLabel(agent.chainId)}
           {" · "}
           {agent.spendMode === "observe" ? "observe" : "spend on"}
@@ -152,9 +150,7 @@ function AgentSettingsForm({
   return (
     <form onSubmit={onSubmit} className="space-y-5">
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-[var(--ink-soft)]">
-          Face
-        </legend>
+        <legend className="type-label">Face</legend>
         <div className="grid grid-cols-4 gap-1.5">
           {AGENT_FACES.map((face) => {
             const selected = face.id === avatarId;
@@ -184,9 +180,7 @@ function AgentSettingsForm({
       </fieldset>
 
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-[var(--ink-soft)]">
-          Color
-        </legend>
+        <legend className="type-label">Color</legend>
         <div className="flex flex-nowrap gap-1.5">
           {AGENT_COLORS.map((color) => {
             const selected = color.id === colorId;
@@ -211,32 +205,28 @@ function AgentSettingsForm({
       </fieldset>
 
       <label className="block space-y-2">
-        <span className="text-sm font-medium text-[var(--ink-soft)]">Name</span>
+        <span className="type-label">Name</span>
         <input
           required
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full rounded-xl border border-[var(--line)] bg-[var(--panel)] px-3 py-2.5 text-sm text-[var(--ink)] placeholder:text-[var(--muted)]"
+          className="type-ui w-full rounded-xl border border-[var(--line)] bg-[var(--panel)] px-3 py-2.5 text-[var(--ink)] placeholder:text-[var(--muted)]"
         />
       </label>
 
       <label className="block space-y-2">
-        <span className="text-sm font-medium text-[var(--ink-soft)]">
-          Description
-        </span>
+        <span className="type-label">Description</span>
         <textarea
           required
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={4}
-          className="w-full resize-y rounded-xl border border-[var(--line)] bg-[var(--panel)] px-3 py-2.5 text-sm text-[var(--ink)] placeholder:text-[var(--muted)]"
+          className="type-ui w-full resize-y rounded-xl border border-[var(--line)] bg-[var(--panel)] px-3 py-2.5 text-[var(--ink)] placeholder:text-[var(--muted)]"
         />
       </label>
 
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-[var(--ink-soft)]">
-          Chain
-        </legend>
+        <legend className="type-label">Chain</legend>
         <div className="grid grid-cols-1 gap-1.5">
           {SUPPORTED_CHAINS.map((chain) => {
             const selected = chain.chainId === chainId;
@@ -253,10 +243,10 @@ function AgentSettingsForm({
                     : "border-[var(--line)] bg-transparent hover:bg-[var(--panel)]"
                 } ${chainLocked ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
               >
-                <span className="block text-sm font-medium text-[var(--ink)]">
+                <span className="type-label block !text-[var(--ink)]">
                   {chain.shortName}
                 </span>
-                <span className="mt-0.5 block font-[family-name:var(--font-mono)] text-xs text-[var(--muted)]">
+                <span className="type-data mt-0.5 block text-[var(--muted)]">
                   {chain.chainId}
                 </span>
               </button>
@@ -264,11 +254,11 @@ function AgentSettingsForm({
           })}
         </div>
         {chainLocked ? (
-          <p className="text-xs leading-relaxed text-[var(--muted)]">
+          <p className="type-meta">
             Chain can change when the agent is not working.
           </p>
         ) : chainId !== agent.chainId ? (
-          <p className="text-xs leading-relaxed text-[var(--muted)]">
+          <p className="type-meta">
             Switching home chain moves tools to{" "}
             {SUPPORTED_CHAINS.find((c) => c.chainId === chainId)?.shortName}.
             Chat history is kept.
@@ -277,7 +267,7 @@ function AgentSettingsForm({
       </fieldset>
 
       {error ? (
-        <p className="rounded-xl bg-[#2a1818] px-3 py-2 text-sm text-[var(--danger)]">
+        <p className="type-ui rounded-xl bg-[#2a1818] px-3 py-2 text-[var(--danger)]">
           {error}
         </p>
       ) : null}
@@ -286,7 +276,7 @@ function AgentSettingsForm({
         <button
           type="submit"
           disabled={pending}
-          className="cursor-pointer rounded-full bg-[var(--ink)] px-4 py-2 text-sm font-semibold text-[var(--canvas)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          className="type-ui cursor-pointer rounded-full bg-[var(--ink)] px-4 py-2 font-semibold text-[var(--canvas)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {pending ? "Saving…" : "Save"}
         </button>
@@ -294,7 +284,7 @@ function AgentSettingsForm({
           type="button"
           onClick={onCancel}
           disabled={pending}
-          className="cursor-pointer rounded-full px-4 py-2 text-sm text-[var(--muted)] transition hover:bg-[var(--panel)] hover:text-[var(--ink)] disabled:opacity-60"
+          className="type-ui cursor-pointer rounded-full px-4 py-2 text-[var(--muted)] transition hover:bg-[var(--panel)] hover:text-[var(--ink)] disabled:opacity-60"
         >
           Cancel
         </button>

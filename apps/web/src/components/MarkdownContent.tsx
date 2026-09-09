@@ -36,16 +36,16 @@ const components = {
     <ol className="mb-3 list-decimal space-y-1 pl-5 last:mb-0">{children}</ol>
   ),
   li: ({ children }: { children?: React.ReactNode }) => (
-    <li className="leading-relaxed">{children}</li>
+    <li className="leading-[var(--leading-body)]">{children}</li>
   ),
   h1: ({ children }: { children?: React.ReactNode }) => (
-    <h1 className="mb-2 text-lg font-semibold tracking-[-0.02em]">{children}</h1>
+    <h1>{children}</h1>
   ),
   h2: ({ children }: { children?: React.ReactNode }) => (
-    <h2 className="mb-2 text-base font-semibold tracking-[-0.01em]">{children}</h2>
+    <h2>{children}</h2>
   ),
   h3: ({ children }: { children?: React.ReactNode }) => (
-    <h3 className="mb-2 text-[15px] font-semibold">{children}</h3>
+    <h3>{children}</h3>
   ),
   code: ({
     className,
@@ -81,7 +81,7 @@ const components = {
   hr: () => <hr className="my-4 border-[var(--line)]" />,
   table: ({ children }: { children?: React.ReactNode }) => (
     <div className="mb-3 overflow-x-auto last:mb-0">
-      <table className="w-full min-w-[16rem] border-collapse text-left text-sm">
+      <table className="type-ui w-full min-w-[16rem] border-collapse text-left">
         {children}
       </table>
     </div>
@@ -103,7 +103,7 @@ const components = {
     <th className="px-3 py-2 font-medium first:pl-0 last:pr-0">{children}</th>
   ),
   td: ({ children }: { children?: React.ReactNode }) => (
-    <td className="px-3 py-2 font-[family-name:var(--font-mono)] text-[13px] first:pl-0 last:pr-0">
+    <td className="type-data px-3 py-2 !text-[length:var(--text-ui)] first:pl-0 last:pr-0">
       {children}
     </td>
   ),

@@ -25,10 +25,8 @@ export function EmptyAgents() {
       />
 
       <div className="max-w-md space-y-3">
-        <p className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-[-0.03em]">
-          Create your first agent
-        </p>
-        <p className="text-sm leading-relaxed text-[var(--ink-soft)]">
+        <p className="type-display">Create your first agent</p>
+        <p className="type-ui text-[var(--ink-soft)]">
           Name it, pick a face, then put it on a chain — observe by default,
           spend only when you flip the switch.
         </p>
@@ -36,7 +34,7 @@ export function EmptyAgents() {
 
       <Link
         href="/agents/new"
-        className="inline-flex cursor-pointer rounded-full bg-[var(--ink)] px-5 py-2.5 text-sm font-semibold text-[var(--canvas)] transition hover:opacity-90"
+        className="type-ui inline-flex cursor-pointer rounded-full bg-[var(--ink)] px-5 py-2.5 font-semibold text-[var(--canvas)] transition hover:opacity-90"
       >
         New agent
       </Link>
