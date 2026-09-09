@@ -186,44 +186,41 @@ export function ContextPanelSkeleton() {
   );
 }
 
-/** Full three-column desk while Privy boots (returning users land here). */
-export function DeskBootSkeleton() {
+/** Brand-centered boot while Privy resolves — not the desk (auth unknown). */
+export function AuthBootSkeleton() {
   return (
     <div
-      className="flex h-dvh min-h-0 overflow-hidden bg-[var(--canvas)] text-[var(--ink)]"
+      className="auth-gate relative flex h-dvh flex-col items-center justify-center overflow-hidden bg-[var(--canvas)] px-6 text-center"
       aria-busy="true"
       aria-label="Loading Squadrons"
     >
-      <aside className="hidden h-full w-[min(100%,var(--rail-left))] shrink-0 flex-col border-r border-[var(--line-soft)] bg-[var(--rail)] md:flex">
-        <div className="shrink-0 space-y-3 p-3 pb-2">
-          <BrandMark />
-          <SkeletonBone className="h-10 w-full rounded-xl" />
-        </div>
-        <div className="min-h-0 flex-1 overflow-hidden px-2 pb-2">
-          <RailListSkeleton />
-        </div>
-        <div className="shrink-0 space-y-1 border-t border-[var(--line-soft)] p-3">
-          <div className="flex items-center gap-2.5 px-2.5 py-2.5">
-            <SkeletonBone className="size-8 rounded-lg" />
-            <SkeletonBone className="h-3.5 w-24" />
-          </div>
-          <div className="flex items-center gap-2.5 px-2.5 py-2">
-            <SkeletonBone className="size-8 rounded-full" />
-            <div className="min-w-0 flex-1 space-y-1.5">
-              <SkeletonBone className="h-3.5 w-28" />
-              <SkeletonBone className="h-2.5 w-14" />
-            </div>
-          </div>
-        </div>
-      </aside>
+      <div className="auth-gate-wash pointer-events-none absolute inset-0" />
 
-      <main className="flex min-w-0 flex-1 flex-col bg-[var(--canvas)]">
-        <HomeCenterSkeleton />
-      </main>
+      <div className="relative z-10 flex max-w-md flex-col items-center gap-7">
+        <div className="flex flex-col items-center gap-1">
+          <div className="flex items-end justify-center -space-x-4 pb-1" aria-hidden>
+            {[52, 60, 72, 58, 50].map((size, i) => (
+              <SkeletonBone
+                key={i}
+                className="shrink-0 rounded-full"
+                style={{
+                  width: size,
+                  height: size,
+                  translate: `0 ${[10, -6, 14, -4, 8][i]}px`,
+                }}
+              />
+            ))}
+          </div>
+          <SkeletonBone className="mt-2 h-12 w-56 sm:h-14 sm:w-64" />
+        </div>
 
-      <aside className="hidden min-h-0 w-[var(--rail-right)] shrink-0 flex-col border-l border-[var(--line-soft)] bg-[var(--rail)] lg:flex">
-        <ContextPanelSkeleton />
-      </aside>
+        <div className="flex w-full max-w-sm flex-col items-center gap-2">
+          <SkeletonBone className="h-3.5 w-full" />
+          <SkeletonBone className="h-3.5 w-[78%]" />
+        </div>
+
+        <SkeletonBone className="h-12 w-28 rounded-full" />
+      </div>
     </div>
   );
 }

@@ -3,13 +3,13 @@
 import { usePrivy } from "@privy-io/react-auth";
 import type { ReactNode } from "react";
 import { LoginCrew } from "@/components/LoginCrew";
-import { DeskBootSkeleton } from "@/components/desk/DeskSkeleton";
+import { AuthBootSkeleton } from "@/components/desk/DeskSkeleton";
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const { ready, authenticated, login } = usePrivy();
 
   if (!ready) {
-    return <DeskBootSkeleton />;
+    return <AuthBootSkeleton />;
   }
 
   if (!authenticated) {
