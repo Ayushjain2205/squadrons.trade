@@ -22,6 +22,7 @@ import { ActivityStore } from "./agents/activity.js";
 import { ActivityHub } from "./agents/activity-hub.js";
 import { MessageStore } from "./agents/messages.js";
 import { AgentStore } from "./agents/store.js";
+import { StrategyStore } from "./agents/strategy-store.js";
 import { UserStore } from "./auth/privy.js";
 import { openDatabase } from "./db.js";
 import { closeAllAgentRuntimes, runDshSmoke } from "./dsh/runner.js";
@@ -30,7 +31,8 @@ const port = Number(process.env.PORT ?? 8787);
 const host = process.env.HOST ?? "0.0.0.0";
 
 const db = openDatabase();
-const agents = new AgentStore(db);
+const strategies = new StrategyStore(db);
+const agents = new AgentStore(db, strategies);
 const messages = new MessageStore(db);
 const users = new UserStore(db);
 const activity = new ActivityHub(new ActivityStore(db));

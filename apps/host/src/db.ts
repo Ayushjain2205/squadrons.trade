@@ -35,6 +35,7 @@ function migrate(db: Database.Database): void {
       chain_id INTEGER NOT NULL,
       status TEXT NOT NULL,
       spend_mode TEXT NOT NULL,
+      mode TEXT NOT NULL DEFAULT 'scout',
       current_goal TEXT,
       last_dsh_session_id TEXT,
       created_at INTEGER NOT NULL,
@@ -102,4 +103,28 @@ function migrate(db: Database.Database): void {
 
   // Teal was removed from the palette; map any leftovers to blue.
   db.exec(`UPDATE agents SET color_id = 'blue' WHERE color_id = 'teal'`);
+
+  if (!columns.some((column) => column.name === "mode")) {
+    db.exec(
+      `ALTER TABLE agents ADD COLUMN mode TEXT NOT NULL DEFAULT 'scout'`,
+    );
+  }
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS strategies (
+      agent_id TEXT PRIMARY KEY,
+      status TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      trigger_json TEXT NOT NULL,
+      action_json TEXT NOT NULL,
+      caps_json TEXT NOT NULL,
+      last_tick_at INTEGER,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_strategies_status
+      ON strategies (status);
+  `);
 }
