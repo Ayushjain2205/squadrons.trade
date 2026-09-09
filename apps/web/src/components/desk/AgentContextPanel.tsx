@@ -144,7 +144,9 @@ function AgentContextSummary({
         mode={agent.mode}
         spendMode={agent.spendMode}
         strategy={agent.strategy}
+        agentId={agent.id}
         agentWorking={isWorking}
+        onAgentUpdated={onAgentUpdated}
         onAction={async (action) => {
           const updated =
             action === "arm"
@@ -170,6 +172,10 @@ function AgentContextSummary({
             event.label === "Paused strategy" ||
             event.label === "Resumed strategy" ||
             event.label === "Disarmed strategy" ||
+            event.label === "Updated strategy params" ||
+            event.label === "Self-improvement suggested" ||
+            event.label === "Self-improvement approved" ||
+            event.label === "Self-improvement dismissed" ||
             event.label === "Spend enabled" ||
             event.label === "Spend set to observe";
           if (!shouldRefresh) return;

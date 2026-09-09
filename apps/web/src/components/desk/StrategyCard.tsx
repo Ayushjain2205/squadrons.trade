@@ -1,28 +1,58 @@
 "use client";
 
-import { useState, useTransition, type ReactNode } from "react";
-import { recipeLabel, type Strategy } from "@squadrons/shared";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
+import {
+  recipeLabel,
+  type Strategy,
+  type StrategyImprovementProposal,
+} from "@squadrons/shared";
 import type { AgentWithWorkspace } from "@/lib/host";
+import {
+  approveStrategyImprovement,
+  dismissStrategyImprovement,
+  listStrategyImprovements,
+} from "@/lib/host";
 
 export function StrategyCard({
   mode,
   spendMode = "observe",
   strategy,
+  agentId,
   agentWorking = false,
   onAction,
+  onAgentUpdated,
 }: {
   mode: "scout" | "operate";
   spendMode?: "observe" | "spend_enabled";
   strategy: Strategy | null;
+  agentId: string;
   /** True while a chat turn is in flight — freeze strategy controls. */
   agentWorking?: boolean;
   onAction?: (
     action: "arm" | "pause" | "resume" | "disarm",
   ) => Promise<AgentWithWorkspace>;
+  onAgentUpdated?: (agent: AgentWithWorkspace) => void;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [proposal, setProposal] = useState<StrategyImprovementProposal | null>(
+    null,
+  );
   const busy = pending || agentWorking;
+
+  useEffect(() => {
+    let cancelled = false;
+    void listStrategyImprovements(agentId)
+      .then((data) => {
+        if (!cancelled) setProposal(data.pending);
+      })
+      .catch(() => {
+        if (!cancelled) setProposal(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [agentId, strategy?.updatedAt, strategy?.params]);
 
   function run(action: "arm" | "pause" | "resume" | "disarm") {
     if (!onAction || busy) return;
@@ -32,6 +62,29 @@ export function StrategyCard({
         await onAction(action);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Strategy action failed");
+      }
+    });
+  }
+
+  function resolveProposal(kind: "approve" | "dismiss") {
+    if (!proposal || busy) return;
+    setError(null);
+    startTransition(async () => {
+      try {
+        if (kind === "approve") {
+          const updated = await approveStrategyImprovement(
+            agentId,
+            proposal.id,
+          );
+          onAgentUpdated?.(updated);
+        } else {
+          await dismissStrategyImprovement(agentId, proposal.id);
+        }
+        setProposal(null);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Improvement action failed",
+        );
       }
     });
   }
@@ -112,6 +165,12 @@ export function StrategyCard({
     .map(([key, value]) => `${key}=${String(value)}`)
     .join(" · ");
 
+  const proposalPreview = proposal
+    ? Object.entries(proposal.patch)
+        .map(([key, value]) => `${key}→${String(value)}`)
+        .join(" · ")
+    : "";
+
   return (
     <section className="shrink-0 space-y-3 rounded-xl bg-[var(--panel)] px-3 py-3">
       <div className="flex items-center justify-between gap-2">
@@ -185,6 +244,38 @@ export function StrategyCard({
           </div>
         ) : null}
       </dl>
+
+      {proposal ? (
+        <div className="space-y-2 rounded-lg border border-[var(--line-soft)] px-3 py-2">
+          <p className="type-ui text-[var(--ink)]">Self-improvement suggested</p>
+          {proposal.reason ? (
+            <p className="type-meta text-[var(--ink-soft)]">{proposal.reason}</p>
+          ) : null}
+          {proposalPreview ? (
+            <p className="type-meta truncate text-[var(--muted)]">
+              {proposalPreview}
+            </p>
+          ) : null}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => resolveProposal("approve")}
+              className="type-ui flex-1 cursor-pointer rounded-full bg-[var(--ink)] px-3 py-1.5 font-semibold text-[var(--canvas)] disabled:opacity-40"
+            >
+              Approve
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => resolveProposal("dismiss")}
+              className="type-ui flex-1 cursor-pointer rounded-full px-3 py-1.5 text-[var(--muted)] transition hover:bg-[var(--panel-2)] hover:text-[var(--ink)] disabled:opacity-40"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {strategy.status === "running" ? (
         <p className="type-meta flex items-center gap-1.5 text-[var(--accent)]">

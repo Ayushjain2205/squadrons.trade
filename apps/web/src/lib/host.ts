@@ -156,6 +156,34 @@ export function disarmStrategy(agentId: string) {
   return strategyAction(agentId, "disarm");
 }
 
+export async function listStrategyImprovements(agentId: string) {
+  return hostFetch<{
+    pending: import("@squadrons/shared").StrategyImprovementProposal | null;
+    proposals: import("@squadrons/shared").StrategyImprovementProposal[];
+  }>(`/v1/agents/${agentId}/strategy/improvements`);
+}
+
+export async function approveStrategyImprovement(
+  agentId: string,
+  proposalId: string,
+): Promise<AgentWithWorkspace> {
+  const data = await hostFetch<{ agent: AgentWithWorkspace }>(
+    `/v1/agents/${agentId}/strategy/improvements/${proposalId}/approve`,
+    { method: "POST", body: "{}" },
+  );
+  return data.agent;
+}
+
+export async function dismissStrategyImprovement(
+  agentId: string,
+  proposalId: string,
+): Promise<void> {
+  await hostFetch(
+    `/v1/agents/${agentId}/strategy/improvements/${proposalId}/dismiss`,
+    { method: "POST", body: "{}" },
+  );
+}
+
 export async function listMessages(agentId: string): Promise<AgentMessage[]> {
   const data = await hostFetch<{ messages: AgentMessage[] }>(
     `/v1/agents/${agentId}/messages`,
