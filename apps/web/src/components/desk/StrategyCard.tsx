@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
-import type { Strategy } from "@squadrons/shared";
+import { recipeLabel, type Strategy } from "@squadrons/shared";
 import type { AgentWithWorkspace } from "@/lib/host";
 
 export function StrategyCard({
@@ -45,7 +45,7 @@ export function StrategyCard({
         </div>
         <p className="type-meta text-[var(--muted)]">
           {mode === "operate"
-            ? "Shape a concrete plan in chat. When the agent saves a draft, it shows up here for Arm."
+            ? "Shape a recipe-backed plan in chat. When the agent saves a draft, it shows up here for Arm."
             : "Scout first. Switch to Operate when you’re ready to draft and arm a plan."}
         </p>
         <PrimaryButton
@@ -65,9 +65,15 @@ export function StrategyCard({
   const triggerLabel =
     strategy.trigger.type === "interval"
       ? `Every ${strategy.trigger.intervalSec ?? 60}s`
-      : strategy.trigger.condition
-        ? `When: ${strategy.trigger.condition}`
-        : "Condition";
+      : strategy.trigger.type === "event"
+        ? `On event: ${strategy.trigger.event ?? "…"}${
+            strategy.trigger.intervalSec
+              ? ` (poll ${strategy.trigger.intervalSec}s)`
+              : ""
+          }`
+        : strategy.trigger.condition
+          ? `Legacy condition: ${strategy.trigger.condition}`
+          : "Condition";
 
   const actionLabel =
     strategy.action.type === "alert"
@@ -78,20 +84,33 @@ export function StrategyCard({
         ? `Propose trade — ${strategy.action.detail}`
         : "Propose trade";
 
+  const improvementLabel = !strategy.improvement?.enabled
+    ? "Off"
+    : strategy.improvement.cadence;
+
+  const needsRecipe = !strategy.recipeId;
   const canArm =
     mode === "operate" &&
+    !needsRecipe &&
     (strategy.status === "draft" || strategy.status === "paused");
   const canPause = strategy.status === "running";
-  const canResume = mode === "operate" && strategy.status === "paused";
+  const canResume =
+    mode === "operate" && !needsRecipe && strategy.status === "paused";
   const canDisarm =
     strategy.status === "running" || strategy.status === "paused";
 
-  const armHint =
-    mode !== "operate"
+  const armHint = needsRecipe
+    ? "Re-propose with a recipe in Operate first"
+    : mode !== "operate"
       ? "Switch to Operate to arm"
       : spendMode === "observe"
         ? "Arms in observe mode — alerts only, no spend"
         : "Arms with spend enabled — still policy-gated";
+
+  const paramsPreview = Object.entries(strategy.params ?? {})
+    .slice(0, 4)
+    .map(([key, value]) => `${key}=${String(value)}`)
+    .join(" · ");
 
   return (
     <section className="shrink-0 space-y-3 rounded-xl bg-[var(--panel)] px-3 py-3">
@@ -102,7 +121,28 @@ export function StrategyCard({
 
       <p className="type-ui text-[var(--ink-soft)]">{strategy.summary}</p>
 
+      {needsRecipe ? (
+        <p className="type-meta text-[var(--danger)]">
+          Legacy draft — switch to Operate and propose a recipe-backed plan
+          before Arm.
+        </p>
+      ) : null}
+
       <dl className="space-y-1.5">
+        <div>
+          <dt className="type-meta text-[var(--muted)]">Recipe</dt>
+          <dd className="type-meta text-[var(--ink-soft)]">
+            {recipeLabel(strategy.recipeId)}
+          </dd>
+        </div>
+        {paramsPreview ? (
+          <div>
+            <dt className="type-meta text-[var(--muted)]">Params</dt>
+            <dd className="type-meta truncate text-[var(--ink-soft)]">
+              {paramsPreview}
+            </dd>
+          </div>
+        ) : null}
         <div>
           <dt className="type-meta text-[var(--muted)]">Trigger</dt>
           <dd className="type-meta text-[var(--ink-soft)]">{triggerLabel}</dd>
@@ -110,6 +150,10 @@ export function StrategyCard({
         <div>
           <dt className="type-meta text-[var(--muted)]">Action</dt>
           <dd className="type-meta text-[var(--ink-soft)]">{actionLabel}</dd>
+        </div>
+        <div>
+          <dt className="type-meta text-[var(--muted)]">Self-improvement</dt>
+          <dd className="type-meta text-[var(--ink-soft)]">{improvementLabel}</dd>
         </div>
         <div>
           <dt className="type-meta text-[var(--muted)]">Spend</dt>
@@ -135,7 +179,9 @@ export function StrategyCard({
         ) : strategy.status === "running" ? (
           <div>
             <dt className="type-meta text-[var(--muted)]">Last tick</dt>
-            <dd className="type-meta text-[var(--ink-soft)]">waiting for first tick</dd>
+            <dd className="type-meta text-[var(--ink-soft)]">
+              waiting for first tick
+            </dd>
           </div>
         ) : null}
       </dl>
@@ -143,7 +189,7 @@ export function StrategyCard({
       {strategy.status === "running" ? (
         <p className="type-meta flex items-center gap-1.5 text-[var(--accent)]">
           <span className="working-dot size-1.5 rounded-full bg-[var(--accent)]" />
-          Host is ticking this strategy in the background
+          Host is running this recipe in the background
         </p>
       ) : null}
 
@@ -169,9 +215,11 @@ export function StrategyCard({
             title={
               mode !== "operate"
                 ? "Switch to Operate to resume"
-                : agentWorking
-                  ? "Wait for the chat turn to finish"
-                  : undefined
+                : needsRecipe
+                  ? armHint
+                  : agentWorking
+                    ? "Wait for the chat turn to finish"
+                    : undefined
             }
           >
             {pending ? "Resuming…" : "Resume strategy"}
