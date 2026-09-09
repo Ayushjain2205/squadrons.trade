@@ -66,7 +66,9 @@ export function buildAgentIdentityBlock(
   const readTools = chainScopedReadTools(agent.chainId);
   const toolList = [
     ...readTools,
-    ...(agent.mode === "operate" ? ["propose_strategy", "get_strategy"] : []),
+    ...(agent.mode === "operate"
+      ? ["propose_strategy", "update_strategy_params", "get_strategy"]
+      : []),
   ].join(", ");
   const toolRule =
     readTools.length > 0
@@ -90,7 +92,10 @@ export function buildAgentIdentityBlock(
   }
   if (agent.strategy) {
     lines.push(
-      `Strategy (${agent.strategy.status}): ${agent.strategy.summary}`,
+      `Strategy (${agent.strategy.status}): ${agent.strategy.summary}` +
+        (agent.strategy.recipeId
+          ? ` [recipe=${agent.strategy.recipeId}]`
+          : " [legacy — re-propose with a recipe]"),
     );
   }
   lines.push(
@@ -106,10 +111,15 @@ export function buildAgentIdentityBlock(
     agent.mode === "operate"
       ? [
           "- In Operate mode, help define a clear strategy the user can arm later. Do not claim it is running unless status is running.",
-          "- When the plan is concrete, call propose_strategy (summary, trigger, action, optional caps). Do not dump strategy JSON fences in chat.",
-          "- Use get_strategy to inspect the current draft or armed plan.",
-          '- trigger.type is "interval" (intervalSec >= 15) or "condition" (condition string; optional intervalSec poll floor).',
+          "- When the plan is concrete, call propose_strategy with: summary, recipeId, params, trigger, action, optional caps/improvement.",
+          '- recipeId must be "balance_threshold_alert" or "price_band_alert". Runtime is deterministic — the host runs the recipe, not an LLM tick.',
+          "- balance_threshold_alert params: { walletAddress?, asset: native|ETH, op: below|above, threshold }.",
+          "- price_band_alert params: { symbol, low, high }.",
+          '- trigger.type is "interval" (intervalSec >= 15) or "event" (event string + optional intervalSec poll floor).',
           '- action.type is "alert" or "propose_trade" (observe agents should prefer alert).',
+          "- Optional improvement: { enabled, cadence: hourly|daily|weekly, allowedKeys }. Self-improvement proposes param patches for desk approve.",
+          "- While a strategy is running, use update_strategy_params to change knobs live (does not disarm).",
+          "- Use get_strategy to inspect the current draft or armed plan.",
           "- propose_strategy only saves a draft — the user still has to Arm it in the desk.",
         ].join("\n")
       : "- In Scout mode, focus on research and findings. Suggest switching to Operate when ready to define a runnable strategy. Do not call propose_strategy.",

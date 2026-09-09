@@ -18,14 +18,16 @@ import {
   invalidateAgentRuntime,
   runDshTurn,
 } from "../dsh/runner.js";
-import { isSuccessfulProposeStrategyResult } from "../dsh/activity-map.js";
+import { isSuccessfulProposeStrategyResult, isSuccessfulUpdateStrategyParamsResult } from "../dsh/activity-map.js";
 import type { ActivityHub } from "./activity-hub.js";
 import type { MessageStore } from "./messages.js";
 import { agentWorkspacePath } from "./paths.js";
 import type { AgentStore } from "./store.js";
 import type { StrategyStore } from "./strategy-store.js";
 import {
+  readPendingParamsPatch,
   readPendingStrategyDraft,
+  clearPendingParamsPatch,
   writeStrategyStateFile,
 } from "../strategy/workspace-draft.js";
 
@@ -681,6 +683,7 @@ export function registerAgentRoutes(
       await writeStrategyStateFile(workspace, agent);
 
       let draftSyncedThisTurn = false;
+      let paramsPatchedThisTurn = false;
       let draftSyncGate: Promise<void> = Promise.resolve();
       const syncPendingDraft = (announce: boolean) => {
         const run = draftSyncGate.then(async () => {
@@ -695,9 +698,37 @@ export function registerAgentRoutes(
             activity.publish({
               agentId: agent.id,
               kind: "info",
-          source: "system",
+              source: "system",
               label: "Saved strategy draft",
               detail: draft.summary,
+            });
+          }
+          const latest = agents.getForUser(user.id, agent.id);
+          if (latest) await writeStrategyStateFile(workspace, latest);
+          return true;
+        });
+        draftSyncGate = run.then(
+          () => undefined,
+          () => undefined,
+        );
+        return run;
+      };
+
+      const syncPendingParamsPatch = (announce: boolean) => {
+        const run = draftSyncGate.then(async () => {
+          if (agent.mode !== "operate" || paramsPatchedThisTurn) return false;
+          const patch = await readPendingParamsPatch(workspace);
+          if (!patch) return false;
+          const updated = strategies.patchParams(agent.id, patch);
+          await clearPendingParamsPatch(workspace);
+          paramsPatchedThisTurn = true;
+          if (announce) {
+            activity.publish({
+              agentId: agent.id,
+              kind: "info",
+              source: "system",
+              label: "Updated strategy params",
+              detail: updated.summary,
             });
           }
           const latest = agents.getForUser(user.id, agent.id);
@@ -727,10 +758,16 @@ export function registerAgentRoutes(
             activity.publish({ ...event, source: "chat" });
           },
           onNotification: (notification) => {
-            if (!isSuccessfulProposeStrategyResult(notification)) return;
-            void syncPendingDraft(true).catch((error) => {
-              console.error("[strategy-draft-mid-turn]", agent.id, error);
-            });
+            if (isSuccessfulProposeStrategyResult(notification)) {
+              void syncPendingDraft(true).catch((error) => {
+                console.error("[strategy-draft-mid-turn]", agent.id, error);
+              });
+            }
+            if (isSuccessfulUpdateStrategyParamsResult(notification)) {
+              void syncPendingParamsPatch(true).catch((error) => {
+                console.error("[strategy-params-mid-turn]", agent.id, error);
+              });
+            }
           },
         });
       } catch (error) {
@@ -740,7 +777,7 @@ export function registerAgentRoutes(
           activity.publish({
             agentId: agent.id,
             kind: "error",
-          source: "chat",
+            source: "chat",
             label: "Something went wrong",
             detail: error instanceof Error ? error.message : String(error),
           });
@@ -754,6 +791,11 @@ export function registerAgentRoutes(
         await syncPendingDraft(true);
       } catch (error) {
         console.error("[strategy-draft]", agent.id, error);
+      }
+      try {
+        await syncPendingParamsPatch(true);
+      } catch (error) {
+        console.error("[strategy-params]", agent.id, error);
       }
 
       const assistantMessage = messages.append(
