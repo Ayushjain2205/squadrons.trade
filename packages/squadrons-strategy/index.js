@@ -1,9 +1,16 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { defineTool } from "@deepseek-ai/dsh-tools";
-import { draftPath, statePath, tickPath, STRATEGY_DIR } from "./paths.js";
+import {
+  draftPath,
+  paramsPatchPath,
+  statePath,
+  tickPath,
+  STRATEGY_DIR,
+} from "./paths.js";
 import {
   parseStrategyDraftInput,
+  parseStrategyParamsPatch,
   parseStrategyTickDecision,
 } from "./validate.js";
 
@@ -33,16 +40,28 @@ export function apply(ctx) {
     defineTool({
       name: "propose_strategy",
       description:
-        "Commit or update this agent's strategy draft (Operate mode only). Use when the plan is concrete enough to Arm. Does not arm or start the live loop — the user Arms in the desk. Prefer this over dumping JSON in chat.",
+        "Commit or update this agent's strategy draft (Operate mode only). Requires a built-in recipeId + params. Does not arm — the user Arms in the desk. Prefer this over dumping JSON in chat. Cannot overwrite a running strategy (pause/disarm first, or use update_strategy_params for live knobs).",
       parameters: {
         summary: {
           type: "string",
           description: "One-line mandate for the strategy.",
         },
+        recipeId: {
+          type: "string",
+          description:
+            'Built-in recipe: "balance_threshold_alert" or "price_band_alert".',
+          enum: ["balance_threshold_alert", "price_band_alert"],
+        },
+        params: {
+          type: "object",
+          description:
+            "Recipe params. balance_threshold_alert: { walletAddress?, asset, op: below|above, threshold }. price_band_alert: { symbol, low, high }.",
+          additionalProperties: true,
+        },
         trigger: {
           type: "object",
           description:
-            'Trigger config. type "interval" needs intervalSec (>=15). type "condition" needs condition string; optional intervalSec poll floor.',
+            'Wake config. type "interval" needs intervalSec (>=15). type "event" needs event string + optional intervalSec poll floor.',
           additionalProperties: true,
         },
         action: {
@@ -54,6 +73,12 @@ export function apply(ctx) {
         caps: {
           type: "object",
           description: "Optional caps, e.g. { maxTradeUsd: 10 }.",
+          additionalProperties: true,
+        },
+        improvement: {
+          type: "object",
+          description:
+            'Optional self-improvement: { enabled, cadence: hourly|daily|weekly, allowedKeys?: string[] }. Patches are propose-only until approved.',
           additionalProperties: true,
         },
       },
@@ -79,14 +104,14 @@ export function apply(ctx) {
         const draft = parseStrategyDraftInput(args);
         if (!draft) {
           throw new Error(
-            "Invalid strategy draft. Need summary, trigger (interval|condition), and action (alert|propose_trade).",
+            "Invalid strategy draft. Need summary, recipeId, params, trigger (interval|event), and action (alert|propose_trade).",
           );
         }
 
         const state = await readJson(statePath());
         if (state?.status === "running") {
           throw new Error(
-            "A strategy is already running. Pause or disarm it before proposing a new draft.",
+            "A strategy is already running. Pause or disarm before a full re-propose, or call update_strategy_params to change knobs live.",
           );
         }
 
@@ -102,12 +127,80 @@ export function apply(ctx) {
           ok: true,
           status: "draft",
           summary: draft.summary,
+          recipeId: draft.recipeId,
           note: "Draft saved. User must Arm it in the desk before it runs.",
         };
       },
       presentCall: (args) => ({
         card: "generic",
         title: "Propose strategy",
+        kind: "other",
+        rawInput: args,
+      }),
+    }),
+  );
+
+  ctx.tools.register(
+    defineTool({
+      name: "update_strategy_params",
+      description:
+        "Patch live strategy params (Operate mode). Works while draft, paused, or running — does not change recipe, trigger, or arm state. Host validates against the recipe schema.",
+      parameters: {
+        params: {
+          type: "object",
+          description: "Partial or full params object for the current recipe.",
+          additionalProperties: true,
+        },
+      },
+      output: {
+        schema: {
+          type: "object",
+          additionalProperties: true,
+        },
+        render: (_args, value) => [
+          {
+            type: "text",
+            text: JSON.stringify(value, null, 2),
+          },
+        ],
+      },
+      async execute(args) {
+        if (deskMode() !== "operate") {
+          throw new Error(
+            "update_strategy_params is only available in Operate mode.",
+          );
+        }
+        const patch = parseStrategyParamsPatch(args);
+        if (!patch) {
+          throw new Error("Invalid params patch. Need { params: { ... } }.");
+        }
+
+        const state = await readJson(statePath());
+        if (!state || state.status === "none") {
+          throw new Error("No strategy to patch. Propose a draft first.");
+        }
+
+        const dir = path.join(process.cwd(), STRATEGY_DIR);
+        await mkdir(dir, { recursive: true });
+        const payload = {
+          params: patch.params,
+          proposedAt: Date.now(),
+        };
+        await writeFile(
+          paramsPatchPath(),
+          `${JSON.stringify(payload, null, 2)}\n`,
+          "utf8",
+        );
+
+        return {
+          ok: true,
+          note: "Params patch saved for the host to apply.",
+          params: patch.params,
+        };
+      },
+      presentCall: (args) => ({
+        card: "generic",
+        title: "Update strategy params",
         kind: "other",
         rawInput: args,
       }),
@@ -154,7 +247,7 @@ export function apply(ctx) {
     defineTool({
       name: "report_tick",
       description:
-        "Report the outcome of a background strategy tick. Call once per tick after evaluating tools. Prefer this over dumping tick JSON in the reply. action is none, alert, or propose_trade (spend-enabled agents only; host still fail-closes and does not broadcast yet).",
+        "Legacy: report outcome of an LLM strategy tick. Prefer host deterministic recipes; only used for legacy strategies without a recipeId.",
       parameters: {
         action: {
           type: "string",

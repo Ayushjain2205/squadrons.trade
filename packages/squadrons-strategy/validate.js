@@ -2,20 +2,101 @@ function isRecord(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+const RECIPE_IDS = ["balance_threshold_alert", "price_band_alert"];
+
+function isRecipeId(value) {
+  return typeof value === "string" && RECIPE_IDS.includes(value);
+}
+
+function parseRecipeParams(recipeId, value) {
+  const defaults =
+    recipeId === "balance_threshold_alert"
+      ? { asset: "native", op: "below", threshold: 0.1 }
+      : { symbol: "ETH", low: 1000, high: 10000 };
+  const raw = value === undefined || value === null ? {} : value;
+  if (!isRecord(raw)) return null;
+
+  if (recipeId === "balance_threshold_alert") {
+    const asset =
+      typeof raw.asset === "string" && raw.asset.trim()
+        ? raw.asset.trim()
+        : defaults.asset;
+    const op = raw.op === "above" || raw.op === "below" ? raw.op : defaults.op;
+    const threshold = Number(raw.threshold ?? defaults.threshold);
+    if (!Number.isFinite(threshold) || threshold < 0) return null;
+    const out = { asset, op, threshold };
+    if (typeof raw.walletAddress === "string" && raw.walletAddress.trim()) {
+      const addr = raw.walletAddress.trim();
+      if (!/^0x[a-fA-F0-9]{40}$/.test(addr)) return null;
+      out.walletAddress = addr;
+    }
+    return out;
+  }
+
+  if (recipeId === "price_band_alert") {
+    const symbol =
+      typeof raw.symbol === "string" && raw.symbol.trim()
+        ? raw.symbol.trim().toUpperCase()
+        : defaults.symbol;
+    const low = Number(raw.low ?? defaults.low);
+    const high = Number(raw.high ?? defaults.high);
+    if (!Number.isFinite(low) || !Number.isFinite(high) || low < 0 || high <= low) {
+      return null;
+    }
+    return { symbol, low, high };
+  }
+
+  return null;
+}
+
+function parseImprovement(value, fallbackKeys) {
+  if (!isRecord(value)) {
+    return {
+      enabled: false,
+      cadence: "daily",
+      autoApply: false,
+      allowedKeys: [...fallbackKeys],
+      lastRunAt: null,
+    };
+  }
+  const cadence =
+    value.cadence === "hourly" ||
+    value.cadence === "daily" ||
+    value.cadence === "weekly"
+      ? value.cadence
+      : "daily";
+  const allowedKeys = Array.isArray(value.allowedKeys)
+    ? value.allowedKeys.filter((k) => typeof k === "string")
+    : fallbackKeys;
+  return {
+    enabled: value.enabled === true,
+    cadence,
+    autoApply: false,
+    allowedKeys,
+    lastRunAt:
+      typeof value.lastRunAt === "number" && Number.isFinite(value.lastRunAt)
+        ? value.lastRunAt
+        : null,
+  };
+}
+
 /**
  * Validate propose_strategy args. Mirrors @squadrons/shared parseStrategyDraftInput.
  * @param {unknown} value
- * @returns {{ summary: string, trigger: object, action: object, caps?: object } | null}
  */
 export function parseStrategyDraftInput(value) {
   if (!isRecord(value)) return null;
   const summary =
     typeof value.summary === "string" ? value.summary.trim() : "";
   if (!summary) return null;
+  if (!isRecipeId(value.recipeId)) return null;
+  const recipeId = value.recipeId;
+  const params = parseRecipeParams(recipeId, value.params);
+  if (!params) return null;
 
   if (!isRecord(value.trigger)) return null;
   const triggerType = value.trigger.type;
-  if (triggerType !== "interval" && triggerType !== "condition") return null;
+  if (triggerType !== "interval" && triggerType !== "event") return null;
 
   const trigger = { type: triggerType };
   if (value.trigger.intervalSec !== undefined) {
@@ -23,13 +104,16 @@ export function parseStrategyDraftInput(value) {
     if (!Number.isFinite(intervalSec) || intervalSec < 15) return null;
     trigger.intervalSec = Math.floor(intervalSec);
   }
-  if (value.trigger.condition !== undefined) {
-    if (typeof value.trigger.condition !== "string") return null;
-    const condition = value.trigger.condition.trim();
-    if (condition) trigger.condition = condition;
+  if (value.trigger.event !== undefined) {
+    if (typeof value.trigger.event !== "string") return null;
+    const event = value.trigger.event.trim();
+    if (event) trigger.event = event;
   }
-  if (triggerType === "condition" && !trigger.condition) return null;
+  if (triggerType === "event" && !trigger.event) return null;
   if (triggerType === "interval" && trigger.intervalSec === undefined) {
+    trigger.intervalSec = 60;
+  }
+  if (triggerType === "event" && trigger.intervalSec === undefined) {
     trigger.intervalSec = 60;
   }
 
@@ -54,13 +138,26 @@ export function parseStrategyDraftInput(value) {
     }
   }
 
-  return { summary, trigger, action, caps };
+  const improvement =
+    value.improvement === undefined
+      ? undefined
+      : parseImprovement(value.improvement, Object.keys(params));
+
+  return { summary, recipeId, params, trigger, action, caps, improvement };
+}
+
+/**
+ * @param {unknown} value
+ */
+export function parseStrategyParamsPatch(value) {
+  if (!isRecord(value)) return null;
+  if (!isRecord(value.params)) return null;
+  return { params: value.params };
 }
 
 /**
  * Validate report_tick args. Mirrors @squadrons/shared parseStrategyTickDecision.
  * @param {unknown} value
- * @returns {{ action: "none"|"alert"|"propose_trade", label: string, detail?: string, intent?: object } | null}
  */
 export function parseStrategyTickDecision(value) {
   if (!isRecord(value)) return null;
