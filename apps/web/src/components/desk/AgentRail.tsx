@@ -7,6 +7,7 @@ import { AgentOrb } from "@/components/AgentOrb";
 import { BrandMark } from "@/components/BrandMark";
 import { RailListSkeleton, SkeletonBone } from "@/components/desk/DeskSkeleton";
 import { getMe, type AgentWithWorkspace } from "@/lib/host";
+import { clearSquadronsSession } from "@/lib/session";
 import { formatRelativeTime } from "@/lib/time";
 
 function truncateAddress(address: string): string {
@@ -162,7 +163,10 @@ export function AgentRail({
                 </p>
                 <button
                   type="button"
-                  onClick={() => void logout()}
+                  onClick={() => {
+                    clearSquadronsSession();
+                    void logout();
+                  }}
                   className="type-meta cursor-pointer transition hover:!text-[var(--ink)]"
                 >
                   Log out

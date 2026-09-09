@@ -42,7 +42,7 @@ export function DeskShell({
       </main>
 
       <aside className="hidden min-h-0 w-[var(--rail-right)] shrink-0 flex-col border-l border-[var(--line-soft)] bg-[var(--rail)] lg:flex">
-        {loading && !selectedAgent ? (
+        {loading && selectedId ? (
           <ContextPanelSkeleton />
         ) : (
           <AgentContextPanel

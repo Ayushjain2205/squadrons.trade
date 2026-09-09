@@ -51,7 +51,7 @@ Cherry Bomb One (wordmark), Manrope (UI + display), IBM Plex Mono (chain ids / m
 - Right rail: soft identity line + abstracted Activity trail (human verbs, no tool dumps); gear opens settings
 - Chain: CoinGecko logo tiles (slightly rounded); name on hover/focus only
 - Orbs: 8 faces × 7 colors, chosen independently
-- Loading: login-shaped skeleton while Privy boots (auth unknown); desk skeletons (rail / chat / context) only after login while data resolves. BrandMark stays live on desk loads.
+- Loading: own `squadrons:session` flag (set on auth, cleared on logout). Known session → desk/chat boot by route; no session → login boot. Context skeleton only when opening an agent.
 
 ## Activity
 
