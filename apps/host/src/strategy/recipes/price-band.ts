@@ -1,4 +1,5 @@
 import type { StrategyTickDecision } from "@squadrons/shared";
+import { applyStrategyAction } from "./action.js";
 import type { RecipeContext } from "./types.js";
 
 const SPOT_IDS: Record<string, string> = {
@@ -77,12 +78,19 @@ export async function executePriceBandAlert(
     };
   }
 
-  return {
-    action: "alert",
-    label:
-      usd < low
-        ? `${symbol} below $${low}`
-        : `${symbol} above $${high}`,
-    detail,
-  };
+  return applyStrategyAction(
+    ctx,
+    {
+      action: "alert",
+      label:
+        usd < low
+          ? `${symbol} below $${low}`
+          : `${symbol} above $${high}`,
+      detail,
+    },
+    {
+      symbol,
+      side: usd < low ? "buy" : "sell",
+    },
+  );
 }

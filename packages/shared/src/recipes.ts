@@ -83,8 +83,10 @@ function formatUsd(n: number): string {
 export function describeRecipePlan(
   recipeId: RecipeId | null | undefined,
   params: Record<string, unknown> | null | undefined,
+  actionType?: "alert" | "propose_trade",
 ): string | null {
   if (!recipeId || !isRecipeId(recipeId) || !params) return null;
+  const verb = actionType === "propose_trade" ? "Propose trade when" : "Alert when";
 
   if (recipeId === "balance_threshold_alert") {
     const asset =
@@ -101,7 +103,7 @@ export function describeRecipePlan(
       typeof params.walletAddress === "string" && params.walletAddress
         ? ` on ${shortAddress(params.walletAddress)}`
         : "";
-    return `Alert when ${asset} ${op} ${threshold}${wallet}`;
+    return `${verb} ${asset} ${op} ${threshold}${wallet}`;
   }
 
   if (recipeId === "price_band_alert") {
@@ -110,7 +112,7 @@ export function describeRecipePlan(
     const low = Number(params.low);
     const high = Number(params.high);
     if (!Number.isFinite(low) || !Number.isFinite(high)) return null;
-    return `Alert when ${symbol} leaves ${formatUsd(low)}–${formatUsd(high)}`;
+    return `${verb} ${symbol} leaves ${formatUsd(low)}–${formatUsd(high)}`;
   }
 
   if (recipeId === "price_cross_alert") {
@@ -124,7 +126,7 @@ export function describeRecipePlan(
         : params.direction === "either"
           ? "crosses"
           : "crosses below";
-    return `Alert when ${symbol} ${direction} ${formatUsd(level)}`;
+    return `${verb} ${symbol} ${direction} ${formatUsd(level)}`;
   }
 
   return null;

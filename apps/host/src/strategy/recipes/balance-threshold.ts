@@ -1,4 +1,5 @@
 import type { StrategyTickDecision } from "@squadrons/shared";
+import { applyStrategyAction } from "./action.js";
 import { resolveRpcUrl } from "./rpc.js";
 import { isNativeAsset, resolveKnownToken } from "./tokens.js";
 import type { RecipeContext } from "./types.js";
@@ -128,12 +129,20 @@ export async function executeBalanceThresholdAlert(
     };
   }
 
-  return {
-    action: "alert",
-    label:
-      op === "below"
-        ? `Balance below ${threshold} ${symbol}`
-        : `Balance above ${threshold} ${symbol}`,
-    detail,
-  };
+  return applyStrategyAction(
+    ctx,
+    {
+      action: "alert",
+      label:
+        op === "below"
+          ? `Balance below ${threshold} ${symbol}`
+          : `Balance above ${threshold} ${symbol}`,
+      detail,
+    },
+    {
+      symbol,
+      // Below threshold → need more; above → trim.
+      side: op === "below" ? "buy" : "sell",
+    },
+  );
 }

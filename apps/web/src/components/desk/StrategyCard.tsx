@@ -172,7 +172,11 @@ export function StrategyCard({
 
   const needsRecipe = !strategy.recipeId;
   const planLine =
-    describeRecipePlan(strategy.recipeId, strategy.params) ?? strategy.summary;
+    describeRecipePlan(
+      strategy.recipeId,
+      strategy.params,
+      strategy.action.type,
+    ) ?? strategy.summary;
   const schedule = describeStrategySchedule(strategy.trigger);
   const spendLabel =
     spendMode === "observe" ? "Observe only" : "Spend enabled";

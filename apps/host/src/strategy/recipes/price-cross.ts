@@ -1,5 +1,6 @@
 import type { StrategyTickDecision } from "@squadrons/shared";
 import { fetchSpotUsd } from "../events.js";
+import { applyStrategyAction } from "./action.js";
 import type { RecipeContext } from "./types.js";
 
 export async function executePriceCrossAlert(
@@ -47,14 +48,24 @@ export async function executePriceCrossAlert(
     return { action: "none", label: "Checked price cross", detail };
   }
 
-  return {
-    action: "alert",
-    label:
-      direction === "above"
-        ? `${symbol} crossed above $${level}`
-        : direction === "below"
-          ? `${symbol} crossed below $${level}`
-          : `${symbol} crossed $${level}`,
-    detail,
-  };
+  const side =
+    direction === "above" ? "sell" : direction === "below" ? "buy" : undefined;
+
+  return applyStrategyAction(
+    ctx,
+    {
+      action: "alert",
+      label:
+        direction === "above"
+          ? `${symbol} crossed above $${level}`
+          : direction === "below"
+            ? `${symbol} crossed below $${level}`
+            : `${symbol} crossed $${level}`,
+      detail,
+    },
+    {
+      symbol,
+      ...(side ? { side } : {}),
+    },
+  );
 }
