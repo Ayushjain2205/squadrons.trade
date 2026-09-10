@@ -1,5 +1,7 @@
 import type { Strategy, StrategyTickDecision } from "@squadrons/shared";
+import { allowanceApprovalMarker } from "@squadrons/shared";
 import type { ActivityHub } from "../agents/activity-hub.js";
+import type { MessageStore } from "../agents/messages.js";
 import { agentWorkspacePath } from "../agents/paths.js";
 import type { AgentStore } from "../agents/store.js";
 import type { StrategyStore } from "../agents/strategy-store.js";
@@ -29,6 +31,7 @@ export function startStrategyScheduler(deps: {
   users: UserStore;
   activity: ActivityHub;
   tradeIntents: TradeIntentStore;
+  messages: MessageStore;
   scanIntervalMs?: number;
 }): StrategyScheduler {
   const scanMs = deps.scanIntervalMs ?? DEFAULT_SCAN_MS;
@@ -160,12 +163,35 @@ export function startStrategyScheduler(deps: {
                 executed.status === "submitted" ? executed.txHash : null,
               execution: {
                 plan: executed.plan,
+                intent: gated.intent,
                 ...(executed.swap ? { swap: executed.swap } : {}),
                 ...("approveTxHash" in executed && executed.approveTxHash
                   ? { approveTxHash: executed.approveTxHash }
                   : {}),
               },
             });
+
+            if (executed.status === "awaiting_allowance") {
+              const side = gated.intent.side ?? "trade";
+              const symbol = gated.intent.symbol
+                ? ` ${gated.intent.symbol}`
+                : "";
+              const body = [
+                `I need your approval to allow token spend for this trade: ${side} $${gated.intent.amountUsd}${symbol}.`,
+                "This only authorizes the ERC-20 allowance for this swap — still within your spend caps.",
+                "",
+                allowanceApprovalMarker(record.id),
+              ].join("\n");
+              deps.messages.append(strategy.agentId, "system", body);
+              deps.activity.publish({
+                agentId: strategy.agentId,
+                kind: "info",
+                source: "strategy",
+                label: "Allowance approval needed",
+                detail: executed.detail,
+              });
+              return;
+            }
 
             deps.activity.publish({
               agentId: strategy.agentId,

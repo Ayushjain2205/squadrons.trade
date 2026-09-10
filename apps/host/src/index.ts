@@ -52,6 +52,7 @@ const strategyScheduler = startStrategyScheduler({
   users,
   activity,
   tradeIntents,
+  messages,
 });
 const improvementScheduler = startImprovementScheduler({
   agents,

@@ -28,6 +28,7 @@ import type { StrategyStore } from "./strategy-store.js";
 import { clearEventEdgeState } from "../strategy/events.js";
 import type { ImprovementProposalStore } from "../strategy/improvement-store.js";
 import type { TradeIntentStore } from "../strategy/trade-intents.js";
+import { executeGatedTrade } from "../strategy/executor.js";
 import { applyImprovementProposalFromWorkspace } from "../strategy/improvement.js";
 import {
   readPendingParamsPatch,
@@ -764,11 +765,200 @@ export function registerAgentRoutes(
       res.json({
         ok: true,
         intents: tradeIntents.listByAgent(existing.id, limit),
+        awaitingAllowance: tradeIntents.listAwaitingAllowance(existing.id),
       });
     } catch (error) {
       next(error);
     }
   });
+
+  app.post(
+    "/v1/agents/:id/strategy/trade-intents/:intentId/approve-allowance",
+    async (req, res, next) => {
+      try {
+        const user = await requireUser(req, users);
+        const agentId = req.params.id;
+        const intentId = req.params.intentId;
+        if (!agentId || !intentId) {
+          res.status(400).json({ ok: false, error: "missing id" });
+          return;
+        }
+        const existing = agents.getForUser(user.id, agentId);
+        if (!existing) {
+          res.status(404).json({ ok: false, error: "agent not found" });
+          return;
+        }
+        const record = tradeIntents.get(intentId);
+        if (
+          !record ||
+          record.agentId !== existing.id ||
+          record.status !== "awaiting_allowance"
+        ) {
+          res.status(404).json({ ok: false, error: "allowance request not found" });
+          return;
+        }
+
+        const strategy = strategies.get(existing.id);
+        if (!strategy || strategy.action.type !== "propose_trade") {
+          res.status(400).json({ ok: false, error: "strategy cannot trade" });
+          return;
+        }
+
+        let storedIntent: {
+          amountUsd: number;
+          symbol?: string;
+          side?: "buy" | "sell";
+          note?: string;
+        } | null = null;
+        if (record.executionJson) {
+          try {
+            const parsed = JSON.parse(record.executionJson) as {
+              intent?: {
+                amountUsd?: number;
+                symbol?: string;
+                side?: "buy" | "sell";
+                note?: string;
+              };
+            };
+            if (
+              parsed.intent &&
+              typeof parsed.intent.amountUsd === "number" &&
+              parsed.intent.amountUsd > 0
+            ) {
+              storedIntent = {
+                amountUsd: parsed.intent.amountUsd,
+                ...(parsed.intent.symbol
+                  ? { symbol: parsed.intent.symbol }
+                  : {}),
+                ...(parsed.intent.side === "buy" ||
+                parsed.intent.side === "sell"
+                  ? { side: parsed.intent.side }
+                  : {}),
+                ...(parsed.intent.note ? { note: parsed.intent.note } : {}),
+              };
+            }
+          } catch {
+            storedIntent = null;
+          }
+        }
+        const intent = storedIntent ?? {
+          amountUsd: record.amountUsd,
+          ...(record.symbol ? { symbol: record.symbol } : {}),
+          ...(record.side ? { side: record.side } : {}),
+        };
+
+        const executed = await executeGatedTrade({
+          agent: existing,
+          strategy,
+          intent,
+          walletAddress: user.walletAddress,
+          walletId: user.walletId,
+          allowanceDecision: "approved",
+        });
+
+        tradeIntents.updateExecution(record.id, {
+          status:
+            executed.status === "awaiting_allowance"
+              ? "failed"
+              : executed.status,
+          detail: executed.detail,
+          reason:
+            executed.status === "failed"
+              ? executed.reason
+              : executed.status === "awaiting_allowance"
+                ? "Still needs allowance after approval"
+                : null,
+          txHash:
+            executed.status === "submitted" ? executed.txHash : null,
+          execution: {
+            plan: executed.plan,
+            intent,
+            ...(executed.swap ? { swap: executed.swap } : {}),
+            ...("approveTxHash" in executed && executed.approveTxHash
+              ? { approveTxHash: executed.approveTxHash }
+              : {}),
+          },
+        });
+
+        const outcome =
+          executed.status === "submitted"
+            ? `Allowance approved — submitted ${executed.txHash}`
+            : executed.status === "failed"
+              ? `Allowance approved but trade failed: ${executed.reason}`
+              : `Allowance approved — ${executed.detail}`;
+        messages.append(existing.id, "system", outcome);
+        activity.publish({
+          agentId: existing.id,
+          kind: executed.status === "submitted" ? "info" : "error",
+          source: "strategy",
+          label:
+            executed.status === "submitted"
+              ? "Allowance approved — trade submitted"
+              : "Allowance approved — trade failed",
+          detail: executed.detail,
+        });
+
+        res.json({
+          ok: true,
+          intent: tradeIntents.get(record.id),
+          execution: executed,
+        });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
+
+  app.post(
+    "/v1/agents/:id/strategy/trade-intents/:intentId/dismiss-allowance",
+    async (req, res, next) => {
+      try {
+        const user = await requireUser(req, users);
+        const agentId = req.params.id;
+        const intentId = req.params.intentId;
+        if (!agentId || !intentId) {
+          res.status(400).json({ ok: false, error: "missing id" });
+          return;
+        }
+        const existing = agents.getForUser(user.id, agentId);
+        if (!existing) {
+          res.status(404).json({ ok: false, error: "agent not found" });
+          return;
+        }
+        const record = tradeIntents.get(intentId);
+        if (
+          !record ||
+          record.agentId !== existing.id ||
+          record.status !== "awaiting_allowance"
+        ) {
+          res.status(404).json({ ok: false, error: "allowance request not found" });
+          return;
+        }
+
+        tradeIntents.updateExecution(record.id, {
+          status: "dismissed",
+          detail: "Dismissed in chat — no allowance broadcast",
+          reason: "dismissed_by_user",
+        });
+        messages.append(
+          existing.id,
+          "system",
+          "Dismissed — I won’t approve that token spend.",
+        );
+        activity.publish({
+          agentId: existing.id,
+          kind: "info",
+          source: "strategy",
+          label: "Allowance dismissed",
+          detail: record.label,
+        });
+
+        res.json({ ok: true, intent: tradeIntents.get(record.id) });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
 
   app.post(
     "/v1/agents/:id/strategy/improvements/:proposalId/approve",
