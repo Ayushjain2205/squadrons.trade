@@ -163,6 +163,26 @@ export async function listStrategyImprovements(agentId: string) {
   }>(`/v1/agents/${agentId}/strategy/improvements`);
 }
 
+export type TradeIntentRecord = {
+  id: string;
+  agentId: string;
+  status: "proposed" | "blocked";
+  amountUsd: number;
+  symbol: string | null;
+  side: "buy" | "sell" | null;
+  label: string;
+  detail: string | null;
+  reason: string | null;
+  createdAt: number;
+};
+
+export async function listTradeIntents(agentId: string, limit = 10) {
+  const data = await hostFetch<{ intents: TradeIntentRecord[] }>(
+    `/v1/agents/${agentId}/strategy/trade-intents?limit=${limit}`,
+  );
+  return data.intents;
+}
+
 export async function approveStrategyImprovement(
   agentId: string,
   proposalId: string,

@@ -27,6 +27,7 @@ import type { AgentStore } from "./store.js";
 import type { StrategyStore } from "./strategy-store.js";
 import { clearEventEdgeState } from "../strategy/events.js";
 import type { ImprovementProposalStore } from "../strategy/improvement-store.js";
+import type { TradeIntentStore } from "../strategy/trade-intents.js";
 import { applyImprovementProposalFromWorkspace } from "../strategy/improvement.js";
 import {
   readPendingParamsPatch,
@@ -46,6 +47,7 @@ export function registerAgentRoutes(
   users: UserStore,
   strategies: StrategyStore,
   improvements: ImprovementProposalStore,
+  tradeIntents: TradeIntentStore,
 ): void {
   app.get("/v1/me", async (req, res, next) => {
     try {
@@ -738,6 +740,30 @@ export function registerAgentRoutes(
         ok: true,
         pending: improvements.getPending(existing.id),
         proposals: improvements.list(existing.id, 20),
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/v1/agents/:id/strategy/trade-intents", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      const agentId = req.params.id;
+      if (!agentId) {
+        res.status(400).json({ ok: false, error: "missing agent id" });
+        return;
+      }
+      const existing = agents.getForUser(user.id, agentId);
+      if (!existing) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+      const limitRaw = Number(req.query.limit);
+      const limit = Number.isFinite(limitRaw) ? limitRaw : 20;
+      res.json({
+        ok: true,
+        intents: tradeIntents.listByAgent(existing.id, limit),
       });
     } catch (error) {
       next(error);

@@ -89,6 +89,7 @@ registerAgentRoutes(
   users,
   strategies,
   improvements,
+  tradeIntents,
 );
 
 app.post("/v1/dsh/smoke", async (req, res) => {

@@ -12,8 +12,10 @@ import {
   approveStrategyImprovement,
   dismissStrategyImprovement,
   listStrategyImprovements,
+  listTradeIntents,
   subscribeActivity,
   updateStrategyImprovement,
+  type TradeIntentRecord,
 } from "@/lib/host";
 import { useToast } from "@/components/Toast";
 
@@ -52,6 +54,7 @@ export function StrategyCard({
     null,
   );
   const [proposalHighlight, setProposalHighlight] = useState(false);
+  const [intents, setIntents] = useState<TradeIntentRecord[]>([]);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const toast = useToast();
   const busy = pending || agentWorking;
@@ -71,20 +74,41 @@ export function StrategyCard({
       });
   }
 
+  function refreshIntents() {
+    if (strategy?.action.type !== "propose_trade") {
+      setIntents([]);
+      return;
+    }
+    void listTradeIntents(agentId, 5)
+      .then(setIntents)
+      .catch(() => setIntents([]));
+  }
+
   useEffect(() => {
     refreshProposal();
     setAdvancedOpen(false);
   }, [agentId, strategy?.updatedAt, strategy?.params, strategy?.improvement?.lastRunAt]); // eslint-disable-line react-hooks/exhaustive-deps -- refresh when strategy identity/params/improve change
 
   useEffect(() => {
+    refreshIntents();
+  }, [agentId, strategy?.action.type, strategy?.updatedAt, strategy?.lastTickAt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     const unsubscribe = subscribeActivity(agentId, (event) => {
-      if (!IMPROVEMENT_ACTIVITY_LABELS.has(event.label)) return;
-      refreshProposal({
-        highlight: event.label === "Self-improvement suggested",
-      });
+      if (IMPROVEMENT_ACTIVITY_LABELS.has(event.label)) {
+        refreshProposal({
+          highlight: event.label === "Self-improvement suggested",
+        });
+      }
+      if (
+        event.source === "strategy" &&
+        strategy?.action.type === "propose_trade"
+      ) {
+        refreshIntents();
+      }
     });
     return unsubscribe;
-  }, [agentId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [agentId, strategy?.action.type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!proposalHighlight) return;
@@ -243,6 +267,36 @@ export function StrategyCard({
 
       {metaBits.length > 0 ? (
         <p className="type-meta text-[var(--muted)]">{metaBits.join(" · ")}</p>
+      ) : null}
+
+      {strategy.action.type === "propose_trade" && intents.length > 0 ? (
+        <div className="space-y-1.5">
+          <p className="type-meta text-[var(--muted)]">Trade intents</p>
+          <ul className="space-y-1">
+            {intents.map((intent) => (
+              <li
+                key={intent.id}
+                className="flex items-start justify-between gap-2 type-meta"
+              >
+                <span className="min-w-0 truncate text-[var(--ink-soft)]">
+                  {intent.label}
+                </span>
+                <span
+                  className={
+                    intent.status === "blocked"
+                      ? "shrink-0 text-[var(--danger)]"
+                      : "shrink-0 text-[var(--muted)]"
+                  }
+                >
+                  {intent.status === "blocked" ? "Blocked" : "Recorded"}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="type-meta text-[var(--muted)]">
+            Propose-only — no broadcast yet
+          </p>
+        </div>
       ) : null}
 
       {proposal ? (
