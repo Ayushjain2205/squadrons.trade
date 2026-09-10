@@ -166,7 +166,14 @@ export async function listStrategyImprovements(agentId: string) {
 export type TradeIntentRecord = {
   id: string;
   agentId: string;
-  status: "proposed" | "blocked" | "dry_run" | "failed" | "submitted";
+  status:
+    | "proposed"
+    | "blocked"
+    | "dry_run"
+    | "awaiting_allowance"
+    | "dismissed"
+    | "failed"
+    | "submitted";
   amountUsd: number;
   symbol: string | null;
   side: "buy" | "sell" | null;
@@ -179,10 +186,34 @@ export type TradeIntentRecord = {
 };
 
 export async function listTradeIntents(agentId: string, limit = 10) {
-  const data = await hostFetch<{ intents: TradeIntentRecord[] }>(
-    `/v1/agents/${agentId}/strategy/trade-intents?limit=${limit}`,
+  const data = await hostFetch<{
+    intents: TradeIntentRecord[];
+    awaitingAllowance?: TradeIntentRecord[];
+  }>(`/v1/agents/${agentId}/strategy/trade-intents?limit=${limit}`);
+  return data;
+}
+
+export async function approveTradeAllowance(
+  agentId: string,
+  intentId: string,
+) {
+  return hostFetch<{
+    intent: TradeIntentRecord;
+    execution: { status: string; detail?: string; txHash?: string };
+  }>(
+    `/v1/agents/${agentId}/strategy/trade-intents/${intentId}/approve-allowance`,
+    { method: "POST", body: "{}" },
   );
-  return data.intents;
+}
+
+export async function dismissTradeAllowance(
+  agentId: string,
+  intentId: string,
+) {
+  return hostFetch<{ intent: TradeIntentRecord }>(
+    `/v1/agents/${agentId}/strategy/trade-intents/${intentId}/dismiss-allowance`,
+    { method: "POST", body: "{}" },
+  );
 }
 
 export async function approveStrategyImprovement(

@@ -4,20 +4,26 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
   displayActivityLabel,
+  parseAllowanceApprovalMarker,
+  stripAllowanceApprovalMarker,
   type AgentMode,
   type AvatarId,
   type OrbColorId,
 } from "@squadrons/shared";
 import { AgentOrb } from "@/components/AgentOrb";
 import {
+  approveTradeAllowance,
+  dismissTradeAllowance,
   getAgent,
   listMessages,
+  listTradeIntents,
   pauseAgent,
   sendMessage,
   subscribeActivity,
   updateAgent,
   type AgentMessage,
   type AgentWithWorkspace,
+  type TradeIntentRecord,
 } from "@/lib/host";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { useToast } from "@/components/Toast";
@@ -54,10 +60,20 @@ export function AgentChat({
   const [activeUserMessageId, setActiveUserMessageId] = useState<string | null>(
     null,
   );
+  const [awaitingAllowance, setAwaitingAllowance] = useState<
+    TradeIntentRecord[]
+  >([]);
+  const [allowanceBusyId, setAllowanceBusyId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const liveStepsRef = useRef<ChatToolStep[]>([]);
   liveStepsRef.current = liveSteps;
+
+  function refreshAllowanceRequests() {
+    void listTradeIntents(agent.id, 20)
+      .then((data) => setAwaitingAllowance(data.awaitingAllowance ?? []))
+      .catch(() => setAwaitingAllowance([]));
+  }
 
   useEffect(() => {
     setAgent(initialAgent);
@@ -68,11 +84,30 @@ export function AgentChat({
     setStepsByUserMessageId({});
     setLiveSteps([]);
     setActiveUserMessageId(null);
+    refreshAllowanceRequests();
   }, [initialAgent.id]); // eslint-disable-line react-hooks/exhaustive-deps -- only reset transcript when switching agents
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages, pending, liveSteps]);
+  }, [messages, pending, liveSteps, awaitingAllowance]);
+
+  // Strategy may post allowance cards while chat is idle — listen always.
+  useEffect(() => {
+    const unsubscribe = subscribeActivity(agent.id, (event) => {
+      if (event.source !== "strategy" && event.source !== "system") return;
+      if (
+        event.label === "Allowance approval needed" ||
+        event.label.startsWith("Allowance approved") ||
+        event.label === "Allowance dismissed"
+      ) {
+        refreshAllowanceRequests();
+        void listMessages(agent.id)
+          .then(setMessages)
+          .catch(() => {});
+      }
+    });
+    return unsubscribe;
+  }, [agent.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Live chat tool steps while a turn is in flight (Cursor-style).
   useEffect(() => {
@@ -142,6 +177,29 @@ export function AgentChat({
   function applyAgent(next: AgentWithWorkspace) {
     setAgent(next);
     onAgentUpdated?.(next);
+  }
+
+  function resolveAllowance(intentId: string, kind: "approve" | "dismiss") {
+    if (allowanceBusyId) return;
+    setAllowanceBusyId(intentId);
+    startTransition(async () => {
+      try {
+        if (kind === "approve") {
+          await approveTradeAllowance(agent.id, intentId);
+        } else {
+          await dismissTradeAllowance(agent.id, intentId);
+        }
+        const nextMessages = await listMessages(agent.id);
+        setMessages(nextMessages);
+        refreshAllowanceRequests();
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Allowance action failed",
+        );
+      } finally {
+        setAllowanceBusyId(null);
+      }
+    });
   }
 
   function onSend(event?: React.FormEvent) {
@@ -319,9 +377,28 @@ export function AgentChat({
                 message.role === "user" &&
                 !!stepsForMessage &&
                 stepsForMessage.length > 0;
+              const allowanceIntentId =
+                message.role === "system"
+                  ? parseAllowanceApprovalMarker(message.content)
+                  : null;
+              const pendingAllowance = allowanceIntentId
+                ? awaitingAllowance.find((row) => row.id === allowanceIntentId)
+                : null;
               return (
                 <div key={message.id} className="flex flex-col gap-2">
                   <MessageBubble message={message} />
+                  {pendingAllowance ? (
+                    <AllowanceApprovalCard
+                      intent={pendingAllowance}
+                      busy={allowanceBusyId === pendingAllowance.id}
+                      onApprove={() =>
+                        resolveAllowance(pendingAllowance.id, "approve")
+                      }
+                      onDismiss={() =>
+                        resolveAllowance(pendingAllowance.id, "dismiss")
+                      }
+                    />
+                  ) : null}
                   {showTurnChrome ? (
                     <ChatToolSteps
                       steps={stepsForMessage}
@@ -726,6 +803,11 @@ function Caret({ open }: { open: boolean }) {
 
 function MessageBubble({ message }: { message: AgentMessage }) {
   const isUser = message.role === "user";
+  const content =
+    message.role === "system"
+      ? stripAllowanceApprovalMarker(message.content)
+      : message.content;
+  if (!content && message.role === "system") return null;
   return (
     <div className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
       <div
@@ -736,10 +818,54 @@ function MessageBubble({ message }: { message: AgentMessage }) {
         }`}
       >
         {isUser ? (
-          <p className="whitespace-pre-wrap">{message.content}</p>
+          <p className="whitespace-pre-wrap">{content}</p>
         ) : (
-          <MarkdownContent content={sanitizeAssistantContent(message.content)} />
+          <MarkdownContent content={sanitizeAssistantContent(content)} />
         )}
+      </div>
+    </div>
+  );
+}
+
+function AllowanceApprovalCard({
+  intent,
+  busy,
+  onApprove,
+  onDismiss,
+}: {
+  intent: TradeIntentRecord;
+  busy: boolean;
+  onApprove: () => void;
+  onDismiss: () => void;
+}) {
+  const side = intent.side ?? "trade";
+  const symbol = intent.symbol ? ` ${intent.symbol}` : "";
+  return (
+    <div className="max-w-[min(100%,var(--measure-chat))] space-y-3 rounded-2xl border border-[var(--line-soft)] bg-[var(--panel)] px-4 py-3">
+      <div>
+        <p className="type-ui text-[var(--ink)]">Approve token spend?</p>
+        <p className="type-meta mt-1 text-[var(--ink-soft)]">
+          Allow ERC-20 allowance for {side} ${intent.amountUsd}
+          {symbol}. Still capped — no spend beyond this trade’s quote.
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onApprove}
+          className="type-ui flex-1 cursor-pointer rounded-full bg-[var(--ink)] px-3 py-1.5 font-semibold text-[var(--canvas)] disabled:opacity-40"
+        >
+          {busy ? "Working…" : "Approve"}
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onDismiss}
+          className="type-ui flex-1 cursor-pointer rounded-full px-3 py-1.5 text-[var(--muted)] transition hover:bg-[var(--panel-2)] hover:text-[var(--ink)] disabled:opacity-40"
+        >
+          Dismiss
+        </button>
       </div>
     </div>
   );

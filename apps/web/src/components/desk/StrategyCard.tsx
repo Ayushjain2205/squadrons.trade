@@ -80,7 +80,7 @@ export function StrategyCard({
       return;
     }
     void listTradeIntents(agentId, 5)
-      .then(setIntents)
+      .then((data) => setIntents(data.intents))
       .catch(() => setIntents([]));
   }
 
@@ -500,6 +500,10 @@ function intentStatusLabel(
       return "Blocked";
     case "failed":
       return "Failed";
+    case "awaiting_allowance":
+      return "Needs approve";
+    case "dismissed":
+      return "Dismissed";
     case "dry_run":
       return "Dry-run";
     case "submitted":
