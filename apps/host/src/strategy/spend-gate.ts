@@ -26,7 +26,7 @@ export type SpendGateResult =
 
 /**
  * Fail-closed spend gate for strategy ticks.
- * Broadcast/signing is intentionally not implemented yet.
+ * Passing intents are handed to the host executor (dry_run by default).
  */
 export function gateStrategyTickSpend(input: {
   agent: Agent;
@@ -125,13 +125,7 @@ export function gateStrategyTickSpend(input: {
     decision: {
       action: "propose_trade",
       label,
-      detail: [
-        decision.detail,
-        intent.note,
-        "Recorded only — no broadcast yet",
-      ]
-        .filter(Boolean)
-        .join(" · "),
+      detail: [decision.detail, intent.note].filter(Boolean).join(" · ") || undefined,
       intent,
     },
   };

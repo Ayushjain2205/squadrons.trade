@@ -150,7 +150,10 @@ function migrate(db: Database.Database): void {
       label TEXT NOT NULL,
       detail TEXT,
       reason TEXT,
+      tx_hash TEXT,
+      execution_json TEXT,
       created_at INTEGER NOT NULL,
+      updated_at INTEGER,
       FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
     );
 
@@ -183,5 +186,21 @@ function migrate(db: Database.Database): void {
   }
   if (!strategyColumns.some((column) => column.name === "improvement_json")) {
     db.exec(`ALTER TABLE strategies ADD COLUMN improvement_json TEXT`);
+  }
+
+  const tradeIntentColumns = db
+    .prepare(`PRAGMA table_info(trade_intents)`)
+    .all() as Array<{ name: string }>;
+  if (!tradeIntentColumns.some((column) => column.name === "tx_hash")) {
+    db.exec(`ALTER TABLE trade_intents ADD COLUMN tx_hash TEXT`);
+  }
+  if (!tradeIntentColumns.some((column) => column.name === "execution_json")) {
+    db.exec(`ALTER TABLE trade_intents ADD COLUMN execution_json TEXT`);
+  }
+  if (!tradeIntentColumns.some((column) => column.name === "updated_at")) {
+    db.exec(`ALTER TABLE trade_intents ADD COLUMN updated_at INTEGER`);
+    db.exec(
+      `UPDATE trade_intents SET updated_at = created_at WHERE updated_at IS NULL`,
+    );
   }
 }

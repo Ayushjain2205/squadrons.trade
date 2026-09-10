@@ -5,6 +5,7 @@ import type { AgentStore } from "../agents/store.js";
 import type { StrategyStore } from "../agents/strategy-store.js";
 import type { UserStore } from "../auth/privy.js";
 import { evaluateEventEdge } from "./events.js";
+import { executeGatedTrade } from "./executor.js";
 import { gateStrategyTickSpend } from "./spend-gate.js";
 import type { TradeIntentStore } from "./trade-intents.js";
 import { executeStrategyRecipe } from "./recipes/index.js";
@@ -103,7 +104,7 @@ export function startStrategyScheduler(deps: {
 
       let publishedDecision = false;
 
-      const publishDecision = (raw: StrategyTickDecision) => {
+      const publishDecision = async (raw: StrategyTickDecision) => {
         if (publishedDecision) return;
         publishedDecision = true;
 
@@ -133,20 +134,65 @@ export function startStrategyScheduler(deps: {
         }
 
         if (gated.kind === "proposed") {
-          deps.tradeIntents.append({
+          const record = deps.tradeIntents.append({
             agentId: strategy.agentId,
             status: "proposed",
             intent: gated.intent,
             label: gated.decision.label,
             detail: gated.decision.detail ?? null,
           });
-          deps.activity.publish({
-            agentId: strategy.agentId,
-            kind: "info",
-            source: "strategy",
-            label: gated.decision.label,
-            detail: gated.decision.detail ?? null,
-          });
+
+          try {
+            const executed = await executeGatedTrade({
+              agent,
+              strategy,
+              intent: gated.intent,
+              walletAddress: user?.walletAddress ?? null,
+            });
+
+            deps.tradeIntents.updateExecution(record.id, {
+              status: executed.status,
+              detail: executed.detail,
+              reason:
+                executed.status === "failed" ? executed.reason : null,
+              txHash:
+                executed.status === "submitted" ? executed.txHash : null,
+              execution: executed.plan,
+            });
+
+            deps.activity.publish({
+              agentId: strategy.agentId,
+              kind: executed.status === "failed" ? "error" : "info",
+              source: "strategy",
+              label:
+                executed.status === "dry_run"
+                  ? `Dry-run: ${gated.decision.label}`
+                  : executed.status === "submitted"
+                    ? `Submitted: ${gated.decision.label}`
+                    : executed.status === "failed"
+                      ? `Execution failed: ${gated.decision.label}`
+                      : gated.decision.label,
+              detail:
+                executed.status === "failed"
+                  ? `${executed.reason} · ${executed.detail}`
+                  : executed.detail,
+            });
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : String(error);
+            deps.tradeIntents.updateExecution(record.id, {
+              status: "failed",
+              reason: message,
+              detail: message,
+            });
+            deps.activity.publish({
+              agentId: strategy.agentId,
+              kind: "error",
+              source: "strategy",
+              label: `Execution failed: ${gated.decision.label}`,
+              detail: message,
+            });
+          }
           return;
         }
 
@@ -166,7 +212,7 @@ export function startStrategyScheduler(deps: {
           strategy: fresh,
           walletAddress: user?.walletAddress ?? null,
         });
-        publishDecision(result);
+        await publishDecision(result);
       } catch (error) {
         console.error("[strategy-tick]", strategy.agentId, error);
         deps.activity.publish({

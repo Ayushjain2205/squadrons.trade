@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
 import type { StrategyTradeIntent } from "@squadrons/shared";
 
-export type TradeIntentStatus = "proposed" | "blocked";
+export type TradeIntentStatus =
+  | "proposed"
+  | "blocked"
+  | "dry_run"
+  | "failed"
+  | "submitted";
 
 export type TradeIntentRecord = {
   id: string;
@@ -14,7 +19,10 @@ export type TradeIntentRecord = {
   label: string;
   detail: string | null;
   reason: string | null;
+  txHash: string | null;
+  executionJson: string | null;
   createdAt: number;
+  updatedAt: number;
 };
 
 type TradeIntentRow = {
@@ -27,7 +35,10 @@ type TradeIntentRow = {
   label: string;
   detail: string | null;
   reason: string | null;
+  tx_hash: string | null;
+  execution_json: string | null;
   created_at: number;
+  updated_at: number;
 };
 
 function rowToRecord(row: TradeIntentRow): TradeIntentRecord {
@@ -41,7 +52,10 @@ function rowToRecord(row: TradeIntentRow): TradeIntentRecord {
     label: row.label,
     detail: row.detail,
     reason: row.reason,
+    txHash: row.tx_hash,
+    executionJson: row.execution_json,
     createdAt: row.created_at,
+    updatedAt: row.updated_at ?? row.created_at,
   };
 }
 
@@ -55,7 +69,10 @@ export class TradeIntentStore {
     label: string;
     detail?: string | null;
     reason?: string | null;
+    txHash?: string | null;
+    execution?: unknown;
   }): TradeIntentRecord {
+    const now = Date.now();
     const record: TradeIntentRecord = {
       id: randomUUID(),
       agentId: input.agentId,
@@ -66,22 +83,85 @@ export class TradeIntentStore {
       label: input.label,
       detail: input.detail ?? null,
       reason: input.reason ?? null,
-      createdAt: Date.now(),
+      txHash: input.txHash ?? null,
+      executionJson:
+        input.execution === undefined
+          ? null
+          : JSON.stringify(input.execution),
+      createdAt: now,
+      updatedAt: now,
     };
 
     this.db
       .prepare(
         `INSERT INTO trade_intents (
           id, agent_id, status, amount_usd, symbol, side,
-          label, detail, reason, created_at
+          label, detail, reason, tx_hash, execution_json,
+          created_at, updated_at
         ) VALUES (
           @id, @agentId, @status, @amountUsd, @symbol, @side,
-          @label, @detail, @reason, @createdAt
+          @label, @detail, @reason, @txHash, @executionJson,
+          @createdAt, @updatedAt
         )`,
       )
       .run(record);
 
     return record;
+  }
+
+  updateExecution(
+    id: string,
+    patch: {
+      status: TradeIntentStatus;
+      detail?: string | null;
+      reason?: string | null;
+      txHash?: string | null;
+      execution?: unknown;
+    },
+  ): TradeIntentRecord | null {
+    const existing = this.db
+      .prepare(`SELECT * FROM trade_intents WHERE id = ?`)
+      .get(id) as TradeIntentRow | undefined;
+    if (!existing) return null;
+
+    const updatedAt = Date.now();
+    const executionJson =
+      patch.execution === undefined
+        ? existing.execution_json
+        : JSON.stringify(patch.execution);
+    const detail =
+      patch.detail !== undefined ? patch.detail : existing.detail;
+    const reason =
+      patch.reason !== undefined ? patch.reason : existing.reason;
+    const txHash =
+      patch.txHash !== undefined ? patch.txHash : existing.tx_hash;
+
+    this.db
+      .prepare(
+        `UPDATE trade_intents
+         SET status = ?, detail = ?, reason = ?, tx_hash = ?,
+             execution_json = ?, updated_at = ?
+         WHERE id = ?`,
+      )
+      .run(
+        patch.status,
+        detail,
+        reason,
+        txHash,
+        executionJson,
+        updatedAt,
+        id,
+      );
+
+    return rowToRecord({
+      ...existing,
+      status: patch.status,
+      detail,
+      reason,
+      tx_hash: txHash,
+      execution_json: executionJson,
+      updated_at: updatedAt,
+    });
   }
 
   listByAgent(agentId: string, limit = 50): TradeIntentRecord[] {
