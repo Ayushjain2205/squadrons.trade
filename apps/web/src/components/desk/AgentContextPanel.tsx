@@ -28,9 +28,12 @@ import { useToast } from "@/components/Toast";
 export function AgentContextPanel({
   agent,
   onAgentUpdated,
+  onCollapse,
 }: {
   agent: AgentWithWorkspace | null;
   onAgentUpdated?: (agent: AgentWithWorkspace) => void;
+  /** Hide the desk rail (desktop). */
+  onCollapse?: () => void;
 }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -40,34 +43,28 @@ export function AgentContextPanel({
 
   if (!agent) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-        <p className="type-ui text-[var(--muted)]">
-          Select an agent to see status and details.
-        </p>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <DeskPanelHeader
+          title="Desk"
+          onCollapse={onCollapse}
+        />
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+          <p className="type-ui text-[var(--muted)]">
+            Select an agent to see status and details.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--line-soft)] px-4 py-3">
-        <h2 className="type-title text-[var(--ink)]">
-          {settingsOpen ? "Settings" : "Desk"}
-        </h2>
-        <button
-          type="button"
-          onClick={() => setSettingsOpen((open) => !open)}
-          aria-pressed={settingsOpen}
-          aria-label={settingsOpen ? "Close settings" : "Open settings"}
-          className={`flex size-8 cursor-pointer items-center justify-center rounded-lg transition ${
-            settingsOpen
-              ? "bg-[var(--panel-2)] text-[var(--ink)]"
-              : "text-[var(--muted)] hover:bg-[var(--panel)] hover:text-[var(--ink)]"
-          }`}
-        >
-          <SettingsIcon />
-        </button>
-      </div>
+      <DeskPanelHeader
+        title={settingsOpen ? "Settings" : "Desk"}
+        onCollapse={onCollapse}
+        settingsOpen={settingsOpen}
+        onToggleSettings={() => setSettingsOpen((open) => !open)}
+      />
 
       <div className="desk-scroll flex min-h-0 flex-1 flex-col overflow-y-auto p-4">
         {settingsOpen ? (
@@ -87,6 +84,75 @@ export function AgentContextPanel({
         )}
       </div>
     </div>
+  );
+}
+
+function DeskPanelHeader({
+  title,
+  onCollapse,
+  settingsOpen,
+  onToggleSettings,
+}: {
+  title: string;
+  onCollapse?: () => void;
+  settingsOpen?: boolean;
+  onToggleSettings?: () => void;
+}) {
+  return (
+    <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-3">
+      <h2 className="type-title text-[var(--ink)]">{title}</h2>
+      <div className="flex items-center gap-0.5">
+        {onToggleSettings ? (
+          <button
+            type="button"
+            onClick={onToggleSettings}
+            aria-pressed={settingsOpen}
+            aria-label={settingsOpen ? "Close settings" : "Open settings"}
+            title={settingsOpen ? "Close settings" : "Settings"}
+            className={`flex size-8 cursor-pointer items-center justify-center rounded-lg transition ${
+              settingsOpen
+                ? "bg-[var(--panel-2)] text-[var(--ink)]"
+                : "text-[var(--muted)] hover:bg-[var(--panel)] hover:text-[var(--ink)]"
+            }`}
+          >
+            <SettingsIcon />
+          </button>
+        ) : null}
+        {onCollapse ? (
+          <button
+            type="button"
+            onClick={onCollapse}
+            aria-label="Hide desk"
+            className="chain-tip group/chain relative flex size-8 cursor-pointer items-center justify-center rounded-lg text-[var(--muted)] transition hover:bg-[var(--panel)] hover:text-[var(--ink)]"
+          >
+            <ChevronsRightIcon />
+            <span role="tooltip" className="chain-tip-bubble chain-tip-bubble--left">
+              Hide desk
+            </span>
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ChevronsRightIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M13 17l5-5-5-5M6 17l5-5-5-5"
+      />
+    </svg>
   );
 }
 

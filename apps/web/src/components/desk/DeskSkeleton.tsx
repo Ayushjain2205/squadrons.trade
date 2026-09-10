@@ -153,7 +153,7 @@ export function ContextPanelSkeleton() {
       aria-busy="true"
       aria-label="Loading context"
     >
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--line-soft)] px-4 py-3">
+      <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-3">
         <SkeletonBone className="h-4 w-20" />
         <SkeletonBone className="size-8 rounded-lg" />
       </div>
