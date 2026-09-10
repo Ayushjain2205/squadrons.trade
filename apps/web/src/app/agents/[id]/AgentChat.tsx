@@ -20,6 +20,7 @@ import {
   type AgentWithWorkspace,
 } from "@/lib/host";
 import { MarkdownContent } from "@/components/MarkdownContent";
+import { useToast } from "@/components/Toast";
 import { sanitizeAssistantContent } from "@/lib/sanitize-assistant";
 
 type ChatToolStep = {
@@ -42,10 +43,10 @@ export function AgentChat({
   const [agent, setAgent] = useState(initialAgent);
   const [messages, setMessages] = useState(initialMessages);
   const [draft, setDraft] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [pausing, setPausing] = useState(false);
   const [modePending, setModePending] = useState(false);
+  const toast = useToast();
   const [liveSteps, setLiveSteps] = useState<ChatToolStep[]>([]);
   const [stepsByUserMessageId, setStepsByUserMessageId] = useState<
     Record<string, ChatToolStep[]>
@@ -148,7 +149,6 @@ export function AgentChat({
     const content = draft.trim();
     if (!content || pending) return;
 
-    setError(null);
     setDraft("");
     const optimisticId = `local-${Date.now()}`;
     setActiveUserMessageId(optimisticId);
@@ -193,7 +193,6 @@ export function AgentChat({
             const stored = await listMessages(agent.id);
             setMessages(stored);
             setDraft("");
-            setError(null);
             setLiveSteps([]);
             setActiveUserMessageId(null);
             return;
@@ -203,7 +202,7 @@ export function AgentChat({
         }
         setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
         setDraft(content);
-        setError(err instanceof Error ? err.message : "Send failed");
+        toast.error(err instanceof Error ? err.message : "Send failed");
         applyAgent({ ...agent, status: "paused" });
         setLiveSteps([]);
         setActiveUserMessageId(null);
@@ -214,12 +213,11 @@ export function AgentChat({
   async function onPause() {
     if (pausing) return;
     setPausing(true);
-    setError(null);
     try {
       const updated = await pauseAgent(agent.id);
       applyAgent(updated);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Pause failed");
+      toast.error(err instanceof Error ? err.message : "Pause failed");
     } finally {
       setPausing(false);
     }
@@ -228,12 +226,11 @@ export function AgentChat({
   async function onModeChange(mode: AgentMode) {
     if (modePending || mode === agent.mode || isWorking) return;
     setModePending(true);
-    setError(null);
     try {
       const updated = await updateAgent(agent.id, { mode });
       applyAgent(updated);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Mode switch failed");
+      toast.error(err instanceof Error ? err.message : "Mode switch failed");
     } finally {
       setModePending(false);
     }
@@ -397,11 +394,6 @@ export function AgentChat({
             </button>
           )}
         </form>
-        {error ? (
-          <p className="type-ui mt-3 rounded-xl bg-[#2a1818] px-4 py-3 text-[var(--danger)]">
-            {error}
-          </p>
-        ) : null}
       </div>
     </div>
   );

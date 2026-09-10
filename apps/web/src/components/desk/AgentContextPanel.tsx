@@ -23,6 +23,7 @@ import {
 } from "@/lib/host";
 import { ActivityTrail } from "./ActivityTrail";
 import { StrategyCard } from "./StrategyCard";
+import { useToast } from "@/components/Toast";
 
 export function AgentContextPanel({
   agent,
@@ -101,8 +102,8 @@ function AgentContextSummary({
   const onAgentUpdatedRef = useRef(onAgentUpdated);
   onAgentUpdatedRef.current = onAgentUpdated;
   const [posturePending, startPosture] = useTransition();
-  const [postureError, setPostureError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     if (!strategyRunning) return;
@@ -129,13 +130,12 @@ function AgentContextSummary({
     spendMode?: "observe" | "spend_enabled";
   }) {
     if (posturePending || isWorking) return;
-    setPostureError(null);
     startPosture(async () => {
       try {
         const updated = await updateAgent(agent.id, input);
         onAgentUpdatedRef.current?.(updated);
       } catch (err) {
-        setPostureError(
+        toast.error(
           err instanceof Error ? err.message : "Could not update posture",
         );
       }
@@ -152,7 +152,6 @@ function AgentContextSummary({
         confirmLabel: "Pause & switch",
         onConfirm: () => {
           setConfirm(null);
-          setPostureError(null);
           startPosture(async () => {
             try {
               const paused = await pauseStrategy(agent.id);
@@ -160,7 +159,7 @@ function AgentContextSummary({
               const updated = await updateAgent(agent.id, { mode: "scout" });
               onAgentUpdatedRef.current?.(updated);
             } catch (err) {
-              setPostureError(
+              toast.error(
                 err instanceof Error
                   ? err.message
                   : "Could not switch to Scout",
@@ -212,9 +211,6 @@ function AgentContextSummary({
             />
           </div>
         </div>
-        {postureError ? (
-          <p className="type-meta !text-[var(--danger)]">{postureError}</p>
-        ) : null}
       </section>
 
       <StrategyCard
@@ -420,9 +416,9 @@ function AgentSettingsForm({
   const [spendMode, setSpendMode] = useState<"observe" | "spend_enabled">(
     agent.spendMode,
   );
-  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
+  const toast = useToast();
 
   const chainLocked = agent.status === "working";
 
@@ -433,13 +429,11 @@ function AgentSettingsForm({
     setColorId(agent.colorId);
     setChainId(agent.chainId);
     setSpendMode(agent.spendMode);
-    setError(null);
     setConfirm(null);
   }, [agent]);
 
   function onSubmit(event: React.FormEvent) {
     event.preventDefault();
-    setError(null);
     startTransition(async () => {
       try {
         const updated = await updateAgent(agent.id, {
@@ -452,7 +446,7 @@ function AgentSettingsForm({
         });
         onSaved(updated);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Save failed");
+        toast.error(err instanceof Error ? err.message : "Save failed");
       }
     });
   }
@@ -603,12 +597,6 @@ function AgentSettingsForm({
             })}
           </div>
         </fieldset>
-
-        {error ? (
-          <p className="type-ui rounded-xl bg-[#2a1818] px-3 py-2 text-[var(--danger)]">
-            {error}
-          </p>
-        ) : null}
 
         <div className="flex gap-2 pt-1">
           <button

@@ -7,6 +7,7 @@ import {
   subscribeActivity,
   type ActivityEvent,
 } from "@/lib/host";
+import { useToast } from "@/components/Toast";
 
 type DisplayStep = ActivityEvent & { displayLabel: string };
 
@@ -75,8 +76,8 @@ export function ActivityTrail({
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PREVIEW_COUNT);
-  const [error, setError] = useState<string | null>(null);
   const [loadingMore, startLoadMore] = useTransition();
+  const toast = useToast();
   const onLiveEventRef = useRef(onLiveEvent);
   onLiveEventRef.current = onLiveEvent;
 
@@ -85,7 +86,6 @@ export function ActivityTrail({
     setEvents([]);
     setHasMore(false);
     setVisibleCount(PREVIEW_COUNT);
-    setError(null);
 
     void listActivity(agentId, {
       limit: PAGE_SIZE,
@@ -98,7 +98,7 @@ export function ActivityTrail({
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : String(err));
+          toast.error(err instanceof Error ? err.message : String(err));
         }
       });
 
@@ -116,7 +116,7 @@ export function ActivityTrail({
       cancelled = true;
       unsubscribe();
     };
-  }, [agentId]);
+  }, [agentId, toast]);
 
   const { lastCheck, steps } = useMemo(() => buildSteps(events), [events]);
   const visible = steps.slice(0, visibleCount);
@@ -149,7 +149,7 @@ export function ActivityTrail({
         setHasMore(page.hasMore);
         setVisibleCount((n) => n + PREVIEW_COUNT);
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : String(err));
+        toast.error(err instanceof Error ? err.message : String(err));
       }
     });
   }
@@ -173,11 +173,7 @@ export function ActivityTrail({
         </p>
       ) : null}
 
-      {error ? (
-        <p className="type-meta mt-3 !text-[var(--danger)]">{error}</p>
-      ) : null}
-
-      {steps.length === 0 && !error ? (
+      {steps.length === 0 ? (
         <p className="type-ui mt-3 text-[var(--muted)]">
           {live
             ? `${agentName} is checking — alerts show here.`

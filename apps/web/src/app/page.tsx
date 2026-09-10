@@ -9,11 +9,13 @@ import { AgentOrb } from "@/components/AgentOrb";
 import { BrandMark } from "@/components/BrandMark";
 import { getHostUrl, listAgents, type AgentWithWorkspace } from "@/lib/host";
 import { formatRelativeTime } from "@/lib/time";
+import { useToast } from "@/components/Toast";
 
 export default function HomePage() {
   const [agents, setAgents] = useState<AgentWithWorkspace[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     let cancelled = false;
@@ -27,11 +29,12 @@ export default function HomePage() {
       .catch((err) => {
         if (!cancelled) {
           setAgents([]);
-          setError(
+          const message =
             err instanceof Error
               ? err.message
-              : "Could not reach the host. Is it running on :8787?",
-          );
+              : "Could not reach the host. Is it running on :8787?";
+          setError(message);
+          toast.error(message);
         }
       })
       .finally(() => {
@@ -40,7 +43,7 @@ export default function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [toast]);
 
   if (!ready) {
     return (

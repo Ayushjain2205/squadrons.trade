@@ -9,6 +9,7 @@ import { RailListSkeleton, SkeletonBone } from "@/components/desk/DeskSkeleton";
 import { getMe, type AgentWithWorkspace } from "@/lib/host";
 import { clearSquadronsSession } from "@/lib/session";
 import { formatRelativeTime } from "@/lib/time";
+import { useToast } from "@/components/Toast";
 
 function truncateAddress(address: string): string {
   if (address.length < 12) return address;
@@ -30,6 +31,12 @@ export function AgentRail({
   const { logout } = usePrivy();
   const { wallets } = useWallets();
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const toast = useToast();
+
+  useEffect(() => {
+    if (!hostError) return;
+    toast.error(hostError);
+  }, [hostError, toast]);
 
   useEffect(() => {
     const embedded = wallets.find((w) => w.walletClientType === "privy");
@@ -80,12 +87,6 @@ export function AgentRail({
       </div>
 
       <div className="desk-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-        {hostError ? (
-          <p className="type-meta m-2 rounded-xl bg-[#2a1818] px-3 py-2 !text-[var(--danger)]">
-            {hostError}
-          </p>
-        ) : null}
-
         {loading ? (
           <div aria-busy="true" aria-label="Loading agents">
             <RailListSkeleton />

@@ -3,6 +3,7 @@
 import { PrivyProvider } from "@privy-io/react-auth";
 import { base, mainnet, type Chain } from "viem/chains";
 import type { ReactNode } from "react";
+import { ToastProvider } from "@/components/Toast";
 
 const robinhood = {
   id: 4663,
@@ -43,7 +44,7 @@ export function Providers({ children }: { children: ReactNode }) {
         },
       }}
     >
-      {children}
+      <ToastProvider>{children}</ToastProvider>
     </PrivyProvider>
   );
 }

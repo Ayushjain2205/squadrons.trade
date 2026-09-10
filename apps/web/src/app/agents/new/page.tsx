@@ -17,9 +17,11 @@ import { ChainPicker } from "@/components/ChainLogo";
 import { OrbColorSwatch } from "@/components/OrbColorSwatch";
 import { DeskShell } from "@/components/desk/DeskShell";
 import { createAgent, listAgents, type AgentWithWorkspace } from "@/lib/host";
+import { useToast } from "@/components/Toast";
 
 export default function NewAgentPage() {
   const router = useRouter();
+  const toast = useToast();
   const [agents, setAgents] = useState<AgentWithWorkspace[]>([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -28,18 +30,21 @@ export default function NewAgentPage() {
   const [chainId, setChainId] = useState<SupportedChainId>(
     DEFAULT_POLICY.defaultChainId,
   );
-  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
     listAgents()
       .then(setAgents)
-      .catch(() => setAgents([]));
-  }, []);
+      .catch((err) => {
+        setAgents([]);
+        toast.error(
+          err instanceof Error ? err.message : "Could not load agents",
+        );
+      });
+  }, [toast]);
 
   function onSubmit(event: React.FormEvent) {
     event.preventDefault();
-    setError(null);
     startTransition(async () => {
       try {
         const agent = await createAgent({
@@ -52,7 +57,7 @@ export default function NewAgentPage() {
         router.push(`/agents/${agent.id}`);
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Create failed");
+        toast.error(err instanceof Error ? err.message : "Create failed");
       }
     });
   }
@@ -163,12 +168,6 @@ export default function NewAgentPage() {
           </label>
 
           <p className="type-data text-[var(--muted)]">Spend starts as observe</p>
-
-          {error ? (
-            <p className="type-ui rounded-xl bg-[#2a1818] px-4 py-3 text-[var(--danger)]">
-              {error}
-            </p>
-          ) : null}
 
           <button
             type="submit"

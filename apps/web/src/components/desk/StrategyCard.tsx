@@ -15,6 +15,7 @@ import {
   subscribeActivity,
   updateStrategyImprovement,
 } from "@/lib/host";
+import { useToast } from "@/components/Toast";
 
 const IMPROVEMENT_ACTIVITY_LABELS = new Set([
   "Self-improvement suggested",
@@ -47,12 +48,12 @@ export function StrategyCard({
   onAgentUpdated?: (agent: AgentWithWorkspace) => void;
 }) {
   const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
   const [proposal, setProposal] = useState<StrategyImprovementProposal | null>(
     null,
   );
   const [proposalHighlight, setProposalHighlight] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const toast = useToast();
   const busy = pending || agentWorking;
 
   function refreshProposal(opts?: { highlight?: boolean }) {
@@ -93,19 +94,19 @@ export function StrategyCard({
 
   function run(action: "arm" | "pause" | "resume" | "disarm") {
     if (!onAction || busy) return;
-    setError(null);
     startTransition(async () => {
       try {
         await onAction(action);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Strategy action failed");
+        toast.error(
+          err instanceof Error ? err.message : "Strategy action failed",
+        );
       }
     });
   }
 
   function resolveProposal(kind: "approve" | "dismiss") {
     if (!proposal || busy) return;
-    setError(null);
     startTransition(async () => {
       try {
         if (kind === "approve") {
@@ -119,7 +120,7 @@ export function StrategyCard({
         }
         setProposal(null);
       } catch (err) {
-        setError(
+        toast.error(
           err instanceof Error ? err.message : "Improvement action failed",
         );
       }
@@ -131,13 +132,12 @@ export function StrategyCard({
     cadence?: "hourly" | "daily" | "weekly";
   }) {
     if (busy || mode !== "operate" || !strategy) return;
-    setError(null);
     startTransition(async () => {
       try {
         const updated = await updateStrategyImprovement(agentId, patch);
         onAgentUpdated?.(updated);
       } catch (err) {
-        setError(
+        toast.error(
           err instanceof Error ? err.message : "Could not update improvement",
         );
       }
@@ -425,10 +425,6 @@ export function StrategyCard({
           </div>
         ) : null}
       </div>
-
-      {error ? (
-        <p className="type-meta text-[var(--danger)]">{error}</p>
-      ) : null}
     </section>
   );
 }
