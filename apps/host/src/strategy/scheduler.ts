@@ -161,6 +161,9 @@ export function startStrategyScheduler(deps: {
               execution: {
                 plan: executed.plan,
                 ...(executed.swap ? { swap: executed.swap } : {}),
+                ...("approveTxHash" in executed && executed.approveTxHash
+                  ? { approveTxHash: executed.approveTxHash }
+                  : {}),
               },
             });
 

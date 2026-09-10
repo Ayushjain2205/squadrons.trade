@@ -4,17 +4,20 @@ import {
   type Strategy,
   type StrategyTradeIntent,
 } from "@squadrons/shared";
+import { buildApproveFromSwap } from "./approve.js";
 import {
-  broadcastSwapTx,
+  broadcastEvmTx,
   isPrivyBroadcastConfigured,
 } from "./broadcast.js";
 import {
   buildSwapFromPlan,
   isZeroExConfigured,
   type BuiltSwap,
+  type BuiltSwapTx,
   type TradePlan,
 } from "./swap-build.js";
 import { isTenderlyConfigured, simulateSwapTx } from "./tenderly.js";
+import { waitForTxReceipt } from "./tx-wait.js";
 
 /** Host execution posture for gated trade intents. */
 export type ExecutionMode = "off" | "dry_run" | "live";
@@ -46,6 +49,7 @@ export type ExecuteTradeResult =
       plan: TradePlan;
       swap: BuiltSwap;
       txHash: string;
+      approveTxHash?: string;
     };
 
 export function getExecutionMode(): ExecutionMode {
@@ -75,10 +79,23 @@ function describePlan(plan: TradePlan): string {
   return `${side} $${plan.amountUsd}${symbol} on chain ${plan.chainId}`;
 }
 
+async function maybeSimulate(input: {
+  chainId: number;
+  from: string;
+  tx: BuiltSwapTx;
+}): Promise<{ ok: true; detail: string } | { ok: false; reason: string }> {
+  if (!isTenderlyConfigured()) {
+    return { ok: true, detail: "Tenderly skipped (not configured)" };
+  }
+  const sim = await simulateSwapTx(input);
+  if (!sim.ok) return sim;
+  return { ok: true, detail: sim.detail };
+}
+
 /**
  * Run a spend-gated trade intent through the host executor.
  * Default mode is dry_run: records the plan (and optional 0x quote), never broadcasts.
- * Live: build 0x swap → optional Tenderly sim → Privy broadcast.
+ * Live: build 0x swap → approve if needed → optional Tenderly → Privy broadcast.
  */
 export async function executeGatedTrade(input: {
   agent: Agent;
@@ -91,7 +108,6 @@ export async function executeGatedTrade(input: {
   const mode = getExecutionMode();
   const summary = describePlan(plan);
 
-  // Defense in depth — spend-gate already checked these.
   if (input.agent.spendMode !== "spend_enabled") {
     return {
       status: "failed",
@@ -133,23 +149,25 @@ export async function executeGatedTrade(input: {
         plan,
       };
     }
-    const built = await buildSwapFromPlan(plan);
-    if (!built.ok) {
+    const quoted = await buildSwapFromPlan(plan);
+    if (!quoted.ok) {
       return {
         status: "dry_run",
-        detail: `Dry-run: would ${summary} — quote skipped (${built.reason})`,
+        detail: `Dry-run: would ${summary} — quote skipped (${quoted.reason})`,
         plan,
       };
     }
+    const approveNote = quoted.swap.needsAllowance
+      ? " · would approve ERC-20 first"
+      : "";
     return {
       status: "dry_run",
-      detail: `Dry-run: quoted ${summary} via 0x (no broadcast)`,
+      detail: `Dry-run: quoted ${summary} via 0x (no broadcast)${approveNote}`,
       plan,
-      swap: built.swap,
+      swap: quoted.swap,
     };
   }
 
-  // live
   if (plan.chainId !== DEFAULT_POLICY.defaultChainId) {
     return {
       status: "failed",
@@ -179,7 +197,17 @@ export async function executeGatedTrade(input: {
     };
   }
 
-  const built = await buildSwapFromPlan(plan);
+  if (!isPrivyBroadcastConfigured()) {
+    return {
+      status: "failed",
+      reason:
+        "PRIVY_AUTHORIZATION_PRIVATE_KEY is not set — required for live broadcast",
+      detail: `Live blocked at broadcast: ${summary}`,
+      plan,
+    };
+  }
+
+  let built = await buildSwapFromPlan(plan);
   if (!built.ok) {
     return {
       status: "failed",
@@ -189,48 +217,112 @@ export async function executeGatedTrade(input: {
     };
   }
 
-  if (built.swap.needsAllowance) {
-    return {
-      status: "failed",
-      reason:
-        "Token allowance required before swap — approve path not wired yet",
-      detail: `Live blocked at allowance: ${summary}`,
-      plan,
-      swap: built.swap,
-    };
-  }
+  let approveTxHash: string | undefined;
+  let approveDetail = "no approve needed";
 
-  let simDetail = "Tenderly skipped (not configured)";
-  if (isTenderlyConfigured()) {
-    const sim = await simulateSwapTx({
-      chainId: plan.chainId,
-      from: plan.walletAddress,
-      tx: built.swap.transaction,
-    });
-    if (!sim.ok) {
+  if (built.swap.needsAllowance) {
+    const approveBuilt = buildApproveFromSwap(built.swap);
+    if (!approveBuilt.ok) {
       return {
         status: "failed",
-        reason: sim.reason,
-        detail: `Live blocked at Tenderly: ${summary}`,
+        reason: approveBuilt.reason,
+        detail: `Live blocked at approve build: ${summary}`,
         plan,
         swap: built.swap,
       };
     }
-    simDetail = sim.detail;
+
+    const approveSim = await maybeSimulate({
+      chainId: plan.chainId,
+      from: plan.walletAddress,
+      tx: approveBuilt.approve.transaction,
+    });
+    if (!approveSim.ok) {
+      return {
+        status: "failed",
+        reason: approveSim.reason,
+        detail: `Live blocked at approve Tenderly: ${summary}`,
+        plan,
+        swap: built.swap,
+      };
+    }
+
+    const approveSent = await broadcastEvmTx({
+      walletId,
+      chainId: plan.chainId,
+      tx: approveBuilt.approve.transaction,
+    });
+    if (!approveSent.ok) {
+      return {
+        status: "failed",
+        reason: approveSent.reason,
+        detail: `Live blocked at approve broadcast: ${summary}`,
+        plan,
+        swap: built.swap,
+      };
+    }
+    approveTxHash = approveSent.txHash;
+    approveDetail = `approve ${approveSent.txHash}`;
+
+    const receipt = await waitForTxReceipt({
+      chainId: plan.chainId,
+      txHash: approveSent.txHash,
+    });
+    if (!receipt.ok) {
+      return {
+        status: "failed",
+        reason: receipt.reason,
+        detail: `Live blocked waiting for approve: ${summary} · ${approveDetail}`,
+        plan,
+        swap: built.swap,
+      };
+    }
+    if (receipt.status === "reverted") {
+      return {
+        status: "failed",
+        reason: "Approve transaction reverted",
+        detail: `Live blocked at approve: ${summary} · ${approveDetail}`,
+        plan,
+        swap: built.swap,
+      };
+    }
+
+    built = await buildSwapFromPlan(plan);
+    if (!built.ok) {
+      return {
+        status: "failed",
+        reason: built.reason,
+        detail: `Live blocked at re-quote after approve: ${summary} · ${approveDetail}`,
+        plan,
+      };
+    }
+    if (built.swap.needsAllowance) {
+      return {
+        status: "failed",
+        reason: "Allowance still required after approve",
+        detail: `Live blocked at re-quote: ${summary} · ${approveDetail}`,
+        plan,
+        swap: built.swap,
+      };
+    }
   }
 
-  if (!isPrivyBroadcastConfigured()) {
+  const swapSim = await maybeSimulate({
+    chainId: plan.chainId,
+    from: plan.walletAddress,
+    tx: built.swap.transaction,
+  });
+  if (!swapSim.ok) {
     return {
       status: "failed",
-      reason:
-        "PRIVY_AUTHORIZATION_PRIVATE_KEY is not set — required for live broadcast",
-      detail: `Live blocked at broadcast: ${summary} · ${simDetail}`,
+      reason: swapSim.reason,
+      detail: `Live blocked at Tenderly: ${summary} · ${approveDetail}`,
       plan,
       swap: built.swap,
     };
   }
 
-  const sent = await broadcastSwapTx({
+  const sent = await broadcastEvmTx({
     walletId,
     chainId: plan.chainId,
     tx: built.swap.transaction,
@@ -239,7 +331,7 @@ export async function executeGatedTrade(input: {
     return {
       status: "failed",
       reason: sent.reason,
-      detail: `Live blocked at broadcast: ${summary} · ${simDetail}`,
+      detail: `Live blocked at broadcast: ${summary} · ${approveDetail} · ${swapSim.detail}`,
       plan,
       swap: built.swap,
     };
@@ -247,9 +339,10 @@ export async function executeGatedTrade(input: {
 
   return {
     status: "submitted",
-    detail: `Submitted ${summary} · ${sent.detail} · ${simDetail}`,
+    detail: `Submitted ${summary} · ${sent.detail} · ${approveDetail} · ${swapSim.detail}`,
     plan,
     swap: built.swap,
     txHash: sent.txHash,
+    ...(approveTxHash ? { approveTxHash } : {}),
   };
 }
