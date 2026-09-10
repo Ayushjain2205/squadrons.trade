@@ -9,11 +9,13 @@ import type { Request } from "express";
 export type AuthUser = {
   id: string;
   walletAddress: string | null;
+  /** Privy wallet id for Wallet API sendTransaction (embedded wallets). */
+  walletId: string | null;
 };
 
 let client: PrivyClient | null = null;
 
-function getPrivyClient(): PrivyClient {
+export function getPrivyClient(): PrivyClient {
   if (client) return client;
   const appId = process.env.PRIVY_APP_ID?.trim();
   const appSecret = process.env.PRIVY_APP_SECRET?.trim();
@@ -46,7 +48,12 @@ function extractAccessToken(req: Request): string | null {
   return null;
 }
 
-function pickEthereumWallet(user: User): string | null {
+export type PickedWallet = {
+  address: string;
+  walletId: string | null;
+};
+
+function pickEthereumWallet(user: User): PickedWallet | null {
   const accounts = user.linked_accounts ?? [];
 
   for (const account of accounts) {
@@ -55,7 +62,11 @@ function pickEthereumWallet(user: User): string | null {
       account.chain_type === "ethereum" &&
       account.address.startsWith("0x")
     ) {
-      return account.address;
+      const walletId =
+        typeof account.id === "string" && account.id.trim()
+          ? account.id.trim()
+          : null;
+      return { address: account.address, walletId };
     }
   }
 
@@ -65,7 +76,11 @@ function pickEthereumWallet(user: User): string | null {
       typeof account.address === "string" &&
       account.address.startsWith("0x")
     ) {
-      return account.address;
+      const id =
+        "id" in account && typeof account.id === "string" && account.id.trim()
+          ? account.id.trim()
+          : null;
+      return { address: account.address, walletId: id };
     }
   }
   return null;
@@ -74,37 +89,50 @@ function pickEthereumWallet(user: User): string | null {
 export class UserStore {
   constructor(private readonly db: Database.Database) {}
 
-  upsert(id: string, walletAddress: string | null): AuthUser {
+  upsert(
+    id: string,
+    walletAddress: string | null,
+    walletId: string | null = null,
+  ): AuthUser {
     const now = Date.now();
     const existing = this.db
-      .prepare(`SELECT id, wallet_address FROM users WHERE id = ?`)
-      .get(id) as { id: string; wallet_address: string | null } | undefined;
+      .prepare(`SELECT id, wallet_address, wallet_id FROM users WHERE id = ?`)
+      .get(id) as
+      | { id: string; wallet_address: string | null; wallet_id: string | null }
+      | undefined;
 
     if (!existing) {
       this.db
         .prepare(
-          `INSERT INTO users (id, wallet_address, created_at, updated_at)
-           VALUES (?, ?, ?, ?)`,
+          `INSERT INTO users (id, wallet_address, wallet_id, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?)`,
         )
-        .run(id, walletAddress, now, now);
-      return { id, walletAddress };
+        .run(id, walletAddress, walletId, now, now);
+      return { id, walletAddress, walletId };
     }
 
     const nextWallet = walletAddress ?? existing.wallet_address;
+    const nextWalletId = walletId ?? existing.wallet_id;
     this.db
       .prepare(
-        `UPDATE users SET wallet_address = ?, updated_at = ? WHERE id = ?`,
+        `UPDATE users SET wallet_address = ?, wallet_id = ?, updated_at = ? WHERE id = ?`,
       )
-      .run(nextWallet, now, id);
-    return { id, walletAddress: nextWallet };
+      .run(nextWallet, nextWalletId, now, id);
+    return { id, walletAddress: nextWallet, walletId: nextWalletId };
   }
 
   get(id: string): AuthUser | null {
     const row = this.db
-      .prepare(`SELECT id, wallet_address FROM users WHERE id = ?`)
-      .get(id) as { id: string; wallet_address: string | null } | undefined;
+      .prepare(`SELECT id, wallet_address, wallet_id FROM users WHERE id = ?`)
+      .get(id) as
+      | { id: string; wallet_address: string | null; wallet_id: string | null }
+      | undefined;
     if (!row) return null;
-    return { id: row.id, walletAddress: row.wallet_address };
+    return {
+      id: row.id,
+      walletAddress: row.wallet_address,
+      walletId: row.wallet_id ?? null,
+    };
   }
 }
 
@@ -133,12 +161,15 @@ export async function requireUser(
   }
 
   let walletAddress: string | null = null;
+  let walletId: string | null = null;
   try {
     const privyUser = await privy.users()._get(userId);
-    walletAddress = pickEthereumWallet(privyUser);
+    const picked = pickEthereumWallet(privyUser);
+    walletAddress = picked?.address ?? null;
+    walletId = picked?.walletId ?? null;
   } catch (error) {
     console.warn("[auth] failed to load Privy user wallets", error);
   }
 
-  return users.upsert(userId, walletAddress);
+  return users.upsert(userId, walletAddress, walletId);
 }

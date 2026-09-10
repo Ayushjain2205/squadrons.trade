@@ -75,6 +75,7 @@ function migrate(db: Database.Database): void {
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       wallet_address TEXT,
+      wallet_id TEXT,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
@@ -186,6 +187,13 @@ function migrate(db: Database.Database): void {
   }
   if (!strategyColumns.some((column) => column.name === "improvement_json")) {
     db.exec(`ALTER TABLE strategies ADD COLUMN improvement_json TEXT`);
+  }
+
+  const userColumns = db
+    .prepare(`PRAGMA table_info(users)`)
+    .all() as Array<{ name: string }>;
+  if (!userColumns.some((column) => column.name === "wallet_id")) {
+    db.exec(`ALTER TABLE users ADD COLUMN wallet_id TEXT`);
   }
 
   const tradeIntentColumns = db
