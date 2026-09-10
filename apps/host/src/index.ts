@@ -31,6 +31,8 @@ import { startImprovementScheduler } from "./strategy/improvement.js";
 import { ImprovementProposalStore } from "./strategy/improvement-store.js";
 import { TradeIntentStore } from "./strategy/trade-intents.js";
 import { getExecutionMode } from "./strategy/executor.js";
+import { isZeroExConfigured } from "./strategy/swap-build.js";
+import { isTenderlyConfigured } from "./strategy/tenderly.js";
 
 const port = Number(process.env.PORT ?? 8787);
 const host = process.env.HOST ?? "0.0.0.0";
@@ -71,11 +73,8 @@ app.get("/health", (_req, res) => {
     executionMode: getExecutionMode(),
     openrouter: Boolean(process.env.OPENROUTER_API_KEY),
     privy: Boolean(process.env.PRIVY_APP_ID && process.env.PRIVY_APP_SECRET),
-    tenderly: Boolean(
-      process.env.TENDERLY_ACCESS_KEY &&
-        process.env.TENDERLY_ACCOUNT_SLUG &&
-        process.env.TENDERLY_PROJECT_SLUG,
-    ),
+    zeroex: isZeroExConfigured(),
+    tenderly: isTenderlyConfigured(),
   });
 });
 
