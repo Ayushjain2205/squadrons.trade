@@ -11,8 +11,19 @@ import {
   approveStrategyImprovement,
   dismissStrategyImprovement,
   listStrategyImprovements,
+  subscribeActivity,
   updateStrategyImprovement,
 } from "@/lib/host";
+
+const IMPROVEMENT_ACTIVITY_LABELS = new Set([
+  "Self-improvement suggested",
+  "Self-improvement approved",
+  "Self-improvement dismissed",
+  "Self-improvement review",
+  "Self-improvement failed",
+  "Self-improvement skipped",
+  "Updated self-improvement",
+]);
 
 export function StrategyCard({
   mode,
@@ -39,21 +50,44 @@ export function StrategyCard({
   const [proposal, setProposal] = useState<StrategyImprovementProposal | null>(
     null,
   );
+  const [proposalHighlight, setProposalHighlight] = useState(false);
   const busy = pending || agentWorking;
 
-  useEffect(() => {
-    let cancelled = false;
+  function refreshProposal(opts?: { highlight?: boolean }) {
     void listStrategyImprovements(agentId)
       .then((data) => {
-        if (!cancelled) setProposal(data.pending);
+        setProposal(data.pending);
+        if (opts?.highlight && data.pending) {
+          setProposalHighlight(true);
+        }
+        if (!data.pending) setProposalHighlight(false);
       })
       .catch(() => {
-        if (!cancelled) setProposal(null);
+        setProposal(null);
+        setProposalHighlight(false);
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [agentId, strategy?.updatedAt, strategy?.params]);
+  }
+
+  useEffect(() => {
+    refreshProposal();
+  }, [agentId, strategy?.updatedAt, strategy?.params, strategy?.improvement?.lastRunAt]); // eslint-disable-line react-hooks/exhaustive-deps -- refresh when strategy identity/params/improve change
+
+  // Live: pick up proposals without waiting for a full agent reload.
+  useEffect(() => {
+    const unsubscribe = subscribeActivity(agentId, (event) => {
+      if (!IMPROVEMENT_ACTIVITY_LABELS.has(event.label)) return;
+      refreshProposal({
+        highlight: event.label === "Self-improvement suggested",
+      });
+    });
+    return unsubscribe;
+  }, [agentId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!proposalHighlight) return;
+    const timer = window.setTimeout(() => setProposalHighlight(false), 4000);
+    return () => window.clearTimeout(timer);
+  }, [proposalHighlight, proposal?.id]);
 
   function run(action: "arm" | "pause" | "resume" | "disarm") {
     if (!onAction || busy) return;
@@ -266,9 +300,23 @@ export function StrategyCard({
                     <option value="weekly">weekly</option>
                   </select>
                 ) : null}
+                {strategy.improvement?.lastRunAt ? (
+                  <span className="text-[var(--muted)]">
+                    last {formatRelativeTime(strategy.improvement.lastRunAt)}
+                  </span>
+                ) : strategy.improvement?.enabled ? (
+                  <span className="text-[var(--muted)]">not run yet</span>
+                ) : null}
               </span>
             ) : (
-              improvementLabel
+              <span className="flex flex-wrap items-center gap-2">
+                <span>{improvementLabel}</span>
+                {strategy.improvement?.lastRunAt ? (
+                  <span className="text-[var(--muted)]">
+                    last {formatRelativeTime(strategy.improvement.lastRunAt)}
+                  </span>
+                ) : null}
+              </span>
             )}
           </dd>
         </div>
@@ -304,7 +352,13 @@ export function StrategyCard({
       </dl>
 
       {proposal ? (
-        <div className="space-y-2 rounded-lg border border-[var(--line-soft)] px-3 py-2">
+        <div
+          className={`space-y-2 rounded-lg border px-3 py-2 transition ${
+            proposalHighlight
+              ? "border-[var(--accent)] bg-[color-mix(in_srgb,var(--accent)_10%,transparent)]"
+              : "border-[var(--line-soft)]"
+          }`}
+        >
           <p className="type-ui text-[var(--ink)]">Self-improvement suggested</p>
           {proposal.reason ? (
             <p className="type-meta text-[var(--ink-soft)]">{proposal.reason}</p>
@@ -314,6 +368,9 @@ export function StrategyCard({
               {proposalPreview}
             </p>
           ) : null}
+          <p className="type-meta text-[var(--muted)]">
+            Proposed {formatRelativeTime(proposal.createdAt)}
+          </p>
           <div className="flex gap-2">
             <button
               type="button"
@@ -459,4 +516,19 @@ function formatTickTime(ts: number): string {
   } catch {
     return new Date(ts).toLocaleTimeString();
   }
+}
+
+function formatRelativeTime(ts: number): string {
+  const deltaSec = Math.round((Date.now() - ts) / 1000);
+  if (deltaSec < 45) return "just now";
+  if (deltaSec < 3600) {
+    const mins = Math.max(1, Math.round(deltaSec / 60));
+    return `${mins}m ago`;
+  }
+  if (deltaSec < 86400) {
+    const hours = Math.max(1, Math.round(deltaSec / 3600));
+    return `${hours}h ago`;
+  }
+  const days = Math.max(1, Math.round(deltaSec / 86400));
+  return `${days}d ago`;
 }
