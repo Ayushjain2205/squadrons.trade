@@ -157,7 +157,10 @@ export function startStrategyScheduler(deps: {
                 executed.status === "failed" ? executed.reason : null,
               txHash:
                 executed.status === "submitted" ? executed.txHash : null,
-              execution: executed.plan,
+              execution: {
+                plan: executed.plan,
+                ...(executed.swap ? { swap: executed.swap } : {}),
+              },
             });
 
             deps.activity.publish({

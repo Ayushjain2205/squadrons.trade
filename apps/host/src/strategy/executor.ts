@@ -4,40 +4,43 @@ import {
   type Strategy,
   type StrategyTradeIntent,
 } from "@squadrons/shared";
+import {
+  buildSwapFromPlan,
+  isZeroExConfigured,
+  type BuiltSwap,
+  type TradePlan,
+} from "./swap-build.js";
+import { isTenderlyConfigured, simulateSwapTx } from "./tenderly.js";
 
 /** Host execution posture for gated trade intents. */
 export type ExecutionMode = "off" | "dry_run" | "live";
 
-export type TradePlan = {
-  chainId: number;
-  walletAddress: string | null;
-  amountUsd: number;
-  symbol: string | null;
-  side: "buy" | "sell" | null;
-  maxSlippageBps: number;
-};
-
+export type { TradePlan };
 export type ExecuteTradeResult =
   | {
       status: "proposed";
       detail: string;
       plan: TradePlan;
+      swap?: BuiltSwap;
     }
   | {
       status: "dry_run";
       detail: string;
       plan: TradePlan;
+      swap?: BuiltSwap;
     }
   | {
       status: "failed";
       reason: string;
       detail: string;
       plan: TradePlan;
+      swap?: BuiltSwap;
     }
   | {
       status: "submitted";
       detail: string;
       plan: TradePlan;
+      swap: BuiltSwap;
       txHash: string;
     };
 
@@ -70,8 +73,8 @@ function describePlan(plan: TradePlan): string {
 
 /**
  * Run a spend-gated trade intent through the host executor.
- * Default mode is dry_run: records the plan, never broadcasts.
- * Live mode is fail-closed until swap build + Privy sign are wired.
+ * Default mode is dry_run: records the plan (and optional 0x quote), never broadcasts.
+ * Live: build 0x swap → Tenderly sim → Privy broadcast (broadcast still fail-closed).
  */
 export async function executeGatedTrade(input: {
   agent: Agent;
@@ -118,14 +121,30 @@ export async function executeGatedTrade(input: {
   }
 
   if (mode === "dry_run") {
+    if (!isZeroExConfigured()) {
+      return {
+        status: "dry_run",
+        detail: `Dry-run: would ${summary} (no broadcast; set ZEROEX_API_KEY to quote)`,
+        plan,
+      };
+    }
+    const built = await buildSwapFromPlan(plan);
+    if (!built.ok) {
+      return {
+        status: "dry_run",
+        detail: `Dry-run: would ${summary} — quote skipped (${built.reason})`,
+        plan,
+      };
+    }
     return {
       status: "dry_run",
-      detail: `Dry-run: would ${summary} (no broadcast)`,
+      detail: `Dry-run: quoted ${summary} via 0x (no broadcast)`,
       plan,
+      swap: built.swap,
     };
   }
 
-  // live — fail closed until calldata + Privy signing exist.
+  // live
   if (plan.chainId !== DEFAULT_POLICY.defaultChainId) {
     return {
       status: "failed",
@@ -144,11 +163,58 @@ export async function executeGatedTrade(input: {
     };
   }
 
+  const built = await buildSwapFromPlan(plan);
+  if (!built.ok) {
+    return {
+      status: "failed",
+      reason: built.reason,
+      detail: `Live blocked at swap build: ${summary}`,
+      plan,
+    };
+  }
+
+  if (built.swap.needsAllowance) {
+    return {
+      status: "failed",
+      reason:
+        "Token allowance required before swap — approve path not wired yet",
+      detail: `Live blocked at allowance: ${summary}`,
+      plan,
+      swap: built.swap,
+    };
+  }
+
+  if (!isTenderlyConfigured()) {
+    return {
+      status: "failed",
+      reason: "Tenderly is required for live execution",
+      detail: `Live blocked at simulation: ${summary}`,
+      plan,
+      swap: built.swap,
+    };
+  }
+
+  const sim = await simulateSwapTx({
+    chainId: plan.chainId,
+    from: plan.walletAddress,
+    tx: built.swap.transaction,
+  });
+  if (!sim.ok) {
+    return {
+      status: "failed",
+      reason: sim.reason,
+      detail: `Live blocked at Tenderly: ${summary}`,
+      plan,
+      swap: built.swap,
+    };
+  }
+
   return {
     status: "failed",
     reason:
-      "Live swap build + Privy broadcast not wired yet — use dry_run",
-    detail: `Live blocked: ${summary}`,
+      "Privy broadcast not wired yet — quote + Tenderly ok; use dry_run until sign path lands",
+    detail: `Live blocked at broadcast: ${summary} · ${sim.detail}`,
     plan,
+    swap: built.swap,
   };
 }
