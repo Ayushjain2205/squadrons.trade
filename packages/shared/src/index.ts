@@ -1,4 +1,5 @@
 export * from "./activity";
+export * from "./allowance-approval";
 export * from "./avatars";
 export * from "./policy";
 export * from "./recipes";

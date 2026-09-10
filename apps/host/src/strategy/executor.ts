@@ -22,6 +22,13 @@ import { waitForTxReceipt } from "./tx-wait.js";
 /** Host execution posture for gated trade intents. */
 export type ExecutionMode = "off" | "dry_run" | "live";
 
+/**
+ * How to treat ERC-20 allowance on the live path.
+ * - prompt: pause and ask the desk (default for autonomous ticks)
+ * - approved: user already approved in chat — broadcast approve then swap
+ */
+export type AllowanceDecision = "prompt" | "approved";
+
 export type { TradePlan };
 export type ExecuteTradeResult =
   | {
@@ -35,6 +42,12 @@ export type ExecuteTradeResult =
       detail: string;
       plan: TradePlan;
       swap?: BuiltSwap;
+    }
+  | {
+      status: "awaiting_allowance";
+      detail: string;
+      plan: TradePlan;
+      swap: BuiltSwap;
     }
   | {
       status: "failed";
@@ -94,8 +107,7 @@ async function maybeSimulate(input: {
 
 /**
  * Run a spend-gated trade intent through the host executor.
- * Default mode is dry_run: records the plan (and optional 0x quote), never broadcasts.
- * Live: build 0x swap → approve if needed → optional Tenderly → Privy broadcast.
+ * Live ticks that need ERC-20 allowance pause for chat approval by default.
  */
 export async function executeGatedTrade(input: {
   agent: Agent;
@@ -103,10 +115,12 @@ export async function executeGatedTrade(input: {
   intent: StrategyTradeIntent;
   walletAddress: string | null;
   walletId?: string | null;
+  allowanceDecision?: AllowanceDecision;
 }): Promise<ExecuteTradeResult> {
   const plan = buildPlan(input);
   const mode = getExecutionMode();
   const summary = describePlan(plan);
+  const allowanceDecision = input.allowanceDecision ?? "prompt";
 
   if (input.agent.spendMode !== "spend_enabled") {
     return {
@@ -158,7 +172,7 @@ export async function executeGatedTrade(input: {
       };
     }
     const approveNote = quoted.swap.needsAllowance
-      ? " · would approve ERC-20 first"
+      ? " · would ask chat to approve ERC-20 spend first"
       : "";
     return {
       status: "dry_run",
@@ -221,6 +235,15 @@ export async function executeGatedTrade(input: {
   let approveDetail = "no approve needed";
 
   if (built.swap.needsAllowance) {
+    if (allowanceDecision === "prompt") {
+      return {
+        status: "awaiting_allowance",
+        detail: `Needs chat approval to allow token spend for ${summary}`,
+        plan,
+        swap: built.swap,
+      };
+    }
+
     const approveBuilt = buildApproveFromSwap(built.swap);
     if (!approveBuilt.ok) {
       return {

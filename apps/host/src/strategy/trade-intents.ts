@@ -6,6 +6,8 @@ export type TradeIntentStatus =
   | "proposed"
   | "blocked"
   | "dry_run"
+  | "awaiting_allowance"
+  | "dismissed"
   | "failed"
   | "submitted";
 
@@ -173,6 +175,24 @@ export class TradeIntentStore {
          LIMIT ?`,
       )
       .all(agentId, Math.max(1, Math.min(limit, 200))) as TradeIntentRow[];
+    return rows.map(rowToRecord);
+  }
+
+  get(id: string): TradeIntentRecord | null {
+    const row = this.db
+      .prepare(`SELECT * FROM trade_intents WHERE id = ?`)
+      .get(id) as TradeIntentRow | undefined;
+    return row ? rowToRecord(row) : null;
+  }
+
+  listAwaitingAllowance(agentId: string): TradeIntentRecord[] {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM trade_intents
+         WHERE agent_id = ? AND status = 'awaiting_allowance'
+         ORDER BY created_at DESC`,
+      )
+      .all(agentId) as TradeIntentRow[];
     return rows.map(rowToRecord);
   }
 }
