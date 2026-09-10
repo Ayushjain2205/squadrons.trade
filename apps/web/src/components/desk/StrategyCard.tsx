@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import {
-  recipeLabel,
+  describeRecipePlan,
+  describeStrategySchedule,
   type Strategy,
   type StrategyImprovementProposal,
 } from "@squadrons/shared";
@@ -51,6 +52,7 @@ export function StrategyCard({
     null,
   );
   const [proposalHighlight, setProposalHighlight] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const busy = pending || agentWorking;
 
   function refreshProposal(opts?: { highlight?: boolean }) {
@@ -70,9 +72,9 @@ export function StrategyCard({
 
   useEffect(() => {
     refreshProposal();
+    setAdvancedOpen(false);
   }, [agentId, strategy?.updatedAt, strategy?.params, strategy?.improvement?.lastRunAt]); // eslint-disable-line react-hooks/exhaustive-deps -- refresh when strategy identity/params/improve change
 
-  // Live: pick up proposals without waiting for a full agent reload.
   useEffect(() => {
     const unsubscribe = subscribeActivity(agentId, (event) => {
       if (!IMPROVEMENT_ACTIVITY_LABELS.has(event.label)) return;
@@ -144,15 +146,15 @@ export function StrategyCard({
 
   if (!strategy) {
     return (
-      <section className="shrink-0 space-y-2 rounded-xl bg-[var(--panel)] px-3 py-3">
+      <section className="shrink-0 space-y-3 rounded-xl bg-[var(--panel)] px-3 py-3">
         <div className="flex items-center justify-between gap-2">
           <h3 className="type-ui text-[var(--ink)]">Strategy</h3>
           <StatusPill status="none" />
         </div>
         <p className="type-meta text-[var(--muted)]">
           {mode === "operate"
-            ? "Shape a recipe-backed plan in chat. When the agent saves a draft, it shows up here for Arm."
-            : "Scout first. Switch to Operate when you’re ready to draft and arm a plan."}
+            ? "Draft a plan in chat. When it’s saved, Arm it here."
+            : "Scout first. Switch to Operate when you’re ready to arm a plan."}
         </p>
         <PrimaryButton
           disabled
@@ -168,33 +170,15 @@ export function StrategyCard({
     );
   }
 
-  const triggerLabel =
-    strategy.trigger.type === "interval"
-      ? `Every ${strategy.trigger.intervalSec ?? 60}s`
-      : strategy.trigger.type === "event"
-        ? `On event: ${strategy.trigger.event ?? "…"}${
-            strategy.trigger.intervalSec
-              ? ` (poll ${strategy.trigger.intervalSec}s)`
-              : ""
-          }`
-        : strategy.trigger.condition
-          ? `Legacy condition: ${strategy.trigger.condition}`
-          : "Condition";
-
-  const actionLabel =
-    strategy.action.type === "alert"
-      ? strategy.action.detail
-        ? `Alert — ${strategy.action.detail}`
-        : "Alert in-app"
-      : strategy.action.detail
-        ? `Propose trade — ${strategy.action.detail}`
-        : "Propose trade";
-
-  const improvementLabel = !strategy.improvement?.enabled
-    ? "Off"
-    : strategy.improvement.cadence;
-
   const needsRecipe = !strategy.recipeId;
+  const planLine =
+    describeRecipePlan(strategy.recipeId, strategy.params) ?? strategy.summary;
+  const schedule = describeStrategySchedule(strategy.trigger);
+  const spendLabel =
+    spendMode === "observe" ? "Observe only" : "Spend enabled";
+  const actionVerb =
+    strategy.action.type === "propose_trade" ? "Propose trade" : "Alert";
+
   const canArm =
     mode === "operate" &&
     !needsRecipe &&
@@ -206,23 +190,28 @@ export function StrategyCard({
     strategy.status === "running" || strategy.status === "paused";
 
   const armHint = needsRecipe
-    ? "Re-propose with a recipe in Operate first"
+    ? "Ask Operate for a recipe-backed plan first"
     : mode !== "operate"
       ? "Switch to Operate to arm"
       : spendMode === "observe"
-        ? "Arms in observe mode — alerts only, no spend"
+        ? "Arms in observe mode — alerts only"
         : "Arms with spend enabled — still policy-gated";
-
-  const paramsPreview = Object.entries(strategy.params ?? {})
-    .slice(0, 4)
-    .map(([key, value]) => `${key}=${String(value)}`)
-    .join(" · ");
 
   const proposalPreview = proposal
     ? Object.entries(proposal.patch)
-        .map(([key, value]) => `${key}→${String(value)}`)
+        .map(([key, value]) => `${key} → ${String(value)}`)
         .join(" · ")
     : "";
+
+  const metaBits = [
+    schedule,
+    spendLabel,
+    strategy.lastTickAt
+      ? `Last check ${formatRelativeTime(strategy.lastTickAt)}`
+      : strategy.status === "running"
+        ? "Waiting for first check"
+        : null,
+  ].filter(Boolean) as string[];
 
   return (
     <section className="shrink-0 space-y-3 rounded-xl bg-[var(--panel)] px-3 py-3">
@@ -231,125 +220,26 @@ export function StrategyCard({
         <StatusPill status={strategy.status} />
       </div>
 
-      <p className="type-ui text-[var(--ink-soft)]">{strategy.summary}</p>
+      <div className="space-y-1">
+        <p className="type-ui leading-snug text-[var(--ink)]">{planLine}</p>
+        {strategy.action.type === "propose_trade" || strategy.action.detail ? (
+          <p className="type-meta text-[var(--muted)]">
+            {actionVerb}
+            {strategy.action.detail ? ` — ${strategy.action.detail}` : null}
+          </p>
+        ) : null}
+      </div>
 
       {needsRecipe ? (
         <p className="type-meta text-[var(--danger)]">
-          This draft has no recipe. Switch to Operate and ask the agent to
-          propose a recipe-backed plan (e.g. balance threshold or price cross)
+          This draft has no recipe. In Operate, ask for a recipe-backed plan
           before Arm.
         </p>
       ) : null}
 
-      <dl className="space-y-1.5">
-        <div>
-          <dt className="type-meta text-[var(--muted)]">Recipe</dt>
-          <dd className="type-meta text-[var(--ink-soft)]">
-            {recipeLabel(strategy.recipeId)}
-          </dd>
-        </div>
-        {paramsPreview ? (
-          <div>
-            <dt className="type-meta text-[var(--muted)]">Params</dt>
-            <dd className="type-meta truncate text-[var(--ink-soft)]">
-              {paramsPreview}
-            </dd>
-          </div>
-        ) : null}
-        <div>
-          <dt className="type-meta text-[var(--muted)]">Trigger</dt>
-          <dd className="type-meta text-[var(--ink-soft)]">{triggerLabel}</dd>
-        </div>
-        <div>
-          <dt className="type-meta text-[var(--muted)]">Action</dt>
-          <dd className="type-meta text-[var(--ink-soft)]">{actionLabel}</dd>
-        </div>
-        <div>
-          <dt className="type-meta text-[var(--muted)]">Self-improvement</dt>
-          <dd className="type-meta text-[var(--ink-soft)]">
-            {mode === "operate" && !needsRecipe ? (
-              <span className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() =>
-                    setImprovement({
-                      enabled: !strategy.improvement?.enabled,
-                    })
-                  }
-                  className="cursor-pointer underline-offset-2 hover:underline disabled:opacity-40"
-                >
-                  {strategy.improvement?.enabled ? "On" : "Off"}
-                </button>
-                {strategy.improvement?.enabled ? (
-                  <select
-                    value={strategy.improvement.cadence}
-                    disabled={busy}
-                    onChange={(e) =>
-                      setImprovement({
-                        cadence: e.target.value as
-                          | "hourly"
-                          | "daily"
-                          | "weekly",
-                      })
-                    }
-                    className="rounded bg-[var(--panel-2)] px-1.5 py-0.5 text-[var(--ink-soft)] outline-none"
-                  >
-                    <option value="hourly">hourly</option>
-                    <option value="daily">daily</option>
-                    <option value="weekly">weekly</option>
-                  </select>
-                ) : null}
-                {strategy.improvement?.lastRunAt ? (
-                  <span className="text-[var(--muted)]">
-                    last {formatRelativeTime(strategy.improvement.lastRunAt)}
-                  </span>
-                ) : strategy.improvement?.enabled ? (
-                  <span className="text-[var(--muted)]">not run yet</span>
-                ) : null}
-              </span>
-            ) : (
-              <span className="flex flex-wrap items-center gap-2">
-                <span>{improvementLabel}</span>
-                {strategy.improvement?.lastRunAt ? (
-                  <span className="text-[var(--muted)]">
-                    last {formatRelativeTime(strategy.improvement.lastRunAt)}
-                  </span>
-                ) : null}
-              </span>
-            )}
-          </dd>
-        </div>
-        <div>
-          <dt className="type-meta text-[var(--muted)]">Spend</dt>
-          <dd className="type-meta text-[var(--ink-soft)]">
-            {spendMode === "observe" ? "observe only" : "spend enabled"}
-          </dd>
-        </div>
-        {strategy.caps.maxTradeUsd !== undefined ? (
-          <div>
-            <dt className="type-meta text-[var(--muted)]">Cap</dt>
-            <dd className="type-meta text-[var(--ink-soft)]">
-              ${strategy.caps.maxTradeUsd}
-            </dd>
-          </div>
-        ) : null}
-        {strategy.lastTickAt ? (
-          <div>
-            <dt className="type-meta text-[var(--muted)]">Last tick</dt>
-            <dd className="type-meta text-[var(--ink-soft)]">
-              {formatTickTime(strategy.lastTickAt)}
-            </dd>
-          </div>
-        ) : strategy.status === "running" ? (
-          <div>
-            <dt className="type-meta text-[var(--muted)]">Last tick</dt>
-            <dd className="type-meta text-[var(--ink-soft)]">
-              waiting for first tick
-            </dd>
-          </div>
-        ) : null}
-      </dl>
+      {metaBits.length > 0 ? (
+        <p className="type-meta text-[var(--muted)]">{metaBits.join(" · ")}</p>
+      ) : null}
 
       {proposal ? (
         <div
@@ -359,7 +249,7 @@ export function StrategyCard({
               : "border-[var(--line-soft)]"
           }`}
         >
-          <p className="type-ui text-[var(--ink)]">Self-improvement suggested</p>
+          <p className="type-ui text-[var(--ink)]">Needs your decision</p>
           {proposal.reason ? (
             <p className="type-meta text-[var(--ink-soft)]">{proposal.reason}</p>
           ) : null}
@@ -369,7 +259,7 @@ export function StrategyCard({
             </p>
           ) : null}
           <p className="type-meta text-[var(--muted)]">
-            Proposed {formatRelativeTime(proposal.createdAt)}
+            Suggested {formatRelativeTime(proposal.createdAt)}
           </p>
           <div className="flex gap-2">
             <button
@@ -392,13 +282,6 @@ export function StrategyCard({
         </div>
       ) : null}
 
-      {strategy.status === "running" ? (
-        <p className="type-meta flex items-center gap-1.5 text-[var(--accent)]">
-          <span className="working-dot size-1.5 rounded-full bg-[var(--accent)]" />
-          Host is running this recipe in the background
-        </p>
-      ) : null}
-
       {agentWorking ? (
         <p className="type-meta text-[var(--muted)]">
           Controls pause while the agent is mid-reply.
@@ -412,7 +295,7 @@ export function StrategyCard({
             onClick={() => run("pause")}
             title={agentWorking ? "Wait for the chat turn to finish" : undefined}
           >
-            {pending ? "Pausing…" : "Pause strategy"}
+            {pending ? "Pausing…" : "Pause"}
           </PrimaryButton>
         ) : strategy.status === "paused" ? (
           <PrimaryButton
@@ -428,7 +311,7 @@ export function StrategyCard({
                     : undefined
             }
           >
-            {pending ? "Resuming…" : "Resume strategy"}
+            {pending ? "Resuming…" : "Resume"}
           </PrimaryButton>
         ) : (
           <PrimaryButton
@@ -438,7 +321,7 @@ export function StrategyCard({
               agentWorking ? "Wait for the chat turn to finish" : armHint
             }
           >
-            {pending ? "Arming…" : "Arm strategy"}
+            {pending ? "Arming…" : "Arm"}
           </PrimaryButton>
         )}
 
@@ -451,6 +334,95 @@ export function StrategyCard({
           >
             {pending ? "Disarming…" : "Disarm"}
           </button>
+        ) : null}
+      </div>
+
+      <div>
+        <button
+          type="button"
+          className="type-meta text-[var(--muted)] hover:text-[var(--ink)]"
+          aria-expanded={advancedOpen}
+          onClick={() => setAdvancedOpen((v) => !v)}
+        >
+          {advancedOpen ? "Hide details" : "Details"}
+        </button>
+        {advancedOpen ? (
+          <div className="mt-2 space-y-2 border-t border-[var(--line-soft)] pt-2">
+            <div>
+              <p className="type-meta text-[var(--muted)]">Self-improvement</p>
+              {mode === "operate" && !needsRecipe ? (
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      setImprovement({
+                        enabled: !strategy.improvement?.enabled,
+                      })
+                    }
+                    className="type-meta cursor-pointer text-[var(--ink-soft)] underline-offset-2 hover:underline disabled:opacity-40"
+                  >
+                    {strategy.improvement?.enabled ? "On" : "Off"}
+                  </button>
+                  {strategy.improvement?.enabled ? (
+                    <select
+                      value={strategy.improvement.cadence}
+                      disabled={busy}
+                      onChange={(e) =>
+                        setImprovement({
+                          cadence: e.target.value as
+                            | "hourly"
+                            | "daily"
+                            | "weekly",
+                        })
+                      }
+                      className="rounded bg-[var(--panel-2)] px-1.5 py-0.5 type-meta text-[var(--ink-soft)] outline-none"
+                    >
+                      <option value="hourly">hourly</option>
+                      <option value="daily">daily</option>
+                      <option value="weekly">weekly</option>
+                    </select>
+                  ) : null}
+                  {strategy.improvement?.lastRunAt ? (
+                    <span className="type-meta text-[var(--muted)]">
+                      last {formatRelativeTime(strategy.improvement.lastRunAt)}
+                    </span>
+                  ) : strategy.improvement?.enabled ? (
+                    <span className="type-meta text-[var(--muted)]">
+                      not run yet
+                    </span>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="type-meta mt-0.5 text-[var(--ink-soft)]">
+                  {strategy.improvement?.enabled
+                    ? strategy.improvement.cadence
+                    : "Off"}
+                  {strategy.improvement?.lastRunAt
+                    ? ` · last ${formatRelativeTime(strategy.improvement.lastRunAt)}`
+                    : null}
+                </p>
+              )}
+            </div>
+            {strategy.caps.maxTradeUsd !== undefined ? (
+              <div>
+                <p className="type-meta text-[var(--muted)]">Trade cap</p>
+                <p className="type-meta text-[var(--ink-soft)]">
+                  ${strategy.caps.maxTradeUsd}
+                </p>
+              </div>
+            ) : null}
+            {strategy.summary &&
+            describeRecipePlan(strategy.recipeId, strategy.params) &&
+            strategy.summary !== planLine ? (
+              <div>
+                <p className="type-meta text-[var(--muted)]">Agent note</p>
+                <p className="type-meta text-[var(--ink-soft)]">
+                  {strategy.summary}
+                </p>
+              </div>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
@@ -477,7 +449,7 @@ function StatusPill({
 
   return (
     <span className={`type-meta capitalize ${styles}`}>
-      {status === "running" ? "running" : status}
+      {status === "none" ? "none" : status}
     </span>
   );
 }
@@ -504,18 +476,6 @@ function PrimaryButton({
       {children}
     </button>
   );
-}
-
-function formatTickTime(ts: number): string {
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-      second: "2-digit",
-    }).format(new Date(ts));
-  } catch {
-    return new Date(ts).toLocaleTimeString();
-  }
 }
 
 function formatRelativeTime(ts: number): string {

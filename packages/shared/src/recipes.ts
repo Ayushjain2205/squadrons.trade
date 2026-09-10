@@ -63,6 +63,99 @@ export function recipeLabel(recipeId: RecipeId | null | undefined): string {
   return RECIPE_CATALOG[recipeId].label;
 }
 
+function shortAddress(addr: string): string {
+  if (addr.length < 12) return addr;
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
+function formatUsd(n: number): string {
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: n >= 100 ? 0 : 2,
+  }).format(n);
+}
+
+/**
+ * One-line plain-language plan for the desk Strategy card.
+ * Falls back to null when params aren't recipe-shaped.
+ */
+export function describeRecipePlan(
+  recipeId: RecipeId | null | undefined,
+  params: Record<string, unknown> | null | undefined,
+): string | null {
+  if (!recipeId || !isRecipeId(recipeId) || !params) return null;
+
+  if (recipeId === "balance_threshold_alert") {
+    const asset =
+      typeof params.asset === "string" && params.asset !== "native"
+        ? params.asset.toUpperCase()
+        : "native balance";
+    const op = params.op === "above" ? "goes above" : "goes below";
+    const threshold =
+      typeof params.threshold === "number"
+        ? params.threshold
+        : Number(params.threshold);
+    if (!Number.isFinite(threshold)) return null;
+    const wallet =
+      typeof params.walletAddress === "string" && params.walletAddress
+        ? ` on ${shortAddress(params.walletAddress)}`
+        : "";
+    return `Alert when ${asset} ${op} ${threshold}${wallet}`;
+  }
+
+  if (recipeId === "price_band_alert") {
+    const symbol =
+      typeof params.symbol === "string" ? params.symbol.toUpperCase() : "asset";
+    const low = Number(params.low);
+    const high = Number(params.high);
+    if (!Number.isFinite(low) || !Number.isFinite(high)) return null;
+    return `Alert when ${symbol} leaves ${formatUsd(low)}–${formatUsd(high)}`;
+  }
+
+  if (recipeId === "price_cross_alert") {
+    const symbol =
+      typeof params.symbol === "string" ? params.symbol.toUpperCase() : "asset";
+    const level = Number(params.level);
+    if (!Number.isFinite(level)) return null;
+    const direction =
+      params.direction === "above"
+        ? "crosses above"
+        : params.direction === "either"
+          ? "crosses"
+          : "crosses below";
+    return `Alert when ${symbol} ${direction} ${formatUsd(level)}`;
+  }
+
+  return null;
+}
+
+/** Human wake schedule — not host poll internals. */
+export function describeStrategySchedule(trigger: {
+  type: string;
+  intervalSec?: number;
+  event?: string;
+}): string {
+  if (trigger.type === "event") {
+    if (trigger.event === "price_cross") return "Watches for a price cross";
+    if (trigger.event) return `Watches for ${trigger.event.replace(/_/g, " ")}`;
+    return "Watches for an event";
+  }
+  if (trigger.type === "interval") {
+    const sec = trigger.intervalSec ?? 60;
+    if (sec >= 3600 && sec % 3600 === 0) {
+      const h = sec / 3600;
+      return h === 1 ? "Checks every hour" : `Checks every ${h} hours`;
+    }
+    if (sec >= 60 && sec % 60 === 0) {
+      const m = sec / 60;
+      return m === 1 ? "Checks every minute" : `Checks every ${m} minutes`;
+    }
+    return `Checks every ${sec}s`;
+  }
+  return "On a condition";
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
