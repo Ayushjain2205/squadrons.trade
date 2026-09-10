@@ -3,10 +3,8 @@ import path from "node:path";
 import {
   parseProposeImprovementInput,
   parseStrategyDraftInput,
-  parseStrategyTickDecision,
   type Agent,
   type ProposeImprovementInput,
-  type StrategyTickDecision,
   type UpsertStrategyDraftInput,
 } from "@squadrons/shared";
 
@@ -14,7 +12,6 @@ import {
 const STRATEGY_DIR = ".squadrons";
 const STRATEGY_DRAFT_FILE = "strategy-draft.json";
 const STRATEGY_STATE_FILE = "strategy-state.json";
-const STRATEGY_TICK_FILE = "strategy-tick.json";
 const STRATEGY_PARAMS_PATCH_FILE = "strategy-params-patch.json";
 const STRATEGY_IMPROVEMENT_FILE = "strategy-improvement.json";
 
@@ -24,10 +21,6 @@ export function strategyDraftPath(workspace: string): string {
 
 export function strategyStatePath(workspace: string): string {
   return path.join(workspace, STRATEGY_DIR, STRATEGY_STATE_FILE);
-}
-
-export function strategyTickPath(workspace: string): string {
-  return path.join(workspace, STRATEGY_DIR, STRATEGY_TICK_FILE);
 }
 
 export function strategyParamsPatchPath(workspace: string): string {
@@ -109,27 +102,6 @@ export async function clearPendingParamsPatch(
   }
 }
 
-export async function clearStrategyTickReport(
-  workspace: string,
-): Promise<void> {
-  try {
-    await unlink(strategyTickPath(workspace));
-  } catch {
-    // missing is fine
-  }
-}
-
-export async function readStrategyTickReport(
-  workspace: string,
-): Promise<StrategyTickDecision | null> {
-  try {
-    const raw = await readFile(strategyTickPath(workspace), "utf8");
-    return parseStrategyTickDecision(JSON.parse(raw));
-  } catch {
-    return null;
-  }
-}
-
 export async function readPendingImprovementProposal(
   workspace: string,
 ): Promise<ProposeImprovementInput | null> {
@@ -150,4 +122,3 @@ export async function clearPendingImprovementProposal(
     // missing is fine
   }
 }
-

@@ -63,7 +63,7 @@ If improvement.enabled:
 - `propose_improvement` — queue a desk proposal (does not apply)
 - `get_strategy` — read desk state + pending draft
 
-Legacy strategies without `recipeId` cannot Arm / are paused if somehow running.
+Legacy strategies without `recipeId` cannot Arm / are paused if somehow running. Runtime ticks never call an LLM.
 
 ## Activity sources
 

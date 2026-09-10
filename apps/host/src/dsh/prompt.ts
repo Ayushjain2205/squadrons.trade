@@ -3,7 +3,6 @@ import { fileURLToPath } from "node:url";
 import {
   chainLabel,
   chainScopedReadTools,
-  DEFAULT_POLICY,
   getSupportedChain,
   type Agent,
   type Strategy,
@@ -128,57 +127,6 @@ export function buildAgentIdentityBlock(
   return lines.join("\n");
 }
 
-/** Prompt for a background strategy tick — not a user chat turn. */
-export function buildStrategyTickPrompt(
-  agent: Agent,
-  strategy: Strategy,
-  walletAddress?: string | null,
-): string {
-  const identity = buildAgentIdentityBlock(agent, walletAddress);
-  const trigger =
-    strategy.trigger.type === "interval"
-      ? `interval every ${strategy.trigger.intervalSec ?? 60}s`
-      : `condition: ${strategy.trigger.condition ?? "(missing)"}` +
-        (strategy.trigger.intervalSec
-          ? ` (poll floor ${strategy.trigger.intervalSec}s)`
-          : "");
-  const action =
-    strategy.action.type === "alert"
-      ? `alert${strategy.action.detail ? ` — ${strategy.action.detail}` : ""}`
-      : `propose_trade${strategy.action.detail ? ` — ${strategy.action.detail}` : ""}`;
-
-  const spendRules =
-    agent.spendMode === "spend_enabled" && strategy.action.type === "propose_trade"
-      ? [
-          "- Spend is enabled for this agent. If the trigger warrants a trade within caps, call report_tick with action propose_trade and intent { amountUsd, symbol?, side?, note? }.",
-          `- Respect maxTradeUsd caps (strategy + platform default $${DEFAULT_POLICY.maxTradeUsd}). Host fail-closes oversized intents.`,
-          "- Do not claim a tx was broadcast. Host records proposals only until signing ships.",
-        ]
-      : [
-          "- Spend is observe-only (or strategy is alert-only). Use action none or alert — never propose_trade.",
-          "- Never invent txs or claim funds moved.",
-        ];
-
-  return [
-    identity,
-    "",
-    "This is a background STRATEGY TICK — not a user chat message.",
-    "Evaluate the armed strategy using tools if needed.",
-    `Armed strategy: ${strategy.summary}`,
-    `Trigger: ${trigger}`,
-    `Action: ${action}`,
-    "",
-    "Rules for this tick:",
-    "- Do not claim the strategy is disarmed or that you changed Arm state.",
-    "- Prefer tools over guessing balances/prices.",
-    "- If a price tool fails, do not loop retries — call report_tick once with action alert or none and say the feed failed.",
-    "- Call report_tick exactly once. Do not dump ```tick fences.",
-    "- If nothing actionable, action is none.",
-    ...spendRules,
-    "- Keep label short and operator-facing (present or past tense).",
-  ].join("\n");
-}
-
 /** Constrained review turn — may only propose a param patch (or no change). */
 export function buildSelfImprovementPrompt(
   agent: Agent,
@@ -210,7 +158,7 @@ export function buildSelfImprovementPrompt(
   return [
     identity,
     "",
-    "This is a SELF-IMPROVEMENT review — not a user chat and not a strategy tick.",
+    "This is a SELF-IMPROVEMENT review — not a user chat and not a strategy runtime tick.",
     "Decide whether strategy params should change based on recent outcomes.",
     `Mandate: ${strategy.summary}`,
     `Recipe: ${strategy.recipeId ?? "none"}`,
@@ -223,7 +171,7 @@ export function buildSelfImprovementPrompt(
     "",
     "Rules:",
     "- Do not arm, pause, disarm, or claim you changed runtime state.",
-    "- Do not propose trades or call report_tick.",
+    "- Do not propose trades or invent on-chain execution.",
     "- You may use read tools if needed to verify current market/wallet state.",
     "- If no change is warranted, reply briefly and do not call propose_improvement.",
     "- If a change is warranted, call propose_improvement once with { patch, reason }.",

@@ -9,7 +9,6 @@ import {
   buildAgentTurnPrompt,
   buildContinuingTurnPrompt,
   buildSelfImprovementPrompt,
-  buildStrategyTickPrompt,
   LLM_PATCH_PATH,
   OBSERVE_PATCH_PATH,
 } from "./prompt.js";
@@ -293,36 +292,6 @@ export async function runDshTurn(
       provider,
       model,
     };
-  });
-}
-
-/**
- * Background strategy evaluation — separate dsh session from chat,
- * serialized on the same agent lock so tools don't interleave.
- */
-export async function runDshStrategyTick(options: {
-  agent: Agent;
-  strategy: Strategy;
-  workspace: string;
-  walletAddress?: string | null;
-  onActivity?: (event: NewActivityEvent) => void;
-  onNotification?: DshTurnOptions["onNotification"];
-}): Promise<DshTurnResult> {
-  const prompt = buildStrategyTickPrompt(
-    options.agent,
-    options.strategy,
-    options.walletAddress,
-  );
-  return runDshTurn({
-    agentId: options.agent.id,
-    poolKey: tickPoolKey(options.agent.id),
-    agent: options.agent,
-    userText: prompt,
-    workspace: options.workspace,
-    walletAddress: options.walletAddress,
-    onActivity: options.onActivity,
-    onNotification: options.onNotification,
-    promptMode: "raw",
   });
 }
 

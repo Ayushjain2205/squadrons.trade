@@ -272,7 +272,7 @@ export function apply(ctx) {
           throw new Error(
             `Spot price feed failed (${response.status})${
               body ? `: ${body.slice(0, 160)}` : ""
-            }. Try again shortly or report_tick with action none/alert.`,
+            }. Try again shortly.`,
           );
         }
         const payload = await response.json();

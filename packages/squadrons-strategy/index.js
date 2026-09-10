@@ -6,14 +6,12 @@ import {
   improvementPath,
   paramsPatchPath,
   statePath,
-  tickPath,
   STRATEGY_DIR,
 } from "./paths.js";
 import {
   parseProposeImprovementInput,
   parseStrategyDraftInput,
   parseStrategyParamsPatch,
-  parseStrategyTickDecision,
 } from "./validate.js";
 
 /** Cordis plugin id / package export name. */
@@ -314,86 +312,6 @@ export function apply(ctx) {
         title: "Get strategy",
         kind: "other",
         rawInput: {},
-      }),
-    }),
-  );
-
-  ctx.tools.register(
-    defineTool({
-      name: "report_tick",
-      description:
-        "Legacy: report outcome of an LLM strategy tick. Prefer host deterministic recipes; only used for legacy strategies without a recipeId.",
-      parameters: {
-        action: {
-          type: "string",
-          description: 'Tick outcome: "none", "alert", or "propose_trade".',
-          enum: ["none", "alert", "propose_trade"],
-        },
-        label: {
-          type: "string",
-          description:
-            "Short operator-facing activity line (e.g. Checked balances, ETH down 5%).",
-        },
-        detail: {
-          type: "string",
-          description: "Optional extra detail for the activity trail.",
-        },
-        intent: {
-          type: "object",
-          description:
-            "Required for propose_trade: { amountUsd, symbol?, side?: buy|sell, note? }.",
-          additionalProperties: true,
-        },
-      },
-      output: {
-        schema: {
-          type: "object",
-          additionalProperties: true,
-        },
-        render: (_args, value) => [
-          {
-            type: "text",
-            text: JSON.stringify(value, null, 2),
-          },
-        ],
-      },
-      async execute(args) {
-        const decision = parseStrategyTickDecision(args);
-        if (!decision) {
-          throw new Error(
-            'Invalid tick report. Need action "none"|"alert"|"propose_trade" (with intent.amountUsd for trades) and a short label.',
-          );
-        }
-
-        const state = await readJson(statePath());
-        if (state?.status !== "running") {
-          throw new Error(
-            "report_tick is only for armed running strategies during a host tick.",
-          );
-        }
-
-        const dir = path.join(process.cwd(), STRATEGY_DIR);
-        await mkdir(dir, { recursive: true });
-        const payload = {
-          ...decision,
-          reportedAt: Date.now(),
-        };
-        await writeFile(tickPath(), `${JSON.stringify(payload, null, 2)}\n`, "utf8");
-
-        return {
-          ok: true,
-          action: decision.action,
-          label: decision.label,
-          ...(decision.detail ? { detail: decision.detail } : {}),
-          ...(decision.intent ? { intent: decision.intent } : {}),
-          note: "Tick reported to the host activity trail.",
-        };
-      },
-      presentCall: (args) => ({
-        card: "generic",
-        title: "Report tick",
-        kind: "other",
-        rawInput: args,
       }),
     }),
   );

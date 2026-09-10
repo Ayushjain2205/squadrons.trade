@@ -267,6 +267,7 @@ export function extractStrategyDraftFromText(
   return null;
 }
 
+/** Outcome of a deterministic recipe execution (host runtime). */
 export type StrategyTickDecision = {
   action: "none" | "alert" | "propose_trade";
   label: string;
@@ -281,64 +282,6 @@ export type StrategyTradeIntent = {
   side?: "buy" | "sell";
   note?: string;
 };
-
-export function parseStrategyTickDecision(
-  value: unknown,
-): StrategyTickDecision | null {
-  if (!isRecord(value)) return null;
-  const action = value.action;
-  if (action !== "none" && action !== "alert" && action !== "propose_trade") {
-    return null;
-  }
-  const label =
-    typeof value.label === "string" && value.label.trim()
-      ? value.label.trim()
-      : action === "alert"
-        ? "Alert"
-        : action === "propose_trade"
-          ? "Proposed trade"
-          : "Checked strategy";
-  const detail =
-    typeof value.detail === "string" && value.detail.trim()
-      ? value.detail.trim()
-      : undefined;
-
-  let intent: StrategyTradeIntent | undefined;
-  if (action === "propose_trade") {
-    if (!isRecord(value.intent)) return null;
-    const amountUsd = Number(value.intent.amountUsd);
-    if (!Number.isFinite(amountUsd) || amountUsd <= 0) return null;
-    intent = { amountUsd };
-    if (typeof value.intent.symbol === "string" && value.intent.symbol.trim()) {
-      intent.symbol = value.intent.symbol.trim().toUpperCase();
-    }
-    if (value.intent.side === "buy" || value.intent.side === "sell") {
-      intent.side = value.intent.side;
-    }
-    if (typeof value.intent.note === "string" && value.intent.note.trim()) {
-      intent.note = value.intent.note.trim();
-    }
-  }
-
-  const decision: StrategyTickDecision = { action, label };
-  if (detail) decision.detail = detail;
-  if (intent) decision.intent = intent;
-  return decision;
-}
-
-export function extractStrategyTickDecisionFromText(
-  text: string,
-): StrategyTickDecision | null {
-  const fenced = text.match(/```tick\s*([\s\S]*?)```/i);
-  if (fenced?.[1]) {
-    try {
-      return parseStrategyTickDecision(JSON.parse(fenced[1].trim()));
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}
 
 export function improvementCadenceMs(
   cadence: StrategyImprovementCadence,
