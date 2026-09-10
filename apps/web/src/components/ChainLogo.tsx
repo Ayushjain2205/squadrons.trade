@@ -52,10 +52,13 @@ export function ChainName({
   chainId,
   size = 18,
   className = "",
+  tipPlacement = "top",
 }: {
   chainId: number;
   size?: number;
   className?: string;
+  /** Prefer `right` near the left edge of a rail so the tip isn’t clipped. */
+  tipPlacement?: "top" | "right";
 }) {
   const tip = chainDisplayName(chainId);
 
@@ -66,7 +69,12 @@ export function ChainName({
       aria-label={tip}
     >
       <ChainLogo chainId={chainId} size={size} />
-      <span role="tooltip" className="chain-tip-bubble">
+      <span
+        role="tooltip"
+        className={`chain-tip-bubble${
+          tipPlacement === "right" ? " chain-tip-bubble--right" : ""
+        }`}
+      >
         {tip}
       </span>
     </span>

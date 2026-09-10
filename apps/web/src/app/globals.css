@@ -681,11 +681,24 @@ textarea.chat-input:focus-visible,
     visibility 140ms ease;
 }
 
+.chain-tip-bubble--right {
+  left: calc(100% + 8px);
+  right: auto;
+  bottom: auto;
+  top: 50%;
+  transform: translateY(-50%) translateX(2px);
+}
+
 .chain-tip:hover .chain-tip-bubble,
 .chain-tip:focus-visible .chain-tip-bubble {
   opacity: 1;
   visibility: visible;
   transform: translateX(-50%) translateY(0);
+}
+
+.chain-tip:hover .chain-tip-bubble--right,
+.chain-tip:focus-visible .chain-tip-bubble--right {
+  transform: translateY(-50%) translateX(0);
 }
 
 @media (prefers-reduced-motion: reduce) {
