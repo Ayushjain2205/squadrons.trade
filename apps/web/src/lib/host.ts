@@ -233,12 +233,26 @@ export async function pauseAgent(agentId: string): Promise<AgentWithWorkspace> {
 
 export async function listActivity(
   agentId: string,
-  limit = 100,
-): Promise<ActivityEvent[]> {
-  const data = await hostFetch<{ activity: ActivityEvent[] }>(
-    `/v1/agents/${agentId}/activity?limit=${limit}`,
-  );
-  return data.activity;
+  options: {
+    limit?: number;
+    before?: number;
+    beforeId?: string;
+    sources?: Array<"chat" | "strategy" | "system">;
+  } = {},
+): Promise<{ activity: ActivityEvent[]; hasMore: boolean }> {
+  const params = new URLSearchParams();
+  params.set("limit", String(options.limit ?? 40));
+  if (options.before != null) params.set("before", String(options.before));
+  if (options.beforeId) params.set("beforeId", options.beforeId);
+  if (options.sources?.length) params.set("sources", options.sources.join(","));
+  const data = await hostFetch<{
+    activity: ActivityEvent[];
+    hasMore?: boolean;
+  }>(`/v1/agents/${agentId}/activity?${params.toString()}`);
+  return {
+    activity: data.activity,
+    hasMore: Boolean(data.hasMore),
+  };
 }
 
 /** Subscribe to live activity for an agent. Returns an unsubscribe fn. */

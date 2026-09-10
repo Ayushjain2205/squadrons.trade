@@ -323,11 +323,36 @@ export function registerAgentRoutes(
         return;
       }
 
-      const limitRaw = Number(req.query.limit ?? 100);
-      const limit = Number.isFinite(limitRaw) ? limitRaw : 100;
+      const limitRaw = Number(req.query.limit ?? 40);
+      const limit = Number.isFinite(limitRaw) ? limitRaw : 40;
+      const beforeCreatedAtRaw = Number(req.query.before);
+      const beforeCreatedAt = Number.isFinite(beforeCreatedAtRaw)
+        ? beforeCreatedAtRaw
+        : undefined;
+      const beforeId =
+        typeof req.query.beforeId === "string" && req.query.beforeId
+          ? req.query.beforeId
+          : undefined;
+      const sourcesRaw =
+        typeof req.query.sources === "string" ? req.query.sources : "";
+      const sources = sourcesRaw
+        .split(",")
+        .map((s) => s.trim())
+        .filter(
+          (s): s is "chat" | "strategy" | "system" =>
+            s === "chat" || s === "strategy" || s === "system",
+        );
+
+      const page = activity.list(agent.id, {
+        limit,
+        beforeCreatedAt,
+        beforeId,
+        sources: sources.length > 0 ? sources : undefined,
+      });
       res.json({
         ok: true,
-        activity: activity.list(agent.id, limit),
+        activity: page.events,
+        hasMore: page.hasMore,
       });
     } catch (error) {
       next(error);

@@ -164,7 +164,7 @@ function AgentContextSummary({
       <ActivityTrail
         agentId={agent.id}
         agentName={agent.name}
-        live={isWorking || agent.strategy?.status === "running"}
+        live={agent.strategy?.status === "running"}
         onLiveEvent={(event) => {
           const shouldRefresh =
             event.label === "Saved strategy draft" ||

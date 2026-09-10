@@ -71,6 +71,8 @@ Legacy strategies without `recipeId` cannot Arm / are paused if somehow running.
 - `strategy` — runtime ticks / recipe outcomes (Strategy activity rail)
 - `system` — arm / pause / params / improvement lifecycle
 
+The Strategy activity rail collapses quiet checks into a single “last check” line; the list is alerts, errors, and desk changes. It pages from the host (`limit` + `before`/`beforeId`), shows a few rows, then **Show more** / **Load older** — never dumps the full history into the DOM. **Live** only while `strategy.status === "running"`.
+
 ## Key paths
 
 | Path | Role |

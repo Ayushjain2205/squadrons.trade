@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { displayActivityLabel } from "@squadrons/shared";
 import {
   listActivity,
@@ -10,35 +10,54 @@ import {
 
 type DisplayStep = ActivityEvent & { displayLabel: string };
 
-function collapseSteps(
-  events: ActivityEvent[],
-  live: boolean,
-): DisplayStep[] {
-  const out: ActivityEvent[] = [];
+/** How many rows to show before asking for more. */
+const PREVIEW_COUNT = 4;
+/** Raw rows per host fetch (includes quiet checks). */
+const PAGE_SIZE = 40;
+
+function isQuietCheck(event: ActivityEvent): boolean {
+  if (event.source !== "strategy") return false;
+  const label = event.label.trim();
+  return (
+    label === "Strategy tick" ||
+    label === "Checked strategy" ||
+    label === "Watched event" ||
+    label === "Event watch armed" ||
+    label.startsWith("Checked ")
+  );
+}
+
+function toDisplayStep(event: ActivityEvent): DisplayStep | null {
+  const displayLabel = displayActivityLabel(event, { done: true });
+  if (!displayLabel) return null;
+  return { ...event, displayLabel };
+}
+
+/** Quiet checks → one “last check”; loud events newest-first. */
+function buildSteps(events: ActivityEvent[]): {
+  lastCheck: DisplayStep | null;
+  steps: DisplayStep[];
+} {
+  let lastCheck: DisplayStep | null = null;
+  const loud: DisplayStep[] = [];
 
   for (const event of events) {
     if (event.source === "chat") continue;
-    if (!displayActivityLabel(event, { done: false })) continue;
-    const last = out[out.length - 1];
-    if (
-      last &&
-      last.toolName &&
-      last.toolName === event.toolName &&
-      event.createdAt - last.createdAt < 120_000
-    ) {
-      out[out.length - 1] = event;
+    const step = toDisplayStep(event);
+    if (!step) continue;
+    if (isQuietCheck(event)) {
+      lastCheck = step;
       continue;
     }
-    out.push(event);
+    if (event.source === "strategy" || event.source === "system") {
+      loud.push(step);
+    }
   }
 
-  return out.flatMap((event, index) => {
-    const isNewest = index === out.length - 1;
-    const done = !(live && isNewest);
-    const displayLabel = displayActivityLabel(event, { done });
-    if (!displayLabel) return [];
-    return [{ ...event, displayLabel }];
-  });
+  return {
+    lastCheck,
+    steps: [...loud].reverse(),
+  };
 }
 
 export function ActivityTrail({
@@ -49,23 +68,33 @@ export function ActivityTrail({
 }: {
   agentId: string;
   agentName: string;
+  /** True only while the strategy is armed/running. */
   live?: boolean;
-  /** Fired for each new live activity event (SSE). */
   onLiveEvent?: (event: ActivityEvent) => void;
 }) {
   const [events, setEvents] = useState<ActivityEvent[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(PREVIEW_COUNT);
   const [error, setError] = useState<string | null>(null);
+  const [loadingMore, startLoadMore] = useTransition();
   const onLiveEventRef = useRef(onLiveEvent);
   onLiveEventRef.current = onLiveEvent;
 
   useEffect(() => {
     let cancelled = false;
     setEvents([]);
+    setHasMore(false);
+    setVisibleCount(PREVIEW_COUNT);
     setError(null);
 
-    void listActivity(agentId)
-      .then((rows) => {
-        if (!cancelled) setEvents(rows);
+    void listActivity(agentId, {
+      limit: PAGE_SIZE,
+      sources: ["strategy", "system"],
+    })
+      .then((page) => {
+        if (cancelled) return;
+        setEvents(page.activity);
+        setHasMore(page.hasMore);
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -89,10 +118,41 @@ export function ActivityTrail({
     };
   }, [agentId]);
 
-  const steps = useMemo(
-    () => collapseSteps(events, live).reverse().slice(0, 24),
-    [events, live],
-  );
+  const { lastCheck, steps } = useMemo(() => buildSteps(events), [events]);
+  const visible = steps.slice(0, visibleCount);
+  const canRevealMore = visibleCount < steps.length;
+  const canLoadOlder = !canRevealMore && hasMore;
+
+  function onShowMore() {
+    if (canRevealMore) {
+      setVisibleCount((n) => Math.min(n + PREVIEW_COUNT, steps.length));
+      return;
+    }
+    if (!canLoadOlder || loadingMore) return;
+
+    const oldest = events[0];
+    if (!oldest) return;
+
+    startLoadMore(async () => {
+      try {
+        const page = await listActivity(agentId, {
+          limit: PAGE_SIZE,
+          before: oldest.createdAt,
+          beforeId: oldest.id,
+          sources: ["strategy", "system"],
+        });
+        setEvents((prev) => {
+          const seen = new Set(prev.map((e) => e.id));
+          const older = page.activity.filter((e) => !seen.has(e.id));
+          return [...older, ...prev];
+        });
+        setHasMore(page.hasMore);
+        setVisibleCount((n) => n + PREVIEW_COUNT);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    });
+  }
 
   return (
     <section className="flex min-h-0 flex-1 flex-col">
@@ -106,6 +166,13 @@ export function ActivityTrail({
         ) : null}
       </div>
 
+      {lastCheck ? (
+        <p className="type-meta mt-2 truncate text-[var(--muted)]">
+          Last check: {lastCheck.displayLabel}
+          {lastCheck.detail ? ` — ${lastCheck.detail}` : null}
+        </p>
+      ) : null}
+
       {error ? (
         <p className="type-meta mt-3 !text-[var(--danger)]">{error}</p>
       ) : null}
@@ -113,65 +180,82 @@ export function ActivityTrail({
       {steps.length === 0 && !error ? (
         <p className="type-ui mt-3 text-[var(--muted)]">
           {live
-            ? `${agentName}'s strategy is working…`
-            : `When the armed strategy ticks, steps show up here.`}
+            ? `${agentName} is checking — alerts show here.`
+            : `When the strategy fires an alert or you change it, it shows here.`}
         </p>
       ) : (
-        <ol className="mt-4 space-y-0">
-          {steps.map((event, index) => {
-            const newest = index === 0;
-            return (
-              <li
-                key={event.id}
-                className="grid grid-cols-[12px_minmax(0,1fr)_auto] gap-x-2.5 py-2"
-              >
-                <span className="relative flex justify-center pt-1.5">
-                  {index < steps.length - 1 ? (
+        <>
+          <ol className="mt-3 space-y-0">
+            {visible.map((event, index) => {
+              const newest = index === 0;
+              const moreBelow = index < visible.length - 1 || canRevealMore || canLoadOlder;
+              return (
+                <li
+                  key={event.id}
+                  className="grid grid-cols-[12px_minmax(0,1fr)_auto] gap-x-2.5 py-2"
+                >
+                  <span className="relative flex justify-center pt-1.5">
+                    {moreBelow ? (
+                      <span
+                        className="absolute top-3 bottom-[-0.5rem] w-px bg-[var(--line-soft)]"
+                        aria-hidden
+                      />
+                    ) : null}
                     <span
-                      className="absolute top-3 bottom-[-0.5rem] w-px bg-[var(--line-soft)]"
+                      className={`relative z-[1] size-1.5 rounded-full ${
+                        newest && live
+                          ? "working-dot bg-[var(--accent)]"
+                          : event.kind === "error"
+                            ? "bg-[var(--danger)]"
+                            : "bg-[var(--muted)]"
+                      }`}
                       aria-hidden
                     />
-                  ) : null}
-                  <span
-                    className={`relative z-[1] size-1.5 rounded-full ${
-                      newest && live
-                        ? "working-dot bg-[var(--accent)]"
-                        : event.kind === "error"
-                          ? "bg-[var(--danger)]"
-                          : "bg-[var(--muted)]"
-                    }`}
-                    aria-hidden
-                  />
-                </span>
-                <div className="min-w-0">
-                  <p
-                    className={`type-ui leading-snug ${
-                      newest && live
-                        ? "text-[var(--ink)]"
-                        : event.kind === "error"
-                          ? "text-[var(--danger)]"
-                          : "text-[var(--ink-soft)]"
-                    }`}
-                  >
-                    {event.displayLabel}
-                  </p>
-                  {event.kind === "error" && event.detail ? (
-                    <p className="type-meta mt-0.5 truncate text-[var(--muted)]">
-                      {event.detail}
+                  </span>
+                  <div className="min-w-0">
+                    <p
+                      className={`type-ui leading-snug ${
+                        newest && live
+                          ? "text-[var(--ink)]"
+                          : event.kind === "error"
+                            ? "text-[var(--danger)]"
+                            : "text-[var(--ink-soft)]"
+                      }`}
+                    >
+                      {event.displayLabel}
                     </p>
-                  ) : null}
-                </div>
-                <time
-                  className="type-data pt-0.5 text-[var(--muted)]"
-                  dateTime={new Date(event.createdAt).toISOString()}
-                  title={new Date(event.createdAt).toLocaleString()}
-                >
-                  {formatRelative(event.createdAt)}
-                </time>
-              </li>
-            );
-          })}
-        </ol>
+                    {event.detail ? (
+                      <p className="type-meta mt-0.5 truncate text-[var(--muted)]">
+                        {event.detail}
+                      </p>
+                    ) : null}
+                  </div>
+                  <time
+                    className="type-data pt-0.5 text-[var(--muted)]"
+                    dateTime={new Date(event.createdAt).toISOString()}
+                    title={new Date(event.createdAt).toLocaleString()}
+                  >
+                    {formatRelative(event.createdAt)}
+                  </time>
+                </li>
+              );
+            })}
+          </ol>
+          {canRevealMore || canLoadOlder ? (
+            <button
+              type="button"
+              className="type-meta mt-1 self-start text-[var(--muted)] hover:text-[var(--ink)] disabled:opacity-50"
+              disabled={loadingMore}
+              onClick={onShowMore}
+            >
+              {loadingMore
+                ? "Loading…"
+                : canRevealMore
+                  ? "Show more"
+                  : "Load older"}
+            </button>
+          ) : null}
+        </>
       )}
     </section>
   );

@@ -1,4 +1,4 @@
-import type { ActivityEvent } from "@squadrons/shared";
+import type { ActivityEvent, ActivitySource } from "@squadrons/shared";
 import type { ActivityStore, NewActivityEvent } from "./activity.js";
 
 type Listener = (event: ActivityEvent) => void;
@@ -11,8 +11,16 @@ export class ActivityHub {
 
   constructor(private readonly store: ActivityStore) {}
 
-  list(agentId: string, limit = 100): ActivityEvent[] {
-    return this.store.listByAgent(agentId, limit);
+  list(
+    agentId: string,
+    options: {
+      limit?: number;
+      beforeCreatedAt?: number;
+      beforeId?: string;
+      sources?: ActivitySource[];
+    } = {},
+  ): { events: ActivityEvent[]; hasMore: boolean } {
+    return this.store.listByAgent(agentId, options);
   }
 
   publish(input: NewActivityEvent): ActivityEvent {

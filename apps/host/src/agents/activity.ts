@@ -47,16 +47,59 @@ export type NewActivityEvent = {
 export class ActivityStore {
   constructor(private readonly db: Database.Database) {}
 
-  listByAgent(agentId: string, limit = 100): ActivityEvent[] {
+  listByAgent(
+    agentId: string,
+    options: {
+      limit?: number;
+      beforeCreatedAt?: number;
+      beforeId?: string;
+      sources?: ActivitySource[];
+    } = {},
+  ): { events: ActivityEvent[]; hasMore: boolean } {
+    const limit = Math.max(1, Math.min(options.limit ?? 100, 100));
+    const sources = options.sources?.filter(
+      (s) => s === "chat" || s === "strategy" || s === "system",
+    );
+    const beforeCreatedAt = options.beforeCreatedAt;
+    const beforeId = options.beforeId;
+
+    const clauses = ["agent_id = ?"];
+    const params: Array<string | number> = [agentId];
+
+    if (sources && sources.length > 0) {
+      clauses.push(`source IN (${sources.map(() => "?").join(", ")})`);
+      params.push(...sources);
+    }
+
+    if (
+      beforeCreatedAt != null &&
+      Number.isFinite(beforeCreatedAt) &&
+      beforeId
+    ) {
+      clauses.push("(created_at < ? OR (created_at = ? AND id < ?))");
+      params.push(beforeCreatedAt, beforeCreatedAt, beforeId);
+    } else if (beforeCreatedAt != null && Number.isFinite(beforeCreatedAt)) {
+      clauses.push("created_at < ?");
+      params.push(beforeCreatedAt);
+    }
+
+    params.push(limit + 1);
+
     const rows = this.db
       .prepare(
         `SELECT * FROM activity
-         WHERE agent_id = ?
+         WHERE ${clauses.join(" AND ")}
          ORDER BY created_at DESC, id DESC
          LIMIT ?`,
       )
-      .all(agentId, Math.max(1, Math.min(limit, 500))) as ActivityRow[];
-    return rows.map(rowToEvent).reverse();
+      .all(...params) as ActivityRow[];
+
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
+    return {
+      events: page.map(rowToEvent).reverse(),
+      hasMore,
+    };
   }
 
   append(input: NewActivityEvent): ActivityEvent {
