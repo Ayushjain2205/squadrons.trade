@@ -5,6 +5,10 @@ import {
   type StrategyTradeIntent,
 } from "@squadrons/shared";
 import {
+  broadcastSwapTx,
+  isPrivyBroadcastConfigured,
+} from "./broadcast.js";
+import {
   buildSwapFromPlan,
   isZeroExConfigured,
   type BuiltSwap,
@@ -74,13 +78,14 @@ function describePlan(plan: TradePlan): string {
 /**
  * Run a spend-gated trade intent through the host executor.
  * Default mode is dry_run: records the plan (and optional 0x quote), never broadcasts.
- * Live: build 0x swap → Tenderly sim → Privy broadcast (broadcast still fail-closed).
+ * Live: build 0x swap → optional Tenderly sim → Privy broadcast.
  */
 export async function executeGatedTrade(input: {
   agent: Agent;
   strategy: Strategy;
   intent: StrategyTradeIntent;
   walletAddress: string | null;
+  walletId?: string | null;
 }): Promise<ExecuteTradeResult> {
   const plan = buildPlan(input);
   const mode = getExecutionMode();
@@ -163,6 +168,17 @@ export async function executeGatedTrade(input: {
     };
   }
 
+  const walletId = input.walletId?.trim() || null;
+  if (!walletId) {
+    return {
+      status: "failed",
+      reason:
+        "No Privy wallet id on user — re-login after enabling embedded wallet API access",
+      detail: `Live blocked: ${summary}`,
+      plan,
+    };
+  }
+
   const built = await buildSwapFromPlan(plan);
   if (!built.ok) {
     return {
@@ -184,37 +200,56 @@ export async function executeGatedTrade(input: {
     };
   }
 
-  if (!isTenderlyConfigured()) {
+  let simDetail = "Tenderly skipped (not configured)";
+  if (isTenderlyConfigured()) {
+    const sim = await simulateSwapTx({
+      chainId: plan.chainId,
+      from: plan.walletAddress,
+      tx: built.swap.transaction,
+    });
+    if (!sim.ok) {
+      return {
+        status: "failed",
+        reason: sim.reason,
+        detail: `Live blocked at Tenderly: ${summary}`,
+        plan,
+        swap: built.swap,
+      };
+    }
+    simDetail = sim.detail;
+  }
+
+  if (!isPrivyBroadcastConfigured()) {
     return {
       status: "failed",
-      reason: "Tenderly is required for live execution",
-      detail: `Live blocked at simulation: ${summary}`,
+      reason:
+        "PRIVY_AUTHORIZATION_PRIVATE_KEY is not set — required for live broadcast",
+      detail: `Live blocked at broadcast: ${summary} · ${simDetail}`,
       plan,
       swap: built.swap,
     };
   }
 
-  const sim = await simulateSwapTx({
+  const sent = await broadcastSwapTx({
+    walletId,
     chainId: plan.chainId,
-    from: plan.walletAddress,
     tx: built.swap.transaction,
   });
-  if (!sim.ok) {
+  if (!sent.ok) {
     return {
       status: "failed",
-      reason: sim.reason,
-      detail: `Live blocked at Tenderly: ${summary}`,
+      reason: sent.reason,
+      detail: `Live blocked at broadcast: ${summary} · ${simDetail}`,
       plan,
       swap: built.swap,
     };
   }
 
   return {
-    status: "failed",
-    reason:
-      "Privy broadcast not wired yet — quote + Tenderly ok; use dry_run until sign path lands",
-    detail: `Live blocked at broadcast: ${summary} · ${sim.detail}`,
+    status: "submitted",
+    detail: `Submitted ${summary} · ${sent.detail} · ${simDetail}`,
     plan,
     swap: built.swap,
+    txHash: sent.txHash,
   };
 }

@@ -280,6 +280,9 @@ export function StrategyCard({
               >
                 <span className="min-w-0 truncate text-[var(--ink-soft)]">
                   {intent.label}
+                  {intent.status === "submitted" && intent.txHash
+                    ? ` · ${intent.txHash.slice(0, 10)}…`
+                    : null}
                 </span>
                 <span
                   className={

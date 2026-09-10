@@ -31,6 +31,7 @@ import { startImprovementScheduler } from "./strategy/improvement.js";
 import { ImprovementProposalStore } from "./strategy/improvement-store.js";
 import { TradeIntentStore } from "./strategy/trade-intents.js";
 import { getExecutionMode } from "./strategy/executor.js";
+import { isPrivyBroadcastConfigured } from "./strategy/broadcast.js";
 import { isZeroExConfigured } from "./strategy/swap-build.js";
 import { isTenderlyConfigured } from "./strategy/tenderly.js";
 
@@ -75,6 +76,7 @@ app.get("/health", (_req, res) => {
     privy: Boolean(process.env.PRIVY_APP_ID && process.env.PRIVY_APP_SECRET),
     zeroex: isZeroExConfigured(),
     tenderly: isTenderlyConfigured(),
+    privyBroadcast: isPrivyBroadcastConfigured(),
   });
 });
 

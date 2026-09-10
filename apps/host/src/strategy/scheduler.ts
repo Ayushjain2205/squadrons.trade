@@ -148,6 +148,7 @@ export function startStrategyScheduler(deps: {
               strategy,
               intent: gated.intent,
               walletAddress: user?.walletAddress ?? null,
+              walletId: user?.walletId ?? null,
             });
 
             deps.tradeIntents.updateExecution(record.id, {
