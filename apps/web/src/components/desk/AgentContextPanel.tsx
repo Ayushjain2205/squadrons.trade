@@ -629,7 +629,7 @@ function AgentSettingsForm({
                 {
                   id: "spend_enabled" as const,
                   label: "Enabled",
-                  hint: "Propose trades (no broadcast yet)",
+                  hint: "Propose trades (dry-run executor by default)",
                 },
               ] as const
             ).map((option) => {

@@ -283,18 +283,20 @@ export function StrategyCard({
                 </span>
                 <span
                   className={
-                    intent.status === "blocked"
+                    intent.status === "blocked" || intent.status === "failed"
                       ? "shrink-0 text-[var(--danger)]"
-                      : "shrink-0 text-[var(--muted)]"
+                      : intent.status === "submitted"
+                        ? "shrink-0 text-[var(--ink)]"
+                        : "shrink-0 text-[var(--muted)]"
                   }
                 >
-                  {intent.status === "blocked" ? "Blocked" : "Recorded"}
+                  {intentStatusLabel(intent.status)}
                 </span>
               </li>
             ))}
           </ul>
           <p className="type-meta text-[var(--muted)]">
-            Propose-only — no broadcast yet
+            Executor dry-runs by default — no broadcast until live mode
           </p>
         </div>
       ) : null}
@@ -485,6 +487,24 @@ export function StrategyCard({
       </div>
     </section>
   );
+}
+
+function intentStatusLabel(
+  status: TradeIntentRecord["status"],
+): string {
+  switch (status) {
+    case "blocked":
+      return "Blocked";
+    case "failed":
+      return "Failed";
+    case "dry_run":
+      return "Dry-run";
+    case "submitted":
+      return "Submitted";
+    case "proposed":
+    default:
+      return "Queued";
+  }
 }
 
 function StatusPill({

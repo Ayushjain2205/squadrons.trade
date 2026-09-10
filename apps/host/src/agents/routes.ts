@@ -265,7 +265,7 @@ export function registerAgentRoutes(
               : "Spend set to observe",
           detail:
             agent.spendMode === "spend_enabled"
-              ? "Ticks may propose trades within caps (no broadcast yet)"
+              ? "Ticks may propose trades within caps (executor dry-runs by default)"
               : "Ticks are alert-only",
         });
         await writeStrategyStateFile(

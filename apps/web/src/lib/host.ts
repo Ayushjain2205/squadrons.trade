@@ -166,14 +166,16 @@ export async function listStrategyImprovements(agentId: string) {
 export type TradeIntentRecord = {
   id: string;
   agentId: string;
-  status: "proposed" | "blocked";
+  status: "proposed" | "blocked" | "dry_run" | "failed" | "submitted";
   amountUsd: number;
   symbol: string | null;
   side: "buy" | "sell" | null;
   label: string;
   detail: string | null;
   reason: string | null;
+  txHash?: string | null;
   createdAt: number;
+  updatedAt?: number;
 };
 
 export async function listTradeIntents(agentId: string, limit = 10) {
