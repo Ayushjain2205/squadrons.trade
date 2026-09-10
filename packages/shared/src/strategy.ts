@@ -2,7 +2,7 @@ import {
   isRecipeId,
   parseRecipeParams,
   type RecipeId,
-} from "./recipes.js";
+} from "./recipes";
 
 /** Desk posture: research vs shape/run a strategy. */
 export type AgentMode = "scout" | "operate";
