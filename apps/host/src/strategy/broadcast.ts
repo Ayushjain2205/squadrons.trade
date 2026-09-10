@@ -18,11 +18,11 @@ export function isPrivyBroadcastConfigured(): boolean {
 }
 
 /**
- * Sign + broadcast a built swap via Privy Wallet API.
+ * Sign + broadcast an EVM tx via Privy Wallet API.
  * Requires PRIVY_AUTHORIZATION_PRIVATE_KEY (app authorization key) for
  * autonomous server-side sends. Fail-closed when missing.
  */
-export async function broadcastSwapTx(input: {
+export async function broadcastEvmTx(input: {
   walletId: string;
   chainId: number;
   tx: BuiltSwapTx;
@@ -80,3 +80,6 @@ export async function broadcastSwapTx(input: {
     };
   }
 }
+
+/** @deprecated Use {@link broadcastEvmTx} */
+export const broadcastSwapTx = broadcastEvmTx;
