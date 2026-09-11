@@ -4,9 +4,6 @@ import {
   type RecipeId,
 } from "./recipes";
 
-/** Desk posture: research vs shape/run a strategy. */
-export type AgentMode = "scout" | "operate";
-
 /** Lifecycle of the single strategy attached to an agent. */
 export type StrategyStatus = "none" | "draft" | "running" | "paused";
 
@@ -70,7 +67,7 @@ export const DEFAULT_STRATEGY_IMPROVEMENT: StrategyImprovement = {
  * `status: none` means no row / empty — callers may omit the object entirely.
  *
  * Runtime is deterministic: host runs `recipeId` with `params`.
- * LLMs author/edit via Operate (and optional self-improvement proposals).
+ * LLMs author/edit via chat (and optional self-improvement proposals).
  */
 export interface Strategy {
   agentId: string;
@@ -99,13 +96,9 @@ export interface UpsertStrategyDraftInput {
   improvement?: Partial<StrategyImprovement> | null;
 }
 
-/** Live param patch from Operate while draft/paused/running. */
+/** Live param patch from chat while draft/paused/running. */
 export interface PatchStrategyParamsInput {
   params: Record<string, unknown>;
-}
-
-export function isAgentMode(value: unknown): value is AgentMode {
-  return value === "scout" || value === "operate";
 }
 
 export function isStrategyStatus(value: unknown): value is StrategyStatus {

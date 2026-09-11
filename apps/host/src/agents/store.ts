@@ -2,13 +2,11 @@ import { randomUUID } from "node:crypto";
 import type Database from "better-sqlite3";
 import {
   DEFAULT_POLICY,
-  isAgentMode,
   isAvatarId,
   isOrbColorId,
   isSupportedChainId,
   legacyColorForFace,
   type Agent,
-  type AgentMode,
   type AgentStatus,
   type AvatarId,
   type CreateAgentInput,
@@ -30,7 +28,6 @@ type AgentRow = {
   chain_id: number;
   status: string;
   spend_mode: string;
-  mode: string | null;
   current_goal: string | null;
   last_dsh_session_id: string | null;
   created_at: number;
@@ -42,10 +39,6 @@ function normalizeStatus(raw: string): AgentStatus {
   if (raw === "paused") return "paused";
   // Legacy needs_input / anything else → idle
   return "idle";
-}
-
-function normalizeMode(raw: string | null | undefined): AgentMode {
-  return isAgentMode(raw) ? raw : "scout";
 }
 
 function rowToAgent(row: AgentRow, strategy: Strategy | null): Agent {
@@ -71,7 +64,6 @@ function rowToAgent(row: AgentRow, strategy: Strategy | null): Agent {
     chainId: row.chain_id,
     status: normalizeStatus(row.status),
     spendMode: row.spend_mode as SpendMode,
-    mode: normalizeMode(row.mode),
     strategy,
     lastDshSessionId: row.last_dsh_session_id,
     createdAt: row.created_at,
@@ -111,7 +103,6 @@ export class AgentStore {
       chainId,
       status: "idle",
       spendMode: "observe",
-      mode: "scout",
       strategy: null,
       lastDshSessionId: null,
       createdAt: now,
@@ -126,7 +117,7 @@ export class AgentStore {
           created_at, updated_at
         ) VALUES (
           @id, @userId, @name, @avatarId, @colorId, @description, @chainId,
-          @status, @spendMode, @mode, NULL, @lastDshSessionId,
+          @status, @spendMode, 'scout', NULL, @lastDshSessionId,
           @createdAt, @updatedAt
         )`,
       )
@@ -140,7 +131,6 @@ export class AgentStore {
         chainId: agent.chainId,
         status: agent.status,
         spendMode: agent.spendMode,
-        mode: agent.mode,
         lastDshSessionId: agent.lastDshSessionId,
         createdAt: agent.createdAt,
         updatedAt: agent.updatedAt,
@@ -251,7 +241,6 @@ export class AgentStore {
     if (!isOrbColorId(colorId)) throw new Error("invalid colorId");
 
     let chainId = existing.chainId;
-    let mode = existing.mode;
     let spendMode = existing.spendMode;
 
     if (input.chainId !== undefined && input.chainId !== existing.chainId) {
@@ -262,17 +251,6 @@ export class AgentStore {
         throw new Error("cannot change chain while agent is working");
       }
       chainId = input.chainId;
-    }
-
-    if (input.mode !== undefined && input.mode !== existing.mode) {
-      if (!isAgentMode(input.mode)) throw new Error("invalid mode");
-      if (
-        input.mode === "scout" &&
-        existing.strategy?.status === "running"
-      ) {
-        throw new Error("pause or disarm the strategy before switching to scout");
-      }
-      mode = input.mode;
     }
 
     if (input.spendMode !== undefined && input.spendMode !== existing.spendMode) {
@@ -291,7 +269,6 @@ export class AgentStore {
              avatar_id = @avatarId,
              color_id = @colorId,
              chain_id = @chainId,
-             mode = @mode,
              spend_mode = @spendMode,
              current_goal = NULL,
              updated_at = @updatedAt
@@ -305,7 +282,6 @@ export class AgentStore {
         avatarId,
         colorId,
         chainId,
-        mode,
         spendMode,
         updatedAt,
       });

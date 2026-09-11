@@ -18,7 +18,7 @@ export function isRecipeId(value: unknown): value is RecipeId {
 export type RecipeParamSchema = {
   label: string;
   description: string;
-  /** Keys Operate / self-improvement may set. */
+  /** Keys chat / self-improvement may set. */
   paramKeys: string[];
   defaultParams: Record<string, unknown>;
 };

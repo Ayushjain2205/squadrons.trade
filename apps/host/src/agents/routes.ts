@@ -2,7 +2,6 @@ import { mkdir } from "node:fs/promises";
 import type { Express, NextFunction, Request, Response } from "express";
 import type { CreateAgentInput, UpdateAgentInput } from "@squadrons/shared";
 import {
-  isAgentMode,
   isAvatarId,
   isImprovementCadence,
   isOrbColorId,
@@ -230,14 +229,6 @@ export function registerAgentRoutes(
         }
         patch.colorId = color;
       }
-      if (body.mode !== undefined) {
-        const mode = String(body.mode);
-        if (!isAgentMode(mode)) {
-          res.status(400).json({ ok: false, error: "invalid mode" });
-          return;
-        }
-        patch.mode = mode;
-      }
       if (body.spendMode !== undefined) {
         const spendMode = String(body.spendMode);
         if (spendMode !== "observe" && spendMode !== "spend_enabled") {
@@ -265,7 +256,6 @@ export function registerAgentRoutes(
         patch.avatarId === undefined &&
         patch.colorId === undefined &&
         patch.chainId === undefined &&
-        patch.mode === undefined &&
         patch.spendMode === undefined
       ) {
         res.status(400).json({ ok: false, error: "no settings to update" });
@@ -274,8 +264,6 @@ export function registerAgentRoutes(
 
       const chainChanged =
         patch.chainId !== undefined && patch.chainId !== existing.chainId;
-      const modeChanged =
-        patch.mode !== undefined && patch.mode !== existing.mode;
       const spendChanged =
         patch.spendMode !== undefined &&
         patch.spendMode !== existing.spendMode;
@@ -286,7 +274,7 @@ export function registerAgentRoutes(
         return;
       }
 
-      if (chainChanged || modeChanged || spendChanged) {
+      if (chainChanged || spendChanged) {
         await invalidateAgentRuntime(agent.id);
       }
 
