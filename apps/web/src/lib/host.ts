@@ -221,6 +221,29 @@ export async function upsertStrategyDraft(
   return data.agent;
 }
 
+export async function listStrategyTemplates(chainId?: number) {
+  const query =
+    chainId !== undefined ? `?chainId=${encodeURIComponent(String(chainId))}` : "";
+  return hostFetch<{ templates: import("@squadrons/shared").StrategyTemplate[] }>(
+    `/v1/strategy/templates${query}`,
+  );
+}
+
+export async function importStrategyTemplate(
+  agentId: string,
+  templateId: string,
+  params?: Record<string, unknown>,
+): Promise<AgentWithWorkspace> {
+  const data = await hostFetch<{
+    agent: AgentWithWorkspace;
+    template: { id: string; name: string };
+  }>(`/v1/agents/${agentId}/strategy/from-template`, {
+    method: "POST",
+    body: JSON.stringify({ templateId, params }),
+  });
+  return data.agent;
+}
+
 async function strategyAction(
   agentId: string,
   action: "arm" | "pause" | "resume" | "disarm",
