@@ -12,6 +12,16 @@ How Squadrons turns chat into a durable, host-run loop.
 
 Arm is always a human desk action. Runtime ticks do **not** call an LLM.
 
+## Templates
+
+Curated, chain-filtered **prefilled drafts** over built-in recipes (Squadrons-authored only).
+
+- Browse from the Strategy card → tweak editable knobs → **Import draft**
+- Import writes the same strategy draft as chat `propose_strategy`
+- User still **Arms** — templates never auto-run
+- Catalog: `packages/shared/src/templates.ts`
+- Host: `GET /v1/strategy/templates?chainId=` · `POST /v1/agents/:id/strategy/from-template`
+
 ## Artifact
 
 One strategy per agent:
@@ -40,13 +50,13 @@ Recipes live in `apps/host/src/strategy/recipes/`. Catalog / param schemas live 
 ## Flow
 
 ```text
-Chat → propose_strategy (draft)
-     → user Arms
-     → host scheduler wakes due strategies
-     → (event) edge check → quiet | fire
-     → executeStrategyRecipe → Strategy activity
-     → (optional) update_strategy_params while running
-     → desk can toggle self-improvement cadence
+Chat or Template → propose_strategy / import (draft)
+                 → user Arms
+                 → host scheduler wakes due strategies
+                 → (event) edge check → quiet | fire
+                 → executeStrategyRecipe → Strategy activity
+                 → (optional) update_strategy_params while running
+                 → desk can toggle self-improvement cadence
 
 If improvement.enabled:
   cadence due → self-improvement dsh review
@@ -78,6 +88,7 @@ The Strategy activity rail collapses quiet checks into a single “last check”
 
 | Path | Role |
 | --- | --- |
+| `packages/shared/src/templates.ts` | Curated template catalog |
 | `packages/shared/src/strategy.ts` | Types + draft / proposal parsers |
 | `packages/shared/src/recipes.ts` | Recipe ids + param validation |
 | `packages/squadrons-strategy/` | Cordis tools |
@@ -93,3 +104,4 @@ The Strategy activity rail collapses quiet checks into a single “last check”
 2. Mirror validation in `packages/squadrons-strategy/validate.js`
 3. Add executor under `apps/host/src/strategy/recipes/` and register in `index.ts`
 4. Mention it in the agent prompt (`apps/host/src/dsh/prompt.ts`)
+5. Optionally wrap it in a curated template in `packages/shared/src/templates.ts`
