@@ -37,6 +37,7 @@ import {
   clearPendingParamsPatch,
   writeStrategyStateFile,
 } from "../strategy/workspace-draft.js";
+import { loadNativeBalances } from "../wallet/balances.js";
 
 const GREETING =
   "Hey — I'm ready when you are. What should we dig into?";
@@ -58,6 +59,30 @@ export function registerAgentRoutes(
         ok: true,
         userId: user.id,
         walletAddress: user.walletAddress,
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/v1/wallet", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      if (!user.walletAddress) {
+        res.json({
+          ok: true,
+          address: null,
+          walletId: user.walletId,
+          chains: [],
+        });
+        return;
+      }
+      const chains = await loadNativeBalances(user.walletAddress);
+      res.json({
+        ok: true,
+        address: user.walletAddress,
+        walletId: user.walletId,
+        chains,
       });
     } catch (error) {
       next(error);

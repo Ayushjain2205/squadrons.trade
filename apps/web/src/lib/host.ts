@@ -71,6 +71,30 @@ export async function getMe(): Promise<MeResponse> {
   };
 }
 
+export type WalletChainBalance = {
+  chainId: number;
+  shortName: string;
+  symbol: string;
+  balanceWei: string;
+  balance: string;
+  needsGas: boolean;
+};
+
+export type WalletSummary = {
+  address: string | null;
+  walletId: string | null;
+  chains: WalletChainBalance[];
+};
+
+export async function getWalletSummary(): Promise<WalletSummary> {
+  const data = await hostFetch<WalletSummary & { ok: boolean }>("/v1/wallet");
+  return {
+    address: data.address,
+    walletId: data.walletId ?? null,
+    chains: data.chains ?? [],
+  };
+}
+
 export async function listAgents(): Promise<AgentWithWorkspace[]> {
   const data = await hostFetch<{ agents: AgentWithWorkspace[] }>("/v1/agents");
   return data.agents;

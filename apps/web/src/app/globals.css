@@ -223,6 +223,10 @@ textarea.chat-input:focus-visible,
   animation: rise 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+.wallet-sheet {
+  animation: rise 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 @keyframes pulse-soft {
   0%,
   100% {

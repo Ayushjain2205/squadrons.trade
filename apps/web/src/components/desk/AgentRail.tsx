@@ -5,7 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 import { usePrivy, useWallets } from "@privy-io/react-auth";
 import { AgentOrb } from "@/components/AgentOrb";
 import { BrandMark } from "@/components/BrandMark";
+import { WalletIcon } from "@/components/WalletIcon";
 import { RailListSkeleton, SkeletonBone } from "@/components/desk/DeskSkeleton";
+import { WalletSheet } from "@/components/desk/WalletSheet";
 import { getMe, type AgentWithWorkspace } from "@/lib/host";
 import { clearSquadronsSession } from "@/lib/session";
 import { formatRelativeTime } from "@/lib/time";
@@ -28,6 +30,7 @@ export function AgentRail({
   loading?: boolean;
 }) {
   const [query, setQuery] = useState("");
+  const [walletOpen, setWalletOpen] = useState(false);
   const { logout } = usePrivy();
   const { wallets } = useWallets();
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
@@ -60,123 +63,136 @@ export function AgentRail({
     );
   }, [agents, query]);
 
+  function onLogout() {
+    setWalletOpen(false);
+    clearSquadronsSession();
+    void logout();
+  }
+
   return (
-    <aside className="flex h-full w-[min(100%,var(--rail-left))] shrink-0 flex-col border-r border-[var(--line-soft)] bg-[var(--rail)] max-md:absolute max-md:z-20 max-md:hidden md:relative md:flex">
-      <div className="shrink-0 space-y-3 p-3 pb-2">
-        <BrandMark />
-        <label className="relative block">
-          <span className="sr-only">Search agents</span>
-          <svg
-            aria-hidden
-            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--muted)]"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <circle cx="11" cy="11" r="7" />
-            <path d="M20 20l-3.5-3.5" strokeLinecap="round" />
-          </svg>
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search"
-            className="type-ui w-full rounded-xl border border-transparent bg-[var(--panel)] py-2.5 pl-10 pr-3 text-[var(--ink)] placeholder:text-[var(--muted)] transition focus:border-[var(--line)] focus:outline-none"
-          />
-        </label>
-      </div>
+    <>
+      <aside className="flex h-full w-[min(100%,var(--rail-left))] shrink-0 flex-col border-r border-[var(--line-soft)] bg-[var(--rail)] max-md:absolute max-md:z-20 max-md:hidden md:relative md:flex">
+        <div className="shrink-0 space-y-3 p-3 pb-2">
+          <BrandMark />
+          <label className="relative block">
+            <span className="sr-only">Search agents</span>
+            <svg
+              aria-hidden
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--muted)]"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="M20 20l-3.5-3.5" strokeLinecap="round" />
+            </svg>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search"
+              className="type-ui w-full rounded-xl border border-transparent bg-[var(--panel)] py-2.5 pl-10 pr-3 text-[var(--ink)] placeholder:text-[var(--muted)] transition focus:border-[var(--line)] focus:outline-none"
+            />
+          </label>
+        </div>
 
-      <div className="desk-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-        {loading ? (
-          <div aria-busy="true" aria-label="Loading agents">
-            <RailListSkeleton />
-          </div>
-        ) : filtered.length === 0 ? (
-          <p className="type-ui px-3 py-6 text-[var(--muted)]">
-            {agents.length === 0 ? "No agents yet." : "No matches."}
-          </p>
-        ) : (
-          <ul className="space-y-0.5">
-            {filtered.map((agent) => {
-              const active = agent.id === selectedId;
-              const preview = agent.description.trim() || "No description";
-              return (
-                <li key={agent.id}>
-                  <Link
-                    href={`/agents/${agent.id}`}
-                    className={`flex cursor-pointer gap-3 rounded-xl px-2.5 py-2.5 transition ${
-                      active
-                        ? "bg-[var(--panel-2)]"
-                        : "hover:bg-[var(--panel)]"
-                    }`}
-                  >
-                    <AgentOrb
-                      id={agent.avatarId}
-                      colorId={agent.colorId}
-                      size={40}
-                      className="shrink-0"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className="type-name truncate">{agent.name}</span>
-                        <span className="type-meta shrink-0">
-                          {formatRelativeTime(agent.updatedAt)}
-                        </span>
+        <div className="desk-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+          {loading ? (
+            <div aria-busy="true" aria-label="Loading agents">
+              <RailListSkeleton />
+            </div>
+          ) : filtered.length === 0 ? (
+            <p className="type-ui px-3 py-6 text-[var(--muted)]">
+              {agents.length === 0 ? "No agents yet." : "No matches."}
+            </p>
+          ) : (
+            <ul className="space-y-0.5">
+              {filtered.map((agent) => {
+                const active = agent.id === selectedId;
+                const preview = agent.description.trim() || "No description";
+                return (
+                  <li key={agent.id}>
+                    <Link
+                      href={`/agents/${agent.id}`}
+                      className={`flex cursor-pointer gap-3 rounded-xl px-2.5 py-2.5 transition ${
+                        active
+                          ? "bg-[var(--panel-2)]"
+                          : "hover:bg-[var(--panel)]"
+                      }`}
+                    >
+                      <AgentOrb
+                        id={agent.avatarId}
+                        colorId={agent.colorId}
+                        size={40}
+                        className="shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="type-name truncate">{agent.name}</span>
+                          <span className="type-meta shrink-0">
+                            {formatRelativeTime(agent.updatedAt)}
+                          </span>
+                        </div>
+                        <p className="type-meta mt-0.5 line-clamp-1 !text-[var(--ink-soft)]">
+                          {preview}
+                        </p>
                       </div>
-                      <p className="type-meta mt-0.5 line-clamp-1 !text-[var(--ink-soft)]">
-                        {preview}
-                      </p>
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
 
-      <div className="shrink-0 space-y-1 border-t border-[var(--line-soft)] p-3">
-        <Link
-          href="/agents/new"
-          className="type-ui flex cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-[var(--ink-soft)] transition hover:bg-[var(--panel)] hover:text-[var(--ink)]"
-        >
-          <span className="flex size-8 items-center justify-center rounded-lg bg-[var(--panel-2)] text-lg leading-none">
-            +
-          </span>
-          New agent
-        </Link>
-        <div className="type-ui flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-[var(--muted)]">
-          <span className="type-meta flex size-8 items-center justify-center rounded-full bg-[var(--panel-2)] font-semibold !text-[var(--ink-soft)]">
-            0x
-          </span>
-          <div className="min-w-0 flex-1">
-            {loading && !walletAddress ? (
-              <div className="space-y-1.5" aria-hidden>
-                <SkeletonBone className="h-3.5 w-28" />
-                <SkeletonBone className="h-2.5 w-14" />
+        <div className="shrink-0 space-y-1 border-t border-[var(--line-soft)] p-3">
+          <Link
+            href="/agents/new"
+            className="type-ui flex cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-[var(--ink-soft)] transition hover:bg-[var(--panel)] hover:text-[var(--ink)]"
+          >
+            <span className="flex size-8 items-center justify-center rounded-lg bg-[var(--panel-2)] text-lg leading-none">
+              +
+            </span>
+            New agent
+          </Link>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setWalletOpen(true)}
+              className="type-ui flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-[var(--muted)] transition hover:bg-[var(--panel)] hover:text-[var(--ink)]"
+              aria-haspopup="dialog"
+              aria-expanded={walletOpen}
+            >
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--panel-2)] text-[var(--ink-soft)]">
+                <WalletIcon size={16} />
+              </span>
+              <div className="min-w-0 flex-1">
+                {loading && !walletAddress ? (
+                  <div className="space-y-1.5" aria-hidden>
+                    <SkeletonBone className="h-3.5 w-28" />
+                    <SkeletonBone className="h-2.5 w-14" />
+                  </div>
+                ) : (
+                  <>
+                    <p className="type-data truncate !text-[length:var(--text-ui)] font-medium !text-[var(--ink-soft)]">
+                      {walletAddress
+                        ? truncateAddress(walletAddress)
+                        : "No wallet yet"}
+                    </p>
+                    <p className="type-meta">Wallet</p>
+                  </>
+                )}
               </div>
-            ) : (
-              <>
-                <p className="type-data truncate !text-[length:var(--text-ui)] font-medium !text-[var(--ink-soft)]">
-                  {walletAddress
-                    ? truncateAddress(walletAddress)
-                    : "No wallet yet"}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    clearSquadronsSession();
-                    void logout();
-                  }}
-                  className="type-meta cursor-pointer transition hover:!text-[var(--ink)]"
-                >
-                  Log out
-                </button>
-              </>
-            )}
+            </button>
+            <WalletSheet
+              open={walletOpen}
+              onClose={() => setWalletOpen(false)}
+              address={walletAddress}
+              onLogout={onLogout}
+            />
           </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }
