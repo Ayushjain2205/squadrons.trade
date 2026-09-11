@@ -6,8 +6,12 @@ import {
   isImprovementCadence,
   isOrbColorId,
   isSupportedChainId,
+  buildDraftFromTemplate,
+  getStrategyTemplate,
+  listStrategyTemplates,
   parseStrategyDraftInput,
   formatTradeOutcomeMessage,
+  templateMatchesChain,
 } from "@squadrons/shared";
 import {
   AuthError,
@@ -649,6 +653,130 @@ export function registerAgentRoutes(
       };
 
       req.on("close", close);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /** Curated strategy templates (chain-filtered). */
+  app.get("/v1/strategy/templates", async (req, res, next) => {
+    try {
+      await requireUser(req, users);
+      const rawChain = req.query.chainId;
+      let chainId: number | undefined;
+      if (rawChain !== undefined && String(rawChain).trim() !== "") {
+        const parsed = Number(rawChain);
+        if (!isSupportedChainId(parsed)) {
+          res.status(400).json({ ok: false, error: "unsupported chainId" });
+          return;
+        }
+        chainId = parsed;
+      }
+      res.json({
+        ok: true,
+        templates: listStrategyTemplates(chainId),
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /** Import a curated template as a strategy draft (does not Arm). */
+  app.post("/v1/agents/:id/strategy/from-template", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      const agentId = req.params.id;
+      if (!agentId) {
+        res.status(400).json({ ok: false, error: "missing agent id" });
+        return;
+      }
+
+      const existing = agents.getForUser(user.id, agentId);
+      if (!existing) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+
+      const body = req.body as {
+        templateId?: unknown;
+        params?: unknown;
+      };
+      const templateId =
+        typeof body.templateId === "string" ? body.templateId.trim() : "";
+      if (!templateId) {
+        res.status(400).json({ ok: false, error: "templateId is required" });
+        return;
+      }
+
+      const template = getStrategyTemplate(templateId);
+      if (!template) {
+        res.status(404).json({ ok: false, error: "template not found" });
+        return;
+      }
+      if (!templateMatchesChain(template, existing.chainId)) {
+        res.status(400).json({
+          ok: false,
+          error: "template is not available on this agent's home chain",
+        });
+        return;
+      }
+
+      if (existing.strategy?.status === "running") {
+        res.status(400).json({
+          ok: false,
+          error: "pause or disarm the strategy before importing a template",
+        });
+        return;
+      }
+
+      const paramOverrides =
+        body.params !== undefined &&
+        typeof body.params === "object" &&
+        body.params !== null &&
+        !Array.isArray(body.params)
+          ? (body.params as Record<string, unknown>)
+          : undefined;
+
+      // Only allow overrides for declared editable keys.
+      let safeOverrides: Record<string, unknown> | undefined;
+      if (paramOverrides) {
+        safeOverrides = {};
+        for (const key of template.editableKeys) {
+          if (paramOverrides[key] !== undefined) {
+            safeOverrides[key] = paramOverrides[key];
+          }
+        }
+      }
+
+      const draft = buildDraftFromTemplate(templateId, safeOverrides);
+      if (!draft) {
+        res.status(400).json({ ok: false, error: "invalid template params" });
+        return;
+      }
+
+      strategies.upsertDraft(existing.id, draft);
+      activity.publish({
+        agentId: existing.id,
+        kind: "info",
+        source: "system",
+        label: "Imported template",
+        detail: template.name,
+      });
+
+      const agent = agents.getForUser(user.id, existing.id);
+      const workspace = agentWorkspacePath(user.id, existing.id);
+      if (agent) await writeStrategyStateFile(workspace, agent);
+      res.json({
+        ok: true,
+        agent: agent
+          ? { ...agent, workspace }
+          : {
+              ...existing,
+              strategy: strategies.get(existing.id),
+              workspace,
+            },
+        template: { id: template.id, name: template.name },
+      });
     } catch (error) {
       next(error);
     }
