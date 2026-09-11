@@ -211,4 +211,32 @@ function migrate(db: Database.Database): void {
       `UPDATE trade_intents SET updated_at = created_at WHERE updated_at IS NULL`,
     );
   }
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS agent_plugins (
+      id TEXT PRIMARY KEY,
+      agent_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      catalog_id TEXT,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      server_name TEXT NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 0,
+      config_json TEXT NOT NULL DEFAULT '{}',
+      secrets_enc TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_agent_plugins_agent
+      ON agent_plugins (agent_id);
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_plugins_catalog
+      ON agent_plugins (agent_id, catalog_id)
+      WHERE catalog_id IS NOT NULL;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_plugins_server_name
+      ON agent_plugins (agent_id, server_name);
+  `);
 }
