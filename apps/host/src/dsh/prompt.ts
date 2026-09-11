@@ -32,8 +32,9 @@ export function buildAgentTurnPrompt(
   agent: Agent,
   userText: string,
   walletAddress?: string | null,
+  enabledPlugins?: string[],
 ): string {
-  return `${buildAgentIdentityBlock(agent, walletAddress)}\n\nUser message:\n${userText}`;
+  return `${buildAgentIdentityBlock(agent, walletAddress, enabledPlugins)}\n\nUser message:\n${userText}`;
 }
 
 /** Short user-only prompt once the session already carries conversation. */
@@ -54,6 +55,7 @@ export function buildContinuingTurnPrompt(
 export function buildAgentIdentityBlock(
   agent: Agent,
   walletAddress?: string | null,
+  enabledPlugins?: string[],
 ): string {
   const spendLabel =
     agent.spendMode === "observe"
@@ -73,10 +75,14 @@ export function buildAgentIdentityBlock(
       ? ["propose_strategy", "update_strategy_params", "get_strategy"]
       : []),
   ].join(", ");
+  const pluginNote =
+    enabledPlugins && enabledPlugins.length > 0
+      ? ` MCP plugins enabled: ${enabledPlugins.join(", ")} — tools appear as mcp__<server>__<tool>; use them when relevant.`
+      : "";
   const toolRule =
     readTools.length > 0
-      ? `- You may call: ${toolList}. get_wallet_balances is home-chain only (${homeChain}). get_spot_prices is USD spot reference (not executable). get_dex_quote (Base/Ethereum) is an indicative 0x route for stable↔ETH/WETH — observe-only, does not execute. search_x scouts X (free; rumor). Intel: get_trending_pools / get_token_pools / get_recent_trades (GeckoTerminal), get_stablecoin_market / get_dex_volumes (DefiLlama). Do not call web_search.`
-      : `- Limited tools on ${homeChain}. Use search_x + intel tools when available. Do not call web_search; do not invent numbers.`;
+      ? `- You may call: ${toolList}. get_wallet_balances is home-chain only (${homeChain}). get_spot_prices is USD spot reference (not executable). get_dex_quote (Base/Ethereum) is an indicative 0x route for stable↔ETH/WETH — observe-only, does not execute. search_x scouts X (free; rumor). Intel: get_trending_pools / get_token_pools / get_recent_trades (GeckoTerminal), get_stablecoin_market / get_dex_volumes (DefiLlama). Do not call web_search.${pluginNote}`
+      : `- Limited tools on ${homeChain}. Use search_x + intel tools when available. Do not call web_search; do not invent numbers.${pluginNote}`;
 
   const lines = [
     "You are a Squadrons crypto agent in an ongoing conversation.",

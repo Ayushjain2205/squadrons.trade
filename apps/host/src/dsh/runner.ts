@@ -46,6 +46,12 @@ export type DshTurnOptions = {
   model?: string;
   /** Extra Cordis patches beyond the Squadrons LLM patch. */
   patches?: string[];
+  /** Per-agent MCP secret env injected into the dsh child (never logged). */
+  pluginEnv?: Record<string, string>;
+  /** Hash of enabled MCP config — pool rebuilds when this changes. */
+  pluginsHash?: string;
+  /** Display names of enabled MCP plugins (cold-start prompt). */
+  enabledPluginNames?: string[];
   /** When false, skip the observe-mode tool lockdown (smoke only). */
   observeMode?: boolean;
   /**
@@ -75,6 +81,7 @@ type PooledRuntime = {
   walletAddress: string | null;
   provider: string;
   model: string;
+  pluginsHash: string;
 };
 
 const pool = new Map<string, PooledRuntime>();
@@ -125,6 +132,7 @@ function buildChildEnv(
   chainId: number,
   walletAddress?: string | null,
   mode?: string | null,
+  pluginEnv?: Record<string, string>,
 ): NodeJS.ProcessEnv {
   const childEnv: NodeJS.ProcessEnv = { ...process.env };
   delete childEnv.DSH_MODEL;
@@ -135,6 +143,11 @@ function buildChildEnv(
     childEnv.SQUADRONS_USER_WALLET = walletAddress;
   } else {
     delete childEnv.SQUADRONS_USER_WALLET;
+  }
+  if (pluginEnv) {
+    for (const [key, value] of Object.entries(pluginEnv)) {
+      childEnv[key] = value;
+    }
   }
   return childEnv;
 }
@@ -150,10 +163,11 @@ async function evict(agentId: string): Promise<void> {
   }
 }
 
-/** Drop a pooled runtime (e.g. after home-chain change). */
+/** Drop a pooled runtime (e.g. after home-chain or plugin change). */
 export async function invalidateAgentRuntime(agentId: string): Promise<void> {
   await evict(agentId);
   await evict(tickPoolKey(agentId));
+  await evict(`improve:${agentId}`);
 }
 
 /**
@@ -187,6 +201,7 @@ async function ensureRuntime(
   const poolKey = options.poolKey ?? options.agentId;
   const walletAddress = options.walletAddress ?? null;
   const mode = options.agent.mode === "operate" ? "operate" : "scout";
+  const pluginsHash = options.pluginsHash ?? "";
   const existing = pool.get(poolKey);
   if (
     existing &&
@@ -195,7 +210,8 @@ async function ensureRuntime(
     existing.mode === mode &&
     existing.walletAddress === walletAddress &&
     existing.provider === provider &&
-    existing.model === model
+    existing.model === model &&
+    existing.pluginsHash === pluginsHash
   ) {
     return existing;
   }
@@ -215,7 +231,12 @@ async function ensureRuntime(
     provider,
     model,
     patches,
-    env: buildChildEnv(options.agent.chainId, walletAddress, mode),
+    env: buildChildEnv(
+      options.agent.chainId,
+      walletAddress,
+      mode,
+      options.pluginEnv,
+    ),
     initializeTimeoutMs: 60_000,
   });
   try {
@@ -233,6 +254,7 @@ async function ensureRuntime(
     walletAddress,
     provider,
     model,
+    pluginsHash,
   };
   pool.set(poolKey, runtime);
   return runtime;
@@ -319,6 +341,10 @@ export async function runDshSelfImprovement(options: {
   }>;
   onActivity?: (event: NewActivityEvent) => void;
   onNotification?: DshTurnOptions["onNotification"];
+  patches?: string[];
+  pluginEnv?: Record<string, string>;
+  pluginsHash?: string;
+  enabledPluginNames?: string[];
 }): Promise<DshTurnResult> {
   const prompt = buildSelfImprovementPrompt(
     options.agent,
@@ -336,6 +362,10 @@ export async function runDshSelfImprovement(options: {
     onActivity: options.onActivity,
     onNotification: options.onNotification,
     promptMode: "raw",
+    patches: options.patches,
+    pluginEnv: options.pluginEnv,
+    pluginsHash: options.pluginsHash,
+    enabledPluginNames: options.enabledPluginNames,
   });
 }
 
@@ -344,6 +374,7 @@ function buildColdStartPrompt(options: DshTurnOptions): string {
     options.agent,
     options.userText,
     options.walletAddress,
+    options.enabledPluginNames,
   );
   const history = options.history
     ?.filter((m) => m.content.trim().length > 0)
