@@ -2,7 +2,7 @@
 
 ## World
 
-Grok Bot–like **operator desk**: near-black chrome, three columns, orb faces as identity. Operate mode — scanability over marketing.
+Grok Bot–like **operator desk**: near-black chrome, three columns, orb faces as identity. Scanability over marketing.
 
 ## Layout
 

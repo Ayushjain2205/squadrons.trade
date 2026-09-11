@@ -22,7 +22,7 @@ Not a chat with tools — a roster of characterful crypto agents with memory and
 
 - My Agents roster; create with fixed orb avatars + colors
 - Continuous per-agent chat (no mandatory goal intake)
-- Scout / Operate modes; Arm starts a host-run strategy loop
+- Chat drafts strategies; Arm starts a host-run strategy loop
 - Deterministic strategy **recipes** + params (not LLM-on-every-tick)
 - Optional **self-improvement** cadence → approve param patches in the desk
 - Live + historical activity trail (chat tools vs strategy ticks split by `source`)

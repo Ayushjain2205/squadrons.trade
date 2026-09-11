@@ -6,8 +6,7 @@ How Squadrons turns chat into a durable, host-run loop.
 
 | Layer | Who | Job |
 | --- | --- | --- |
-| **Scout** | Chat / LLM | Research only |
-| **Operate** | Chat / LLM | Author or edit strategy (recipe + params); can patch params live |
+| **Chat** | LLM | Research, dig, and author/edit strategy (recipe + params); can patch params live |
 | **Runtime** | Host | Wake on schedule/event → run **recipe** deterministically |
 | **Self-improvement** | Host + constrained LLM | On a strategy cadence, suggest param patches → desk **Approve / Dismiss** |
 
@@ -41,13 +40,13 @@ Recipes live in `apps/host/src/strategy/recipes/`. Catalog / param schemas live 
 ## Flow
 
 ```text
-Scout → Operate → propose_strategy (draft)
-                 → user Arms
-                 → host scheduler wakes due strategies
-                 → (event) edge check → quiet | fire
-                 → executeStrategyRecipe → Strategy activity
-                 → (optional) update_strategy_params while running
-                 → desk can toggle self-improvement cadence
+Chat → propose_strategy (draft)
+     → user Arms
+     → host scheduler wakes due strategies
+     → (event) edge check → quiet | fire
+     → executeStrategyRecipe → Strategy activity
+     → (optional) update_strategy_params while running
+     → desk can toggle self-improvement cadence
 
 If improvement.enabled:
   cadence due → self-improvement dsh review
@@ -56,7 +55,7 @@ If improvement.enabled:
              → or Dismiss
 ```
 
-## Tools (Operate / improvement)
+## Tools (chat / improvement)
 
 - `propose_strategy` — full draft (not while `running`; pause/disarm first)
 - `update_strategy_params` — live param patch (draft / paused / running)
@@ -93,4 +92,4 @@ The Strategy activity rail collapses quiet checks into a single “last check”
 1. Add id + param schema to `packages/shared/src/recipes.ts`
 2. Mirror validation in `packages/squadrons-strategy/validate.js`
 3. Add executor under `apps/host/src/strategy/recipes/` and register in `index.ts`
-4. Mention it in the Operate prompt (`apps/host/src/dsh/prompt.ts`)
+4. Mention it in the agent prompt (`apps/host/src/dsh/prompt.ts`)
