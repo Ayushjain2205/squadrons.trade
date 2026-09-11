@@ -228,7 +228,6 @@ function AgentContextSummary({
   }, [agent.id, strategyRunning]);
 
   function patchAgent(input: {
-    mode?: "scout" | "operate";
     spendMode?: "observe" | "spend_enabled";
   }) {
     if (posturePending || isWorking) return;
@@ -242,37 +241,6 @@ function AgentContextSummary({
         );
       }
     });
-  }
-
-  function requestModeChange(mode: "scout" | "operate") {
-    if (mode === agent.mode || posturePending || isWorking) return;
-    // Host rejects scout while strategy is running — offer pause + switch.
-    if (mode === "scout" && agent.strategy?.status === "running") {
-      setConfirm({
-        title: "Switch to Scout?",
-        body: "The strategy is running. Pausing it lets you scout without the host loop.",
-        confirmLabel: "Pause & switch",
-        onConfirm: () => {
-          setConfirm(null);
-          startPosture(async () => {
-            try {
-              const paused = await pauseStrategy(agent.id);
-              onAgentUpdatedRef.current?.(paused);
-              const updated = await updateAgent(agent.id, { mode: "scout" });
-              onAgentUpdatedRef.current?.(updated);
-            } catch (err) {
-              toast.error(
-                err instanceof Error
-                  ? err.message
-                  : "Could not switch to Scout",
-              );
-            }
-          });
-        },
-      });
-      return;
-    }
-    patchAgent({ mode });
   }
 
   function requestSpendChange(spendMode: "observe" | "spend_enabled") {
@@ -314,15 +282,6 @@ function AgentContextSummary({
           <ChainName chainId={agent.chainId} size={18} tipPlacement="right" />
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <HoverFlipToggle
-              value={agent.mode}
-              disabled={postureDisabled}
-              options={[
-                { id: "scout", label: "Scout" },
-                { id: "operate", label: "Operate" },
-              ]}
-              onChange={requestModeChange}
-            />
-            <HoverFlipToggle
               value={agent.spendMode}
               disabled={postureDisabled}
               options={[
@@ -336,7 +295,6 @@ function AgentContextSummary({
       </section>
 
       <StrategyCard
-        mode={agent.mode}
         spendMode={agent.spendMode}
         strategy={agent.strategy}
         agentId={agent.id}

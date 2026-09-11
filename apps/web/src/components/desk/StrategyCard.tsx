@@ -30,7 +30,6 @@ const IMPROVEMENT_ACTIVITY_LABELS = new Set([
 ]);
 
 export function StrategyCard({
-  mode,
   spendMode = "observe",
   strategy,
   agentId,
@@ -38,7 +37,6 @@ export function StrategyCard({
   onAction,
   onAgentUpdated,
 }: {
-  mode: "scout" | "operate";
   spendMode?: "observe" | "spend_enabled";
   strategy: Strategy | null;
   agentId: string;
@@ -155,7 +153,7 @@ export function StrategyCard({
     enabled?: boolean;
     cadence?: "hourly" | "daily" | "weekly";
   }) {
-    if (busy || mode !== "operate" || !strategy) return;
+    if (busy || !strategy) return;
     startTransition(async () => {
       try {
         const updated = await updateStrategyImprovement(agentId, patch);
@@ -176,17 +174,11 @@ export function StrategyCard({
           <StatusPill status="none" />
         </div>
         <p className="type-meta text-[var(--muted)]">
-          {mode === "operate"
-            ? "Draft a plan in chat. When it’s saved, Arm it here."
-            : "Scout first. Switch to Operate when you’re ready to arm a plan."}
+          Draft a plan in chat. When it’s saved, Arm it here.
         </p>
         <PrimaryButton
           disabled
-          title={
-            mode === "operate"
-              ? "Waiting for a strategy draft"
-              : "Switch to Operate after scouting"
-          }
+          title="Waiting for a strategy draft"
         >
           Arm strategy
         </PrimaryButton>
@@ -208,22 +200,18 @@ export function StrategyCard({
     strategy.action.type === "propose_trade" ? "Propose trade" : "Alert";
 
   const canArm =
-    mode === "operate" &&
     !needsRecipe &&
     (strategy.status === "draft" || strategy.status === "paused");
   const canPause = strategy.status === "running";
-  const canResume =
-    mode === "operate" && !needsRecipe && strategy.status === "paused";
+  const canResume = !needsRecipe && strategy.status === "paused";
   const canDisarm =
     strategy.status === "running" || strategy.status === "paused";
 
   const armHint = needsRecipe
-    ? "Ask Operate for a recipe-backed plan first"
-    : mode !== "operate"
-      ? "Switch to Operate to arm"
-      : spendMode === "observe"
-        ? "Arms in observe mode — alerts only"
-        : "Arms with spend enabled — still policy-gated";
+    ? "Ask chat for a recipe-backed plan first"
+    : spendMode === "observe"
+      ? "Arms in observe mode — alerts only"
+      : "Arms with spend enabled — still policy-gated";
 
   const proposalPreview = proposal
     ? Object.entries(proposal.patch)
@@ -260,7 +248,7 @@ export function StrategyCard({
 
       {needsRecipe ? (
         <p className="type-meta text-[var(--danger)]">
-          This draft has no recipe. In Operate, ask for a recipe-backed plan
+          This draft has no recipe. Ask chat for a recipe-backed plan
           before Arm.
         </p>
       ) : null}
@@ -365,13 +353,11 @@ export function StrategyCard({
             disabled={busy || !canResume}
             onClick={() => run("resume")}
             title={
-              mode !== "operate"
-                ? "Switch to Operate to resume"
-                : needsRecipe
-                  ? armHint
-                  : agentWorking
-                    ? "Wait for the chat turn to finish"
-                    : undefined
+              needsRecipe
+                ? armHint
+                : agentWorking
+                  ? "Wait for the chat turn to finish"
+                  : undefined
             }
           >
             {pending ? "Resuming…" : "Resume"}
@@ -413,7 +399,7 @@ export function StrategyCard({
           <div className="mt-2 space-y-2 border-t border-[var(--line-soft)] pt-2">
             <div>
               <p className="type-meta text-[var(--muted)]">Self-improvement</p>
-              {mode === "operate" && !needsRecipe ? (
+              {!needsRecipe ? (
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <button
                     type="button"

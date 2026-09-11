@@ -8,7 +8,6 @@ import {
   parseTradeOutcomeMarker,
   stripAllowanceApprovalMarker,
   stripTradeOutcomeMarker,
-  type AgentMode,
   type AvatarId,
   type OrbColorId,
 } from "@squadrons/shared";
@@ -22,7 +21,6 @@ import {
   pauseAgent,
   sendMessage,
   subscribeActivity,
-  updateAgent,
   type AgentMessage,
   type AgentWithWorkspace,
   type TradeIntentRecord,
@@ -54,7 +52,6 @@ export function AgentChat({
   const [draft, setDraft] = useState("");
   const [pending, startTransition] = useTransition();
   const [pausing, setPausing] = useState(false);
-  const [modePending, setModePending] = useState(false);
   const toast = useToast();
   const { ensureHostSigner } = useHostSigner();
   const [liveSteps, setLiveSteps] = useState<ChatToolStep[]>([]);
@@ -309,19 +306,6 @@ export function AgentChat({
     }
   }
 
-  async function onModeChange(mode: AgentMode) {
-    if (modePending || mode === agent.mode || isWorking) return;
-    setModePending(true);
-    try {
-      const updated = await updateAgent(agent.id, { mode });
-      applyAgent(updated);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Mode switch failed");
-    } finally {
-      setModePending(false);
-    }
-  }
-
   function onKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -329,12 +313,8 @@ export function AgentChat({
     }
   }
 
-  const placeholder =
-    agent.mode === "operate"
-      ? `Define or steer ${agent.name}'s strategy…`
-      : `Scout with ${agent.name}…`;
+  const placeholder = `Message ${agent.name}…`;
   const isWorking = pending || agent.status === "working";
-  const modeDisabled = pending || modePending || isWorking;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -476,11 +456,6 @@ export function AgentChat({
             disabled={pending}
             className="chat-input type-body max-h-32 min-h-10 flex-1 resize-none bg-transparent py-2.5 text-[var(--ink)] placeholder:text-[var(--muted)] outline-none ring-0 disabled:opacity-60"
           />
-          <ModeChooser
-            mode={agent.mode}
-            disabled={modeDisabled}
-            onChange={(mode) => void onModeChange(mode)}
-          />
           {isWorking ? (
             <button
               type="button"
@@ -507,211 +482,6 @@ export function AgentChat({
         </form>
       </div>
     </div>
-  );
-}
-
-const MODE_META: Record<
-  AgentMode,
-  { label: string; hint: string; color: string; colorDim: string }
-> = {
-  scout: {
-    label: "Scout",
-    hint: "Research and dig",
-    color: "var(--link)",
-    colorDim: "color-mix(in srgb, var(--link) 16%, transparent)",
-  },
-  operate: {
-    label: "Operate",
-    hint: "Shape and run strategy",
-    color: "var(--accent)",
-    colorDim: "color-mix(in srgb, var(--accent) 16%, transparent)",
-  },
-};
-
-function ModeChooser({
-  mode,
-  disabled,
-  onChange,
-}: {
-  mode: AgentMode;
-  disabled?: boolean;
-  onChange: (mode: AgentMode) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const meta = MODE_META[mode];
-
-  useEffect(() => {
-    if (!open) return;
-    function onPointerDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  useEffect(() => {
-    if (disabled) setOpen(false);
-  }, [disabled]);
-
-  return (
-    <div ref={rootRef} className="relative mb-0.5 shrink-0">
-      <button
-        type="button"
-        disabled={disabled}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={`Mode: ${meta.label}`}
-        title={meta.label}
-        onClick={() => setOpen((value) => !value)}
-        className="flex h-10 cursor-pointer items-center gap-1.5 rounded-full px-2.5 transition hover:bg-[var(--panel)] disabled:cursor-not-allowed disabled:opacity-50"
-        style={{ color: meta.color }}
-      >
-        <span
-          className="flex size-6 items-center justify-center rounded-full"
-          style={{ background: meta.colorDim }}
-          aria-hidden
-        >
-          <ModeIcon mode={mode} />
-        </span>
-        <span className="type-meta hidden capitalize sm:inline">{meta.label}</span>
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          className={`opacity-70 transition ${open ? "rotate-180" : ""}`}
-          aria-hidden
-        >
-          <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-
-      {open ? (
-        <div
-          role="listbox"
-          aria-label="Desk mode"
-          className="absolute bottom-[calc(100%+0.5rem)] right-0 z-30 min-w-[11.5rem] overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--panel-2)] py-1 shadow-[0_12px_40px_rgba(0,0,0,0.45)]"
-        >
-          {(["scout", "operate"] as const).map((value) => {
-            const option = MODE_META[value];
-            const selected = mode === value;
-            return (
-              <button
-                key={value}
-                type="button"
-                role="option"
-                aria-selected={selected}
-                onClick={() => {
-                  setOpen(false);
-                  if (!selected) onChange(value);
-                }}
-                className={`flex w-full cursor-pointer items-center gap-2.5 px-3 py-2.5 text-left transition hover:bg-[var(--panel)] ${
-                  selected ? "bg-[var(--panel)]" : ""
-                }`}
-              >
-                <span
-                  className="flex size-7 shrink-0 items-center justify-center rounded-full"
-                  style={{
-                    color: option.color,
-                    background: option.colorDim,
-                  }}
-                  aria-hidden
-                >
-                  <ModeIcon mode={value} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span
-                    className="type-ui block font-medium"
-                    style={{ color: selected ? option.color : "var(--ink)" }}
-                  >
-                    {option.label}
-                  </span>
-                  <span className="type-meta block text-[var(--muted)]">
-                    {option.hint}
-                  </span>
-                </span>
-                {selected ? (
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke={option.color}
-                    strokeWidth="2.5"
-                    aria-hidden
-                  >
-                    <path
-                      d="M5 13l4 4L19 7"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function ModeIcon({ mode }: { mode: AgentMode }) {
-  if (mode === "operate") {
-    return (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <circle
-          cx="12"
-          cy="12"
-          r="7.5"
-          stroke="currentColor"
-          strokeWidth="1.75"
-        />
-        <circle cx="12" cy="12" r="2.25" fill="currentColor" />
-        <path
-          d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21"
-          stroke="currentColor"
-          strokeWidth="1.75"
-          strokeLinecap="round"
-        />
-      </svg>
-    );
-  }
-
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle
-        cx="10.5"
-        cy="10.5"
-        r="6"
-        stroke="currentColor"
-        strokeWidth="1.75"
-      />
-      <path
-        d="M15 15l5 5"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-      />
-      <path
-        d="M8.2 10.5h4.6M10.5 8.2v4.6"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
   );
 }
 
