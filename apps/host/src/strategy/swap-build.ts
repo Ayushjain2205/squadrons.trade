@@ -5,6 +5,19 @@ import { resolveKnownToken } from "./recipes/tokens.js";
 export const ZEROEX_NATIVE_TOKEN =
   "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" as const;
 
+/** Chains where 0x AllowanceHolder quotes / swap builds are enabled.
+ * Keep in sync with packages/squadrons-defi/chains.js + shared policy.
+ * How to add a chain: packages/squadrons-defi/README.md
+ */
+export const DEX_QUOTE_CHAIN_IDS = [
+  DEFAULT_POLICY.defaultChainId,
+  1,
+] as const;
+
+export function supportsDexQuote(chainId: number): boolean {
+  return (DEX_QUOTE_CHAIN_IDS as readonly number[]).includes(chainId);
+}
+
 export type TradePlan = {
   chainId: number;
   walletAddress: string | null;
@@ -48,10 +61,10 @@ function isAddress(value: string | null | undefined): value is `0x${string}` {
   return typeof value === "string" && /^0x[a-fA-F0-9]{40}$/.test(value);
 }
 
-function usdcAmountUnits(amountUsd: number): string {
-  // Base / Ethereum USDC are 6 decimals. Cap already enforced upstream.
-  const units = Math.round(amountUsd * 1e6);
-  if (!(units > 0)) throw new Error("USDC amount rounds to zero");
+function stableAmountUnits(amountUsd: number, decimals: number): string {
+  const scale = 10 ** decimals;
+  const units = Math.round(amountUsd * scale);
+  if (!(units > 0)) throw new Error("Stable amount rounds to zero");
   return String(units);
 }
 
@@ -69,16 +82,22 @@ function resolveAssetToken(
   return { address: known.address, symbol: known.symbol };
 }
 
-function resolveUsdc(chainId: number): { address: string; symbol: string } | null {
-  const known = resolveKnownToken(chainId, "USDC");
-  if (!known) return null;
-  return { address: known.address, symbol: known.symbol };
+/** Quote stable for USD notional (USDC preferred, else USDG). */
+function resolveQuoteStable(
+  chainId: number,
+): { address: string; symbol: string; decimals: number } | null {
+  const usdc = resolveKnownToken(chainId, "USDC");
+  if (usdc) return usdc;
+  const usdg = resolveKnownToken(chainId, "USDG");
+  if (usdg) return usdg;
+  return null;
 }
 
 /**
- * Map a capped USD trade plan to a 0x AllowanceHolder quote on Base.
- * buy  → sell USDC for asset (exact-in USDC)
- * sell → sell asset for USDC (exact-out USDC)
+ * Map a capped USD trade plan to a 0x AllowanceHolder quote.
+ * buy  → sell stable for asset (exact-in stable)
+ * sell → sell asset for stable (exact-out stable)
+ * Enabled on {@link DEX_QUOTE_CHAIN_IDS} (Base + Ethereum). Live broadcast may still be Base-only.
  */
 export async function buildSwapFromPlan(
   plan: TradePlan,
@@ -88,10 +107,10 @@ export async function buildSwapFromPlan(
     return { ok: false, reason: "ZEROEX_API_KEY is not set" };
   }
 
-  if (plan.chainId !== DEFAULT_POLICY.defaultChainId) {
+  if (!supportsDexQuote(plan.chainId)) {
     return {
       ok: false,
-      reason: `Swap builder only supports Base (${DEFAULT_POLICY.defaultChainId})`,
+      reason: `Swap builder does not support chain ${plan.chainId} (enabled: Base, Ethereum)`,
     };
   }
 
@@ -104,7 +123,7 @@ export async function buildSwapFromPlan(
   }
 
   const asset = resolveAssetToken(plan.chainId, plan.symbol);
-  const usdc = resolveUsdc(plan.chainId);
+  const stable = resolveQuoteStable(plan.chainId);
   if (!asset) {
     return {
       ok: false,
@@ -113,15 +132,18 @@ export async function buildSwapFromPlan(
         : "Trade plan needs a symbol",
     };
   }
-  if (!usdc) {
-    return { ok: false, reason: `No USDC mapping on chain ${plan.chainId}` };
+  if (!stable) {
+    return { ok: false, reason: `No quote stable on chain ${plan.chainId}` };
   }
 
-  if (asset.address.toLowerCase() === usdc.address.toLowerCase()) {
-    return { ok: false, reason: "Cannot swap USDC for USDC" };
+  if (asset.address.toLowerCase() === stable.address.toLowerCase()) {
+    return {
+      ok: false,
+      reason: `Cannot swap ${stable.symbol} for ${stable.symbol}`,
+    };
   }
 
-  const usdcUnits = usdcAmountUnits(plan.amountUsd);
+  const notionalUnits = stableAmountUnits(plan.amountUsd, stable.decimals);
   const params = new URLSearchParams({
     chainId: String(plan.chainId),
     taker: plan.walletAddress,
@@ -129,13 +151,13 @@ export async function buildSwapFromPlan(
   });
 
   if (plan.side === "buy") {
-    params.set("sellToken", usdc.address);
+    params.set("sellToken", stable.address);
     params.set("buyToken", asset.address);
-    params.set("sellAmount", usdcUnits);
+    params.set("sellAmount", notionalUnits);
   } else {
     params.set("sellToken", asset.address);
-    params.set("buyToken", usdc.address);
-    params.set("buyAmount", usdcUnits);
+    params.set("buyToken", stable.address);
+    params.set("buyAmount", notionalUnits);
   }
 
   const url = `https://api.0x.org/swap/allowance-holder/quote?${params}`;

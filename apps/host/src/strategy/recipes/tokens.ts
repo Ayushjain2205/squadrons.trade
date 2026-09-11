@@ -1,4 +1,7 @@
-/** Known ERC-20s for deterministic balance recipes (mirrors squadrons-defi). */
+/** Known ERC-20s for deterministic balance recipes (mirrors squadrons-defi).
+ * When adding a chain for quotes, update this map and follow
+ * packages/squadrons-defi/README.md
+ */
 
 export type KnownToken = {
   address: `0x${string}`;

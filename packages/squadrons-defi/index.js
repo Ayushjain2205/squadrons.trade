@@ -11,13 +11,14 @@ import {
   defaultTokenSymbols,
   resolveAgentChainConfig,
   resolveRpcUrl,
+  supportsDexQuote,
 } from "./chains.js";
 import {
-  BASE_CHAIN_ID,
   DEFAULT_SLIPPAGE_BPS,
   MAX_TRADE_USD,
   fetchDexQuote,
   isZeroExConfigured,
+  quotableAssetSymbols,
 } from "./zeroex-quote.js";
 
 /** Cordis plugin id / package export name. */
@@ -318,23 +319,26 @@ export function apply(ctx) {
     }),
   );
 
-  if (home.chainId === BASE_CHAIN_ID) {
+  if (supportsDexQuote(home.chainId)) {
+    const assets = quotableAssetSymbols(home.chainId).join(", ");
+    const stableSym =
+      home.tokens.USDC?.symbol || home.tokens.USDG?.symbol || "USDC";
     ctx.tools.register(
       defineTool({
         name: "get_dex_quote",
-        description: `Read-only: indicative 0x DEX quote on Base for USDC↔ETH/WETH (same route language as desk trades). buy = spend USDC for the asset; sell = sell asset for USDC (USD notional). Caps: max $${MAX_TRADE_USD}, default slippage ${DEFAULT_SLIPPAGE_BPS} bps. Does NOT execute. Requires ZEROEX_API_KEY and a taker wallet.`,
+        description: `Read-only: indicative 0x DEX quote on ${home.shortName} for ${stableSym}↔${assets} (same route language as desk trades). buy = spend ${stableSym} for the asset; sell = sell asset for ${stableSym} (USD notional). Caps: max $${MAX_TRADE_USD}, default slippage ${DEFAULT_SLIPPAGE_BPS} bps. Does NOT execute. Requires ZEROEX_API_KEY and a taker wallet.`,
         parameters: {
           side: {
             type: "string",
-            description: 'Trade side: "buy" (USDC→asset) or "sell" (asset→USDC).',
+            description: `Trade side: "buy" (${stableSym}→asset) or "sell" (asset→${stableSym}).`,
           },
           symbol: {
             type: "string",
-            description: "Asset symbol: ETH or WETH (not USDC).",
+            description: `Asset symbol: ${assets} (not ${stableSym}).`,
           },
           amountUsd: {
             type: "number",
-            description: `USD notional (USDC), max ${MAX_TRADE_USD}.`,
+            description: `USD notional (${stableSym}), max ${MAX_TRADE_USD}.`,
           },
           address: {
             type: "string",
@@ -374,7 +378,7 @@ export function apply(ctx) {
           const symbol =
             typeof args.symbol === "string" ? args.symbol.trim() : "";
           if (!symbol) {
-            throw new Error("symbol is required (ETH or WETH)");
+            throw new Error(`symbol is required (${assets})`);
           }
           const amountUsd = Number(args.amountUsd);
           const address = resolveAddress(args.address);
@@ -394,7 +398,7 @@ export function apply(ctx) {
         },
         presentCall: (args) => ({
           card: "generic",
-          title: "Get DEX quote (Base / 0x)",
+          title: `Get DEX quote (${home.shortName} / 0x)`,
           kind: "other",
           rawInput: args,
         }),

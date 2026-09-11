@@ -138,3 +138,31 @@ export function resolveRpcUrl(config) {
 export function defaultTokenSymbols(config) {
   return [config.nativeSymbol, ...Object.keys(config.tokens)];
 }
+
+/**
+ * Chains where get_dex_quote / 0x AllowanceHolder swaps are enabled.
+ * Keep in sync with packages/shared policy + apps/host swap-build.
+ * How to add a chain: see ./README.md
+ * Robinhood (4663) omitted until 0x + USDG routing are verified.
+ */
+export const DEX_QUOTE_CHAIN_IDS = [8453, 1];
+
+/**
+ * @param {number} chainId
+ */
+export function supportsDexQuote(chainId) {
+  return DEX_QUOTE_CHAIN_IDS.includes(chainId);
+}
+
+/**
+ * Quote currency for USD-notional swaps on a chain (USDC preferred, else USDG).
+ * @param {number} chainId
+ * @returns {Erc20Token | null}
+ */
+export function resolveQuoteStable(chainId) {
+  const config = CHAIN_TOOL_CONFIGS[chainId];
+  if (!config) return null;
+  if (config.tokens.USDC) return { ...config.tokens.USDC };
+  if (config.tokens.USDG) return { ...config.tokens.USDG };
+  return null;
+}

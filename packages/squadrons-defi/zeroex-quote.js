@@ -1,15 +1,19 @@
 /**
  * 0x AllowanceHolder quote client for observe-mode get_dex_quote.
  * Mirrors apps/host/src/strategy/swap-build.ts (keep behavior in sync).
+ * Chain-generic for any home chain in DEX_QUOTE_CHAIN_IDS (stable↔ETH/WETH).
  * Returns projected quote fields only — never agent-facing calldata.
  */
 
 import { formatUnits } from "viem";
-import { CHAIN_TOOL_CONFIGS } from "./chains.js";
+import {
+  CHAIN_TOOL_CONFIGS,
+  resolveQuoteStable,
+  supportsDexQuote,
+} from "./chains.js";
 
 const ZEROEX_NATIVE =
   "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
-const BASE_CHAIN_ID = 8453;
 const MAX_TRADE_USD = 10;
 const DEFAULT_SLIPPAGE_BPS = 50;
 
@@ -24,8 +28,9 @@ function isAddr(value) {
 /**
  * @param {number} chainId
  * @param {string} symbol
+ * @param {{ address: string, symbol: string, decimals: number }} stable
  */
-function resolveAsset(chainId, symbol) {
+function resolveAsset(chainId, symbol, stable) {
   const config = CHAIN_TOOL_CONFIGS[chainId];
   if (!config) return null;
   const upper = symbol.trim().toUpperCase();
@@ -36,8 +41,8 @@ function resolveAsset(chainId, symbol) {
       decimals: 18,
     };
   }
-  if (upper === "USDC" && config.tokens.USDC) {
-    return { ...config.tokens.USDC };
+  if (upper === stable.symbol.toUpperCase()) {
+    return null; // caller rejects stable↔stable
   }
   if (config.tokens[upper]) {
     return { ...config.tokens[upper] };
@@ -47,27 +52,30 @@ function resolveAsset(chainId, symbol) {
 
 /**
  * @param {number} amountUsd
+ * @param {number} decimals
  */
-function usdcUnits(amountUsd) {
-  const units = Math.round(amountUsd * 1e6);
-  if (!(units > 0)) throw new Error("USDC amount rounds to zero");
+function stableUnits(amountUsd, decimals) {
+  const scale = 10 ** decimals;
+  const units = Math.round(amountUsd * scale);
+  if (!(units > 0)) throw new Error("Stable amount rounds to zero");
   return String(units);
 }
 
 /**
+ * @param {number} chainId
  * @param {string} address
  * @param {{ address: string, symbol: string, decimals: number }} asset
- * @param {{ address: string, symbol: string, decimals: number }} usdc
+ * @param {{ address: string, symbol: string, decimals: number }} stable
  */
-function metaForAddress(address, asset, usdc) {
+function metaForAddress(chainId, address, asset, stable) {
   const lower = address.toLowerCase();
   if (lower === ZEROEX_NATIVE.toLowerCase()) {
     return { symbol: "ETH", decimals: 18 };
   }
-  if (lower === usdc.address.toLowerCase()) {
-    return { symbol: "USDC", decimals: usdc.decimals };
+  if (lower === stable.address.toLowerCase()) {
+    return { symbol: stable.symbol, decimals: stable.decimals };
   }
-  const weth = CHAIN_TOOL_CONFIGS[BASE_CHAIN_ID]?.tokens.WETH;
+  const weth = CHAIN_TOOL_CONFIGS[chainId]?.tokens.WETH;
   if (weth && lower === weth.address.toLowerCase()) {
     return { symbol: "WETH", decimals: weth.decimals };
   }
@@ -75,6 +83,21 @@ function metaForAddress(address, asset, usdc) {
     return { symbol: asset.symbol, decimals: asset.decimals };
   }
   return { symbol: "TOKEN", decimals: 18 };
+}
+
+/**
+ * Quotable asset symbols for a chain (excludes the quote stable).
+ * @param {number} chainId
+ */
+export function quotableAssetSymbols(chainId) {
+  const config = CHAIN_TOOL_CONFIGS[chainId];
+  const stable = resolveQuoteStable(chainId);
+  if (!config || !stable) return ["ETH"];
+  const out = ["ETH"];
+  for (const sym of Object.keys(config.tokens)) {
+    if (sym !== stable.symbol) out.push(sym);
+  }
+  return out;
 }
 
 /**
@@ -96,9 +119,17 @@ export async function fetchDexQuote(plan, signal) {
     );
   }
 
-  if (plan.chainId !== BASE_CHAIN_ID) {
+  const config = CHAIN_TOOL_CONFIGS[plan.chainId];
+  if (!config || !supportsDexQuote(plan.chainId)) {
     throw new Error(
-      `get_dex_quote only supports Base (${BASE_CHAIN_ID}); home chain is ${plan.chainId}`,
+      `get_dex_quote is not enabled for chainId ${plan.chainId}. Supported: Base, Ethereum.`,
+    );
+  }
+
+  const stable = resolveQuoteStable(plan.chainId);
+  if (!stable) {
+    throw new Error(
+      `No quote stable (USDC/USDG) configured for ${config.shortName}`,
     );
   }
 
@@ -137,20 +168,20 @@ export async function fetchDexQuote(plan, signal) {
     throw new Error("slippageBps must be an integer from 1 to 500");
   }
 
-  const asset = resolveAsset(plan.chainId, plan.symbol);
-  const usdc = resolveAsset(plan.chainId, "USDC");
+  const asset = resolveAsset(plan.chainId, plan.symbol, stable);
   if (!asset) {
+    const known = quotableAssetSymbols(plan.chainId).join(", ");
     throw new Error(
-      `Unsupported symbol ${plan.symbol} on Base. Known: ETH, WETH, USDC`,
+      `Unsupported symbol ${plan.symbol} on ${config.shortName}. Known: ${known}`,
     );
   }
-  if (!usdc) {
-    throw new Error("No USDC mapping on Base");
-  }
-  if (asset.symbol === "USDC") {
-    throw new Error("Cannot quote USDC ↔ USDC; pass ETH or WETH as symbol");
+  if (asset.symbol.toUpperCase() === stable.symbol.toUpperCase()) {
+    throw new Error(
+      `Cannot quote ${stable.symbol} ↔ ${stable.symbol}; pass ETH or WETH as symbol`,
+    );
   }
 
+  const notionalUnits = stableUnits(plan.amountUsd, stable.decimals);
   const params = new URLSearchParams({
     chainId: String(plan.chainId),
     taker: plan.walletAddress,
@@ -158,13 +189,13 @@ export async function fetchDexQuote(plan, signal) {
   });
 
   if (plan.side === "buy") {
-    params.set("sellToken", usdc.address);
+    params.set("sellToken", stable.address);
     params.set("buyToken", asset.address);
-    params.set("sellAmount", usdcUnits(plan.amountUsd));
+    params.set("sellAmount", notionalUnits);
   } else {
     params.set("sellToken", asset.address);
-    params.set("buyToken", usdc.address);
-    params.set("buyAmount", usdcUnits(plan.amountUsd));
+    params.set("buyToken", stable.address);
+    params.set("buyAmount", notionalUnits);
   }
 
   const url = `https://api.0x.org/swap/allowance-holder/quote?${params}`;
@@ -208,8 +239,13 @@ export async function fetchDexQuote(plan, signal) {
   const sellTokenAddr = String(payload.sellToken ?? "");
   const buyTokenAddr = String(payload.buyToken ?? "");
 
-  const sellMeta = metaForAddress(sellTokenAddr, asset, usdc);
-  const buyMeta = metaForAddress(buyTokenAddr, asset, usdc);
+  const sellMeta = metaForAddress(
+    plan.chainId,
+    sellTokenAddr,
+    asset,
+    stable,
+  );
+  const buyMeta = metaForAddress(plan.chainId, buyTokenAddr, asset, stable);
 
   const sellFormatted =
     sellAmount != null
@@ -250,7 +286,8 @@ export async function fetchDexQuote(plan, signal) {
     source: "0x",
     kind: "dex_quote",
     chainId: plan.chainId,
-    chain: "Base",
+    chain: config.name,
+    quoteStable: stable.symbol,
     side: plan.side,
     symbol: asset.symbol,
     amountUsd: plan.amountUsd,
@@ -275,7 +312,7 @@ export async function fetchDexQuote(plan, signal) {
     gasEstimate: gas,
     zid: typeof payload.zid === "string" ? payload.zid : null,
     asOf: new Date().toISOString(),
-    note: "Indicative 0x AllowanceHolder quote on Base. Observe-only — does not execute. Confirm spend mode + desk gates before any trade.",
+    note: `Indicative 0x AllowanceHolder quote on ${config.shortName} (${stable.symbol} notional). Observe-only — does not execute. Confirm spend mode + desk gates before any trade.`,
   };
 }
 
@@ -283,4 +320,4 @@ export function isZeroExConfigured() {
   return Boolean(process.env.ZEROEX_API_KEY?.trim());
 }
 
-export { MAX_TRADE_USD, DEFAULT_SLIPPAGE_BPS, BASE_CHAIN_ID };
+export { MAX_TRADE_USD, DEFAULT_SLIPPAGE_BPS };

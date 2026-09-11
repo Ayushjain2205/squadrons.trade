@@ -52,17 +52,32 @@ export const CHAIN_SCOPED_READ_TOOLS = [
   "get_spot_prices",
 ] as const;
 
-/** Base-only DEX quote (0x). Included when home chain is Base. */
-export const BASE_DEX_QUOTE_TOOLS = ["get_dex_quote"] as const;
+/**
+ * 0x DEX quote tool. Enabled when chainId ∈ DEX_QUOTE_CHAIN_IDS
+ * (keep in sync with packages/squadrons-defi/chains.js + host swap-build).
+ * How to add a chain: packages/squadrons-defi/README.md
+ * Live broadcast may still be Base-only in the executor.
+ */
+export const DEX_QUOTE_TOOLS = ["get_dex_quote"] as const;
+
+/** @deprecated Use DEX_QUOTE_TOOLS */
+export const BASE_DEX_QUOTE_TOOLS = DEX_QUOTE_TOOLS;
 
 export type ChainScopedReadTool = (typeof CHAIN_SCOPED_READ_TOOLS)[number];
-export type BaseDexQuoteTool = (typeof BASE_DEX_QUOTE_TOOLS)[number];
+export type DexQuoteTool = (typeof DEX_QUOTE_TOOLS)[number];
+
+/** Keep in sync with packages/squadrons-defi DEX_QUOTE_CHAIN_IDS. */
+const DEX_QUOTE_CHAIN_IDS: readonly SupportedChainId[] = [8453, 1];
+
+export function supportsDexQuote(chainId: number): boolean {
+  return DEX_QUOTE_CHAIN_IDS.includes(chainId as SupportedChainId);
+}
 
 export function chainScopedReadTools(
   chainId: SupportedChainId,
-): readonly (ChainScopedReadTool | BaseDexQuoteTool)[] {
-  if (chainId === DEFAULT_POLICY.defaultChainId) {
-    return [...CHAIN_SCOPED_READ_TOOLS, ...BASE_DEX_QUOTE_TOOLS];
+): readonly (ChainScopedReadTool | DexQuoteTool)[] {
+  if (supportsDexQuote(chainId)) {
+    return [...CHAIN_SCOPED_READ_TOOLS, ...DEX_QUOTE_TOOLS];
   }
   return CHAIN_SCOPED_READ_TOOLS;
 }
