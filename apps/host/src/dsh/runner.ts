@@ -1,6 +1,4 @@
 import { mkdir } from "node:fs/promises";
-import { existsSync } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { DeepSeekHarness } from "@deepseek-ai/dsh-sdk-client";
 import type { Agent } from "@squadrons/shared";
@@ -16,6 +14,12 @@ import { mapNotificationToActivity } from "./activity-map.js";
 import type { NewActivityEvent } from "../agents/activity.js";
 import type { Strategy } from "@squadrons/shared";
 import type { HarnessNotification } from "./activity-map.js";
+import {
+  explainDshInitError,
+  resolveDshHome,
+  runDshPreflight,
+  type DshPreflightResult,
+} from "./preflight.js";
 
 export type DshTurnResult = {
   sessionId: string;
@@ -77,6 +81,17 @@ const pool = new Map<string, PooledRuntime>();
 /** Serialize turns per agent so concurrent POSTs cannot interleave on one session. */
 const turnLocks = new Map<string, Promise<unknown>>();
 
+let cachedPreflight: DshPreflightResult | null = null;
+
+export function getCachedDshPreflight(): DshPreflightResult | null {
+  return cachedPreflight;
+}
+
+export async function refreshDshPreflight(): Promise<DshPreflightResult> {
+  cachedPreflight = await runDshPreflight();
+  return cachedPreflight;
+}
+
 async function withAgentTurnLock<T>(
   agentId: string,
   fn: () => Promise<T>,
@@ -89,14 +104,6 @@ async function withAgentTurnLock<T>(
   } finally {
     if (turnLocks.get(agentId) === run) turnLocks.delete(agentId);
   }
-}
-
-function defaultDshHome(): string {
-  if (process.env.DSH_HOME) return process.env.DSH_HOME;
-  // Prefer a workspace-local dsh home when present (reliable OpenRouter + plugins).
-  const localHome = path.join(hostRoot, "data", "dsh-home");
-  if (existsSync(localHome)) return localHome;
-  return path.join(os.homedir(), ".dsh");
 }
 
 function resolveRoute(options: Pick<DshTurnOptions, "provider" | "model">): {
@@ -201,7 +208,7 @@ async function ensureRuntime(
 
   const harness = new DeepSeekHarness({
     profile: "sdk",
-    dshHome: defaultDshHome(),
+    dshHome: resolveDshHome(),
     cwd: options.workspace,
     // Subprocess cwd must match the agent workspace — tools use process.cwd().
     processCwd: options.workspace,
@@ -211,7 +218,11 @@ async function ensureRuntime(
     env: buildChildEnv(options.agent.chainId, walletAddress, mode),
     initializeTimeoutMs: 60_000,
   });
-  await harness.start();
+  try {
+    await harness.start();
+  } catch (error) {
+    throw explainDshInitError(error, cachedPreflight);
+  }
 
   const runtime: PooledRuntime = {
     harness,
@@ -377,7 +388,7 @@ export async function runDshSmoke(options: {
 
   await using harness = new DeepSeekHarness({
     profile: "sdk",
-    dshHome: defaultDshHome(),
+    dshHome: resolveDshHome(),
     cwd: workspace,
     provider,
     model,
@@ -386,9 +397,14 @@ export async function runDshSmoke(options: {
     initializeTimeoutMs: 60_000,
   });
 
-  const result = await harness.run(
-    options.prompt ?? "Reply with exactly: squadrons-dsh-ok",
-  );
+  let result;
+  try {
+    result = await harness.run(
+      options.prompt ?? "Reply with exactly: squadrons-dsh-ok",
+    );
+  } catch (error) {
+    throw explainDshInitError(error, cachedPreflight);
+  }
   const turnError = findTurnError(result.events);
   if (turnError) throw new Error(turnError);
 

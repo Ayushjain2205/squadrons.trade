@@ -47,6 +47,18 @@ pnpm dev:host
 - Web: http://localhost:3000
 - Host: http://localhost:8787
 
+### dsh profile (OpenRouter + Cordis plugins)
+
+Host uses workspace-local `apps/host/data/dsh-home` (not `~/.dsh`). Cordis plugins live in `packages/squadrons-{defi,strategy,social}` and must list `@deepseek-ai/dsh-tools` as a **dependency** so Node can resolve imports when the profile `link:`s them.
+
+```bash
+pnpm dsh:check    # fail closed if plugins/peers/DSH_HOME look broken
+pnpm dsh:repair   # rewrite local sdk profile + OpenRouter patch
+pnpm --filter @squadrons/host dsh:link   # ensure plugins are bundled
+```
+
+Host runs `dsh:check` on startup and refuses to listen if the tree is broken (override with `SQUADRONS_DSH_SKIP_PREFLIGHT=1`). `/health` includes a `dsh` block. Scripts live under `apps/host/scripts/dsh/`.
+
 ## Step 1 — dsh smoke
 
 Requires a working `sdk` profile (`dsh --profile sdk --help`).
@@ -86,4 +98,4 @@ pnpm dev:web
 # open http://localhost:3000 — log in, then list / create agents
 ```
 
-New agents start idle with a short greeting. The host keeps a long-lived dsh harness + session per agent in-process (new session after host restart or home-chain change). Context pressure uses dsh’s built-in `@deepseek-ai/dsh-compaction-basic` from the `sdk` profile (`dsh-base`) — no custom summarizer. Mid-turn tool activity streams over SSE (`GET /v1/agents/:id/events`) and is persisted in SQLite (`GET /v1/agents/:id/activity`). Observe-mode dsh patch disables shell/fs/subagents; keeps web/todo/goal/skill plus **`get_wallet_balances`** (home-chain scoped) and **`get_spot_prices`** (USD reference) from `packages/squadrons-defi`.
+New agents start idle with a short greeting. The host keeps a long-lived dsh harness + session per agent in-process (new session after host restart or home-chain change). Context pressure uses dsh’s built-in `@deepseek-ai/dsh-compaction-basic` from the `sdk` profile (`dsh-base`) — no custom summarizer. Mid-turn tool activity streams over SSE (`GET /v1/agents/:id/events`) and is persisted in SQLite (`GET /v1/agents/:id/activity`). Observe-mode dsh patch disables shell/fs/subagents; keeps web/todo/goal/skill plus **`get_wallet_balances`** / **`get_spot_prices`** (`packages/squadrons-defi`) and **`search_x`** (`packages/squadrons-social` — web search + `site:x.com`).

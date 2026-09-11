@@ -25,7 +25,11 @@ import { AgentStore } from "./agents/store.js";
 import { StrategyStore } from "./agents/strategy-store.js";
 import { UserStore } from "./auth/privy.js";
 import { openDatabase } from "./db.js";
-import { closeAllAgentRuntimes, runDshSmoke } from "./dsh/runner.js";
+import { closeAllAgentRuntimes, runDshSmoke, refreshDshPreflight } from "./dsh/runner.js";
+import {
+  formatPreflightFailure,
+  type DshPreflightResult,
+} from "./dsh/preflight.js";
 import { startStrategyScheduler } from "./strategy/scheduler.js";
 import { startImprovementScheduler } from "./strategy/improvement.js";
 import { ImprovementProposalStore } from "./strategy/improvement-store.js";
@@ -37,6 +41,33 @@ import { isTenderlyConfigured } from "./strategy/tenderly.js";
 
 const port = Number(process.env.PORT ?? 8787);
 const host = process.env.HOST ?? "0.0.0.0";
+
+const skipPreflight =
+  process.env.SQUADRONS_DSH_SKIP_PREFLIGHT === "1" ||
+  process.env.SQUADRONS_DSH_SKIP_PREFLIGHT === "true";
+
+let dshPreflight: DshPreflightResult | null = null;
+if (!skipPreflight) {
+  dshPreflight = await refreshDshPreflight();
+  if (!dshPreflight.ok) {
+    console.error(formatPreflightFailure(dshPreflight));
+    if (process.env.SQUADRONS_DSH_PREFLIGHT_STRICT !== "0") {
+      console.error(
+        "[host] Refusing to listen with a broken dsh tree. Fix issues above, or set SQUADRONS_DSH_SKIP_PREFLIGHT=1 to bypass (not recommended).",
+      );
+      process.exit(1);
+    }
+    console.warn(
+      "[host] Continuing despite dsh preflight failures (SQUADRONS_DSH_PREFLIGHT_STRICT=0).",
+    );
+  } else {
+    console.log(
+      `[host] dsh preflight ok (home=${dshPreflight.dshHome}, plugins=${dshPreflight.issues.length === 0 ? "ready" : "n/a"})`,
+    );
+  }
+} else {
+  console.warn("[host] dsh preflight skipped (SQUADRONS_DSH_SKIP_PREFLIGHT=1)");
+}
 
 const db = openDatabase();
 const strategies = new StrategyStore(db);
@@ -78,6 +109,15 @@ app.get("/health", (_req, res) => {
     zeroex: isZeroExConfigured(),
     tenderly: isTenderlyConfigured(),
     privyBroadcast: isPrivyBroadcastConfigured(),
+    dsh: dshPreflight
+      ? {
+          ok: dshPreflight.ok,
+          home: dshPreflight.dshHome,
+          usingWorkspaceHome: dshPreflight.usingWorkspaceHome,
+          issues: dshPreflight.issues,
+          checkedAt: dshPreflight.checkedAt,
+        }
+      : { ok: null, skipped: true },
   });
 });
 

@@ -11,7 +11,9 @@
     "dev:host": "pnpm --filter @squadrons/host dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "lint": "pnpm -r lint"
+    "lint": "pnpm -r lint",
+    "dsh:check": "pnpm --filter @squadrons/host dsh:check",
+    "dsh:repair": "pnpm --filter @squadrons/host dsh:repair"
   },
   "pnpm": {
     "overrides": {
