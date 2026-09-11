@@ -103,26 +103,67 @@ export function apply(ctx) {
           maxResults = n;
         }
 
-        const webQuery = buildXWebQuery(query);
-        const result = await freeWebSearch(
-          webQuery,
-          maxResults,
-          exec.signal,
+        // Prefer simple site:x.com — Bing often ignores OR site: groups.
+        const queryVariants = [
+          `site:x.com ${query}`,
+          `site:twitter.com ${query}`,
+          buildXWebQuery(query),
+        ];
+
+        /** @type {string[]} */
+        const errors = [];
+        /** @type {null | { webQuery: string, provider: string, sources: ReturnType<typeof projectSource>[], truncated: boolean }} */
+        let fallback = null;
+
+        for (const webQuery of queryVariants) {
+          try {
+            const result = await freeWebSearch(
+              webQuery,
+              maxResults,
+              exec.signal,
+            );
+            const projected = result.sources.map(projectSource);
+            const onX = projected.filter((s) => s.onX);
+            if (onX.length > 0) {
+              return {
+                query,
+                webQuery,
+                provider: result.provider,
+                note: "Via free keyless web search + site:x.com — not the X API and not DeepSeek web_search. Snippets may be stale or off-platform; treat as rumor.",
+                sources: onX,
+                truncated: Boolean(result.truncated),
+              };
+            }
+            if (!fallback && projected.length > 0) {
+              fallback = {
+                webQuery,
+                provider: result.provider,
+                sources: projected,
+                truncated: Boolean(result.truncated),
+              };
+            }
+            errors.push(`${webQuery}: 0 on-X URLs`);
+          } catch (err) {
+            errors.push(
+              err instanceof Error ? err.message : `search failed for ${webQuery}`,
+            );
+          }
+        }
+
+        if (fallback) {
+          return {
+            query,
+            webQuery: fallback.webQuery,
+            provider: fallback.provider,
+            note: "Via free keyless web search — providers ignored site:x.com for this query; results may be off-platform. Treat as rumor.",
+            sources: fallback.sources,
+            truncated: fallback.truncated,
+          };
+        }
+
+        throw new Error(
+          `search_x found no results. Tried: ${errors.join("; ")}`,
         );
-
-        const projected = result.sources.map(projectSource);
-        const onX = projected.filter((s) => s.onX);
-        // Prefer on-X hits; if site: was ignored, fall back to all.
-        const sources = onX.length > 0 ? onX : projected;
-
-        return {
-          query,
-          webQuery,
-          provider: result.provider,
-          note: "Via free keyless web search + site:x.com — not the X API and not DeepSeek web_search. Snippets may be stale or off-platform; treat as rumor.",
-          sources,
-          truncated: Boolean(result.truncated),
-        };
       },
     }),
   );

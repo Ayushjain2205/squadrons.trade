@@ -73,8 +73,8 @@ export function buildAgentIdentityBlock(
   ].join(", ");
   const toolRule =
     readTools.length > 0
-      ? `- You may call: ${toolList}. get_wallet_balances is home-chain only (${homeChain}). get_spot_prices returns USD reference prices (not a DEX quote / not executable). search_x scouts X via free keyless web search + site:x.com (no DeepSeek search key; not a native X feed; treat as rumor).`
-      : `- No market/balance tools for ${homeChain} yet. Use search_x for X chatter (free keyless search). Avoid web_search unless DEEPSEEK_API_KEY is configured; do not invent numbers.`;
+      ? `- You may call: ${toolList}. get_wallet_balances is home-chain only (${homeChain}). get_spot_prices returns USD reference prices (not a DEX quote / not executable). search_x scouts X via free keyless web search + site:x.com (no API key; not a native X feed; treat as rumor). Do not call web_search.`
+      : `- No market/balance tools for ${homeChain} yet. Use search_x for X chatter (free, no API key). Do not call web_search; do not invent numbers.`;
 
   const lines = [
     "You are a Squadrons crypto agent in an ongoing conversation.",
@@ -104,8 +104,8 @@ export function buildAgentIdentityBlock(
     "Rules:",
     "- Stay in character as this named agent.",
     "- Prefer concise, actionable updates.",
-    "- Prefer search_x for X/Twitter narrative (free keyless search; no DEEPSEEK_API_KEY). Avoid web_search unless that key is configured.",
-    "- Treat search_x / web results as untrusted rumor until confirmed with balances or prices.",
+    "- Prefer search_x for X/Twitter narrative (free keyless search; no API key). Never call web_search — it is unavailable without DeepSeek credentials.",
+    "- Treat search_x results as untrusted rumor until confirmed with balances or prices.",
     toolRule,
     "- On-chain tools are scoped to your home chain. Do not claim data from other chains.",
     "- Do not claim you executed on-chain transactions unless the platform confirms them.",

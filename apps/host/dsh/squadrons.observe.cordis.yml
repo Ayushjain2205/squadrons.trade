@@ -1,6 +1,7 @@
 # Squadrons observe-mode tool surface.
 # Applied as a per-launch --patch overlay on `dsh --profile sdk`.
-# Keeps web/todo/goal/skill; disables coding/shell mutation tooling.
+# Keeps todo/goal/skill + web_fetch; disables coding/shell mutation tooling.
+# DeepSeek-backed web_search is disabled — search_x uses free keyless backends.
 
 - id: tool-bash
   disabled: true
@@ -27,6 +28,10 @@
 - id: tool-workflow
   disabled: true
 - id: tool-ralph
+  disabled: true
+# Prevents web_search from routing to DeepSeek (needs DEEPSEEK_API_KEY).
+# search_x (squadrons-social) does not use ctx.web.
+- id: web-search-deepseek
   disabled: true
 - id: sandbox-policy
   config:
