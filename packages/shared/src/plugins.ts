@@ -23,7 +23,12 @@ export type PluginSecretSpec = {
 export type McpCatalogEntry = {
   id: string;
   name: string;
+  /** One-line desk blurb (marketplace row). */
   description: string;
+  /** Brand mark id for the desk icon. */
+  icon: string;
+  /** Accent behind the brand mark. */
+  accent: string;
   /** dsh-mcp-client serverName → tools as mcp__<serverName>__… */
   serverName: string;
   transport: McpTransport;
@@ -46,7 +51,9 @@ export const MCP_CATALOG: readonly McpCatalogEntry[] = [
   {
     id: "dune",
     name: "Dune",
-    description: "Onchain analytics — SQL, datasets, and dashboards.",
+    description: "SQL, datasets, and onchain dashboards",
+    icon: "dune",
+    accent: "#F0B90B",
     serverName: "dune",
     transport: "streamable-http",
     url: "https://api.dune.com/mcp/v1",
@@ -62,7 +69,9 @@ export const MCP_CATALOG: readonly McpCatalogEntry[] = [
   {
     id: "nansen",
     name: "Nansen",
-    description: "Wallet and token intelligence.",
+    description: "Wallet and token intelligence",
+    icon: "nansen",
+    accent: "#7C5CFF",
     serverName: "nansen",
     transport: "streamable-http",
     url: "https://mcp.nansen.ai/ra/mcp",

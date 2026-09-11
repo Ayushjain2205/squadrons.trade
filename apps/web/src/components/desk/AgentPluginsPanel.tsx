@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import type { AgentPluginView } from "@squadrons/shared";
+import { useEffect, useMemo, useState } from "react";
+import { getMcpCatalogEntry, type AgentPluginView } from "@squadrons/shared";
 import {
   createCustomPlugin,
   deleteAgentPlugin,
@@ -10,6 +10,14 @@ import {
   upsertCatalogPlugin,
 } from "@/lib/host";
 import { useToast } from "@/components/Toast";
+import { PluginBrandIcon } from "./PluginBrandIcon";
+
+type Sheet =
+  | { kind: "install-catalog"; plugin: AgentPluginView }
+  | { kind: "manage-catalog"; plugin: AgentPluginView }
+  | { kind: "manage-custom"; plugin: AgentPluginView }
+  | { kind: "add-custom" }
+  | null;
 
 export function AgentPluginsPanel({
   agentId,
@@ -19,19 +27,9 @@ export function AgentPluginsPanel({
   onClose: () => void;
 }) {
   const [plugins, setPlugins] = useState<AgentPluginView[] | null>(null);
-  const [pending, startTransition] = useTransition();
-  const [showCustom, setShowCustom] = useState(false);
+  const [query, setQuery] = useState("");
+  const [sheet, setSheet] = useState<Sheet>(null);
   const toast = useToast();
-
-  function reload() {
-    startTransition(async () => {
-      try {
-        setPlugins(await listAgentPlugins(agentId));
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Failed to load plugins");
-      }
-    });
-  }
 
   useEffect(() => {
     let cancelled = false;
@@ -41,7 +39,9 @@ export function AgentPluginsPanel({
       })
       .catch((err) => {
         if (!cancelled) {
-          toast.error(err instanceof Error ? err.message : "Failed to load plugins");
+          toast.error(
+            err instanceof Error ? err.message : "Failed to load plugins",
+          );
         }
       });
     return () => {
@@ -49,100 +49,252 @@ export function AgentPluginsPanel({
     };
   }, [agentId, toast]);
 
-  const catalog = plugins?.filter((p) => p.kind === "catalog") ?? [];
-  const custom = plugins?.filter((p) => p.kind === "custom") ?? [];
+  const installed = useMemo(
+    () => (plugins ?? []).filter((p) => p.enabled && p.configured),
+    [plugins],
+  );
+
+  const q = query.trim().toLowerCase();
+  const catalog = useMemo(() => {
+    const rows = (plugins ?? []).filter((p) => p.kind === "catalog");
+    if (!q) return rows;
+    return rows.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q),
+    );
+  }, [plugins, q]);
+
+  const custom = useMemo(() => {
+    const rows = (plugins ?? []).filter((p) => p.kind === "custom");
+    if (!q) return rows;
+    return rows.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.serverName.toLowerCase().includes(q),
+    );
+  }, [plugins, q]);
+
+  function replacePlugin(next: AgentPluginView) {
+    setPlugins((prev) => {
+      if (!prev) return [next];
+      if (next.kind === "catalog" && next.catalogId) {
+        return prev.map((p) =>
+          p.catalogId === next.catalogId ? next : p,
+        );
+      }
+      return prev.map((p) => (p.id === next.id ? next : p));
+    });
+  }
+
+  function removePlugin(id: string) {
+    setPlugins((prev) => (prev ? prev.filter((p) => p.id !== id) : prev));
+  }
+
+  if (sheet?.kind === "install-catalog") {
+    return (
+      <InstallCatalogSheet
+        agentId={agentId}
+        plugin={sheet.plugin}
+        onBack={() => setSheet(null)}
+        onInstalled={(next) => {
+          replacePlugin(next);
+          setSheet(null);
+        }}
+        onError={(message) => toast.error(message)}
+      />
+    );
+  }
+
+  if (sheet?.kind === "manage-catalog") {
+    return (
+      <ManageCatalogSheet
+        agentId={agentId}
+        plugin={sheet.plugin}
+        onBack={() => setSheet(null)}
+        onUpdated={(next) => {
+          replacePlugin(next);
+          if (!next.enabled) setSheet(null);
+        }}
+        onError={(message) => toast.error(message)}
+      />
+    );
+  }
+
+  if (sheet?.kind === "manage-custom") {
+    return (
+      <ManageCustomSheet
+        agentId={agentId}
+        plugin={sheet.plugin}
+        onBack={() => setSheet(null)}
+        onUpdated={(next) => {
+          replacePlugin(next);
+          if (!next.enabled) setSheet(null);
+        }}
+        onDeleted={() => {
+          removePlugin(sheet.plugin.id);
+          setSheet(null);
+        }}
+        onError={(message) => toast.error(message)}
+      />
+    );
+  }
+
+  if (sheet?.kind === "add-custom") {
+    return (
+      <AddCustomSheet
+        agentId={agentId}
+        onBack={() => setSheet(null)}
+        onCreated={(next) => {
+          setPlugins((prev) => (prev ? [...prev, next] : [next]));
+          setSheet(null);
+        }}
+        onError={(message) => toast.error(message)}
+      />
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <p className="type-meta text-[var(--muted)]">
-        Optional MCP connectors for this agent. Keys stay on the host and never
-        enter chat.
-      </p>
+    <div className="flex min-h-0 flex-1 flex-col gap-5">
+      <label className="relative block">
+        <span className="sr-only">Search plugins</span>
+        <SearchIcon className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[var(--muted)]" />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search plugins"
+          className="type-ui w-full rounded-full border-0 bg-[var(--panel-2)] py-2.5 pr-3 pl-9 text-[var(--ink)] outline-none placeholder:text-[var(--muted)] focus:ring-1 focus:ring-[var(--line)]"
+        />
+      </label>
 
-      <section className="space-y-3">
-        <h3 className="type-label">Catalog</h3>
-        {plugins === null ? (
-          <p className="type-meta text-[var(--muted)]">Loading…</p>
-        ) : (
-          catalog.map((plugin) => (
-            <CatalogPluginRow
-              key={plugin.catalogId ?? plugin.id}
-              agentId={agentId}
-              plugin={plugin}
-              busy={pending}
-              onUpdated={(next) => {
-                setPlugins((prev) =>
-                  prev
-                    ? prev.map((p) =>
-                        p.catalogId === next.catalogId ? next : p,
+      {plugins === null ? (
+        <p className="type-meta text-[var(--muted)]">Loading…</p>
+      ) : (
+        <>
+          {installed.length > 0 ? (
+            <section className="space-y-2">
+              <h3 className="type-label flex items-center gap-1 text-[var(--ink-soft)]">
+                Installed
+                <ChevronRightIcon />
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {installed.map((plugin) => (
+                  <button
+                    key={plugin.id}
+                    type="button"
+                    title={plugin.name}
+                    aria-label={`Manage ${plugin.name}`}
+                    onClick={() =>
+                      setSheet(
+                        plugin.kind === "custom"
+                          ? { kind: "manage-custom", plugin }
+                          : { kind: "manage-catalog", plugin },
                       )
-                    : prev,
-                );
-              }}
-              onError={(message) => toast.error(message)}
-            />
-          ))
-        )}
-      </section>
+                    }
+                    className="cursor-pointer rounded-2xl bg-[var(--panel-2)] p-1.5 transition hover:bg-[var(--panel)]"
+                  >
+                    <PluginBrandIcon
+                      catalogId={plugin.catalogId}
+                      name={plugin.name}
+                      icon={plugin.kind === "custom" ? "custom" : undefined}
+                      accent={
+                        plugin.kind === "custom" ? "#3f3f46" : undefined
+                      }
+                      size={36}
+                    />
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
-      <section className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="type-label">Custom MCP</h3>
-          <button
-            type="button"
-            onClick={() => setShowCustom((v) => !v)}
-            className="type-meta cursor-pointer text-[var(--accent)] transition hover:opacity-80"
-          >
-            {showCustom ? "Cancel" : "Add"}
-          </button>
-        </div>
+          <section className="space-y-1">
+            <h3 className="type-label mb-2 text-[var(--ink-soft)]">Available</h3>
+            {catalog.map((plugin) => {
+              const live = plugin.enabled && plugin.configured;
+              return (
+                <PluginRow
+                  key={plugin.catalogId ?? plugin.id}
+                  name={plugin.name}
+                  description={plugin.description}
+                  catalogId={plugin.catalogId}
+                  onClick={() =>
+                    setSheet(
+                      live
+                        ? { kind: "manage-catalog", plugin }
+                        : { kind: "install-catalog", plugin },
+                    )
+                  }
+                  action={
+                    live ? (
+                      <MoreButton
+                        label={`Manage ${plugin.name}`}
+                        onClick={() =>
+                          setSheet({ kind: "manage-catalog", plugin })
+                        }
+                      />
+                    ) : (
+                      <PlusButton
+                        label={`Add ${plugin.name}`}
+                        onClick={() =>
+                          setSheet({ kind: "install-catalog", plugin })
+                        }
+                      />
+                    )
+                  }
+                />
+              );
+            })}
 
-        {showCustom ? (
-          <CustomPluginForm
-            agentId={agentId}
-            busy={pending}
-            onCreated={(plugin) => {
-              setPlugins((prev) => (prev ? [...prev, plugin] : [plugin]));
-              setShowCustom(false);
-            }}
-            onError={(message) => toast.error(message)}
-          />
-        ) : null}
+            {custom.map((plugin) => (
+              <PluginRow
+                key={plugin.id}
+                name={plugin.name}
+                description={`mcp__${plugin.serverName}__…`}
+                icon="custom"
+                accent="#3f3f46"
+                onClick={() => setSheet({ kind: "manage-custom", plugin })}
+                action={
+                  <MoreButton
+                    label={`Manage ${plugin.name}`}
+                    onClick={() =>
+                      setSheet({ kind: "manage-custom", plugin })
+                    }
+                  />
+                }
+              />
+            ))}
 
-        {custom.length === 0 && !showCustom ? (
-          <p className="type-meta text-[var(--muted)]">
-            No custom servers yet.
-          </p>
-        ) : (
-          custom.map((plugin) => (
-            <CustomPluginRow
-              key={plugin.id}
-              agentId={agentId}
-              plugin={plugin}
-              busy={pending}
-              onUpdated={(next) => {
-                setPlugins((prev) =>
-                  prev
-                    ? prev.map((p) => (p.id === next.id ? next : p))
-                    : prev,
-                );
-              }}
-              onDeleted={() => {
-                setPlugins((prev) =>
-                  prev ? prev.filter((p) => p.id !== plugin.id) : prev,
-                );
-                reload();
-              }}
-              onError={(message) => toast.error(message)}
-            />
-          ))
-        )}
-      </section>
+            {!q ? (
+              <PluginRow
+                name="Custom MCP"
+                description="Connect any HTTP MCP server"
+                icon="custom"
+                accent="#27272a"
+                onClick={() => setSheet({ kind: "add-custom" })}
+                action={
+                  <PlusButton
+                    label="Add custom MCP"
+                    onClick={() => setSheet({ kind: "add-custom" })}
+                  />
+                }
+              />
+            ) : null}
+
+            {catalog.length === 0 && custom.length === 0 ? (
+              <p className="type-meta px-1 py-3 text-[var(--muted)]">
+                No plugins match “{query}”.
+              </p>
+            ) : null}
+          </section>
+        </>
+      )}
 
       <button
         type="button"
         onClick={onClose}
-        className="type-ui cursor-pointer rounded-full px-4 py-2 text-[var(--muted)] transition hover:bg-[var(--panel)] hover:text-[var(--ink)]"
+        className="type-ui mt-auto cursor-pointer self-start rounded-full px-3 py-1.5 text-[var(--muted)] transition hover:bg-[var(--panel)] hover:text-[var(--ink)]"
       >
         Done
       </button>
@@ -150,179 +302,307 @@ export function AgentPluginsPanel({
   );
 }
 
-function CatalogPluginRow({
+function PluginRow({
+  name,
+  description,
+  catalogId,
+  icon,
+  accent,
+  action,
+  onClick,
+}: {
+  name: string;
+  description: string;
+  catalogId?: string | null;
+  icon?: string;
+  accent?: string;
+  action: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <div className="group flex items-center gap-3 rounded-2xl px-1.5 py-2 transition hover:bg-[var(--panel-2)]">
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+      >
+        <PluginBrandIcon
+          catalogId={catalogId}
+          icon={icon}
+          accent={accent}
+          name={name}
+          size={40}
+        />
+        <span className="min-w-0">
+          <span className="type-ui block truncate font-medium text-[var(--ink)]">
+            {name}
+          </span>
+          <span className="type-meta block truncate text-[var(--muted)]">
+            {description}
+          </span>
+        </span>
+      </button>
+      <div className="shrink-0">{action}</div>
+    </div>
+  );
+}
+
+function InstallCatalogSheet({
   agentId,
   plugin,
-  busy,
-  onUpdated,
+  onBack,
+  onInstalled,
   onError,
 }: {
   agentId: string;
   plugin: AgentPluginView;
-  busy: boolean;
-  onUpdated: (plugin: AgentPluginView) => void;
+  onBack: () => void;
+  onInstalled: (plugin: AgentPluginView) => void;
   onError: (message: string) => void;
 }) {
+  const entry = getMcpCatalogEntry(plugin.catalogId ?? "");
+  const secretKey = plugin.secretSpecs[0]?.key ?? "API_KEY";
   const [keyDraft, setKeyDraft] = useState("");
   const [saving, setSaving] = useState(false);
-  const catalogId = plugin.catalogId!;
-  const secretKey = plugin.secretSpecs[0]?.key ?? "API_KEY";
-  const hasKey = plugin.secretsSet.includes(secretKey);
 
-  async function save(enabled: boolean, secrets?: Record<string, string>) {
+  async function install(event: React.FormEvent) {
+    event.preventDefault();
+    if (!plugin.catalogId) return;
+    if (!keyDraft.trim()) {
+      onError("Paste an API key to connect");
+      return;
+    }
     setSaving(true);
     try {
-      const updated = await upsertCatalogPlugin(agentId, catalogId, {
-        enabled,
-        secrets,
+      const updated = await upsertCatalogPlugin(agentId, plugin.catalogId, {
+        enabled: true,
+        secrets: { [secretKey]: keyDraft.trim() },
       });
-      onUpdated(updated);
-      setKeyDraft("");
+      onInstalled(updated);
     } catch (err) {
-      onError(err instanceof Error ? err.message : "Save failed");
+      onError(err instanceof Error ? err.message : "Install failed");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="space-y-2 border-b border-[var(--line)] pb-3 last:border-0">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="type-ui text-[var(--ink)]">{plugin.name}</p>
-          <p className="type-meta text-[var(--muted)]">{plugin.description}</p>
-          {plugin.docsUrl ? (
-            <a
-              href={plugin.docsUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="type-meta text-[var(--accent)] hover:underline"
-            >
-              Docs
-            </a>
-          ) : null}
-        </div>
-        <Toggle
-          checked={plugin.enabled}
-          disabled={busy || saving || (!plugin.enabled && !hasKey && !keyDraft.trim())}
-          onChange={(next) => {
-            if (next && !hasKey && !keyDraft.trim()) {
-              onError("Paste an API key first");
-              return;
-            }
-            const secrets = keyDraft.trim()
-              ? { [secretKey]: keyDraft.trim() }
-              : undefined;
-            void save(next, secrets);
-          }}
-        />
-      </div>
-      <label className="block space-y-1">
-        <span className="type-meta text-[var(--muted)]">
-          {plugin.secretSpecs[0]?.label ?? "API key"}
-          {hasKey ? " · saved" : ""}
-        </span>
-        <input
-          type="password"
-          autoComplete="off"
-          placeholder={hasKey ? "•••••••• (leave blank to keep)" : "Paste key"}
+    <SheetFrame
+      title={plugin.name}
+      subtitle="Add your key to connect this MCP server."
+      catalogId={plugin.catalogId}
+      onBack={onBack}
+    >
+      <form onSubmit={install} className="space-y-4">
+        <Field
+          label={plugin.secretSpecs[0]?.label ?? "API key"}
           value={keyDraft}
-          onChange={(e) => setKeyDraft(e.target.value)}
-          className="type-ui w-full rounded-lg border border-[var(--line)] bg-[var(--panel)] px-3 py-2 text-[var(--ink)] outline-none focus:border-[var(--accent)]"
+          onChange={setKeyDraft}
+          placeholder="Paste key"
+          type="password"
+          required
         />
-      </label>
-      {keyDraft.trim() ? (
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() =>
-            void save(plugin.enabled || Boolean(keyDraft.trim()), {
-              [secretKey]: keyDraft.trim(),
-            })
-          }
-          className="type-meta cursor-pointer text-[var(--accent)] disabled:opacity-50"
-        >
-          {saving ? "Saving…" : "Save key"}
-        </button>
-      ) : null}
-    </div>
+        {entry?.docsUrl ? (
+          <a
+            href={entry.docsUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="type-meta text-[var(--link)] hover:underline"
+          >
+            Get an API key →
+          </a>
+        ) : null}
+        <div className="flex gap-2 pt-1">
+          <button
+            type="submit"
+            disabled={saving}
+            className="type-ui cursor-pointer rounded-full bg-[var(--ink)] px-4 py-2 font-semibold text-[var(--canvas)] transition hover:opacity-90 disabled:opacity-60"
+          >
+            {saving ? "Connecting…" : "Connect"}
+          </button>
+          <button
+            type="button"
+            onClick={onBack}
+            className="type-ui cursor-pointer rounded-full px-4 py-2 text-[var(--muted)] transition hover:bg-[var(--panel)] hover:text-[var(--ink)]"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </SheetFrame>
   );
 }
 
-function CustomPluginRow({
+function ManageCatalogSheet({
   agentId,
   plugin,
-  busy,
+  onBack,
+  onUpdated,
+  onError,
+}: {
+  agentId: string;
+  plugin: AgentPluginView;
+  onBack: () => void;
+  onUpdated: (plugin: AgentPluginView) => void;
+  onError: (message: string) => void;
+}) {
+  const secretKey = plugin.secretSpecs[0]?.key ?? "API_KEY";
+  const [keyDraft, setKeyDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function saveKey() {
+    if (!plugin.catalogId || !keyDraft.trim()) return;
+    setSaving(true);
+    try {
+      const updated = await upsertCatalogPlugin(agentId, plugin.catalogId, {
+        enabled: plugin.enabled,
+        secrets: { [secretKey]: keyDraft.trim() },
+      });
+      setKeyDraft("");
+      onUpdated(updated);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Update failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function disconnect() {
+    if (!plugin.catalogId) return;
+    setSaving(true);
+    try {
+      const updated = await upsertCatalogPlugin(agentId, plugin.catalogId, {
+        enabled: false,
+      });
+      onUpdated(updated);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Disconnect failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <SheetFrame
+      title={plugin.name}
+      subtitle={
+        plugin.enabled
+          ? "Connected — tools load on the next chat turn."
+          : "Saved but not enabled."
+      }
+      catalogId={plugin.catalogId}
+      onBack={onBack}
+    >
+      <div className="space-y-4">
+        <Field
+          label={`${plugin.secretSpecs[0]?.label ?? "API key"} · saved`}
+          value={keyDraft}
+          onChange={setKeyDraft}
+          placeholder="•••••••• (new key to rotate)"
+          type="password"
+        />
+        <div className="flex flex-wrap gap-2">
+          {keyDraft.trim() ? (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void saveKey()}
+              className="type-ui cursor-pointer rounded-full bg-[var(--ink)] px-4 py-2 font-semibold text-[var(--canvas)] disabled:opacity-60"
+            >
+              {saving ? "Saving…" : "Update key"}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void disconnect()}
+            className="type-ui cursor-pointer rounded-full px-4 py-2 text-[var(--danger)] transition hover:bg-[var(--panel)] disabled:opacity-60"
+          >
+            Disconnect
+          </button>
+        </div>
+      </div>
+    </SheetFrame>
+  );
+}
+
+function ManageCustomSheet({
+  agentId,
+  plugin,
+  onBack,
   onUpdated,
   onDeleted,
   onError,
 }: {
   agentId: string;
   plugin: AgentPluginView;
-  busy: boolean;
+  onBack: () => void;
   onUpdated: (plugin: AgentPluginView) => void;
   onDeleted: () => void;
   onError: (message: string) => void;
 }) {
   const [saving, setSaving] = useState(false);
+  const endpoint =
+    plugin.custom?.transport === "stdio"
+      ? plugin.custom.command
+      : plugin.custom?.url;
 
   return (
-    <div className="space-y-1 border-b border-[var(--line)] pb-3 last:border-0">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="type-ui text-[var(--ink)]">{plugin.name}</p>
-          <p className="type-meta text-[var(--muted)]">
-            mcp__{plugin.serverName}__… ·{" "}
-            {plugin.custom?.transport === "stdio"
-              ? plugin.custom.command
-              : plugin.custom?.url}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Toggle
-            checked={plugin.enabled}
-            disabled={busy || saving}
-            onChange={(next) => {
-              setSaving(true);
-              void updateCustomPlugin(agentId, plugin.id, { enabled: next })
-                .then(onUpdated)
-                .catch((err) =>
-                  onError(err instanceof Error ? err.message : "Update failed"),
-                )
-                .finally(() => setSaving(false));
-            }}
-          />
-          <button
-            type="button"
-            disabled={busy || saving}
-            onClick={() => {
-              setSaving(true);
-              void deleteAgentPlugin(agentId, plugin.id)
-                .then(onDeleted)
-                .catch((err) =>
-                  onError(err instanceof Error ? err.message : "Delete failed"),
-                )
-                .finally(() => setSaving(false));
-            }}
-            className="type-meta cursor-pointer text-[var(--muted)] hover:text-[var(--ink)]"
-            aria-label={`Remove ${plugin.name}`}
-          >
-            Remove
-          </button>
-        </div>
+    <SheetFrame
+      title={plugin.name}
+      subtitle={endpoint ?? `mcp__${plugin.serverName}__…`}
+      icon="custom"
+      accent="#3f3f46"
+      onBack={onBack}
+    >
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => {
+            setSaving(true);
+            void updateCustomPlugin(agentId, plugin.id, {
+              enabled: !plugin.enabled,
+            })
+              .then(onUpdated)
+              .catch((err) =>
+                onError(err instanceof Error ? err.message : "Update failed"),
+              )
+              .finally(() => setSaving(false));
+          }}
+          className="type-ui cursor-pointer rounded-full bg-[var(--ink)] px-4 py-2 font-semibold text-[var(--canvas)] disabled:opacity-60"
+        >
+          {plugin.enabled ? "Disable" : "Enable"}
+        </button>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => {
+            setSaving(true);
+            void deleteAgentPlugin(agentId, plugin.id)
+              .then(onDeleted)
+              .catch((err) =>
+                onError(err instanceof Error ? err.message : "Remove failed"),
+              )
+              .finally(() => setSaving(false));
+          }}
+          className="type-ui cursor-pointer rounded-full px-4 py-2 text-[var(--danger)] transition hover:bg-[var(--panel)] disabled:opacity-60"
+        >
+          Remove
+        </button>
       </div>
-    </div>
+    </SheetFrame>
   );
 }
 
-function CustomPluginForm({
+function AddCustomSheet({
   agentId,
-  busy,
+  onBack,
   onCreated,
   onError,
 }: {
   agentId: string;
-  busy: boolean;
+  onBack: () => void;
   onCreated: (plugin: AgentPluginView) => void;
   onError: (message: string) => void;
 }) {
@@ -337,7 +617,7 @@ function CustomPluginForm({
     event.preventDefault();
     const sn = serverName.trim();
     if (!sn || !url.trim()) {
-      onError("server name and URL required");
+      onError("Server name and URL required");
       return;
     }
     setSaving(true);
@@ -369,44 +649,106 @@ function CustomPluginForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-3">
-      <Field label="Display name" value={name} onChange={setName} placeholder="My MCP" />
-      <Field
-        label="Server name"
-        value={serverName}
-        onChange={setServerName}
-        placeholder="my_mcp"
-        hint="mcp__&lt;name&gt;__tool — letters, numbers, _ -"
-        required
-      />
-      <Field
-        label="URL"
-        value={url}
-        onChange={setUrl}
-        placeholder="https://…/mcp"
-        required
-      />
-      <Field
-        label="Auth header (optional)"
-        value={headerName}
-        onChange={setHeaderName}
-        placeholder="Authorization or x-api-key"
-      />
-      <Field
-        label="API key (optional)"
-        value={apiKey}
-        onChange={setApiKey}
-        placeholder="Secret value"
-        type="password"
-      />
+    <SheetFrame
+      title="Custom MCP"
+      subtitle="Point this agent at any streamable HTTP MCP endpoint."
+      icon="custom"
+      accent="#27272a"
+      onBack={onBack}
+    >
+      <form onSubmit={onSubmit} className="space-y-3">
+        <Field label="Display name" value={name} onChange={setName} placeholder="My MCP" />
+        <Field
+          label="Server name"
+          value={serverName}
+          onChange={setServerName}
+          placeholder="my_mcp"
+          hint="Tools appear as mcp__name__tool"
+          required
+        />
+        <Field
+          label="URL"
+          value={url}
+          onChange={setUrl}
+          placeholder="https://…/mcp"
+          required
+        />
+        <Field
+          label="Auth header (optional)"
+          value={headerName}
+          onChange={setHeaderName}
+          placeholder="x-api-key"
+        />
+        <Field
+          label="API key (optional)"
+          value={apiKey}
+          onChange={setApiKey}
+          placeholder="Secret value"
+          type="password"
+        />
+        <div className="flex gap-2 pt-1">
+          <button
+            type="submit"
+            disabled={saving}
+            className="type-ui cursor-pointer rounded-full bg-[var(--ink)] px-4 py-2 font-semibold text-[var(--canvas)] disabled:opacity-60"
+          >
+            {saving ? "Connecting…" : "Connect"}
+          </button>
+          <button
+            type="button"
+            onClick={onBack}
+            className="type-ui cursor-pointer rounded-full px-4 py-2 text-[var(--muted)] transition hover:bg-[var(--panel)]"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </SheetFrame>
+  );
+}
+
+function SheetFrame({
+  title,
+  subtitle,
+  catalogId,
+  icon,
+  accent,
+  onBack,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  catalogId?: string | null;
+  icon?: string;
+  accent?: string;
+  onBack: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-5">
       <button
-        type="submit"
-        disabled={busy || saving}
-        className="type-ui cursor-pointer rounded-full bg-[var(--ink)] px-4 py-2 font-semibold text-[var(--canvas)] transition hover:opacity-90 disabled:opacity-60"
+        type="button"
+        onClick={onBack}
+        className="type-meta flex cursor-pointer items-center gap-1 text-[var(--muted)] transition hover:text-[var(--ink)]"
       >
-        {saving ? "Adding…" : "Add MCP"}
+        <ChevronLeftIcon />
+        Plugins
       </button>
-    </form>
+      <div className="flex items-center gap-3">
+        <PluginBrandIcon
+          catalogId={catalogId}
+          icon={icon}
+          accent={accent}
+          name={title}
+          size={48}
+        />
+        <div className="min-w-0">
+          <h3 className="type-title text-[var(--ink)]">{title}</h3>
+          <p className="type-meta text-[var(--muted)]">{subtitle}</p>
+        </div>
+      </div>
+      {children}
+    </div>
   );
 }
 
@@ -428,7 +770,7 @@ function Field({
   type?: string;
 }) {
   return (
-    <label className="block space-y-1">
+    <label className="block space-y-1.5">
       <span className="type-meta text-[var(--muted)]">{label}</span>
       <input
         type={type}
@@ -437,38 +779,124 @@ function Field({
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="type-ui w-full rounded-lg border border-[var(--line)] bg-[var(--panel)] px-3 py-2 text-[var(--ink)] outline-none focus:border-[var(--accent)]"
+        className="type-ui w-full rounded-xl border-0 bg-[var(--panel-2)] px-3 py-2.5 text-[var(--ink)] outline-none placeholder:text-[var(--muted)] focus:ring-1 focus:ring-[var(--line)]"
       />
       {hint ? <span className="type-meta text-[var(--muted)]">{hint}</span> : null}
     </label>
   );
 }
 
-function Toggle({
-  checked,
-  disabled,
-  onChange,
+function PlusButton({
+  label,
+  onClick,
 }: {
-  checked: boolean;
-  disabled?: boolean;
-  onChange: (next: boolean) => void;
+  label: string;
+  onClick: () => void;
 }) {
   return (
     <button
       type="button"
-      role="switch"
-      aria-checked={checked}
-      disabled={disabled}
-      onClick={() => onChange(!checked)}
-      className={`relative h-6 w-10 shrink-0 cursor-pointer rounded-full transition disabled:cursor-not-allowed disabled:opacity-50 ${
-        checked ? "bg-[var(--accent)]" : "bg-[var(--panel-2)]"
-      }`}
+      aria-label={label}
+      title={label}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className="flex size-8 cursor-pointer items-center justify-center rounded-full text-[var(--muted)] transition hover:bg-[var(--panel)] hover:text-[var(--ink)]"
     >
-      <span
-        className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white transition ${
-          checked ? "translate-x-4" : "translate-x-0"
-        }`}
-      />
+      <PlusIcon />
     </button>
+  );
+}
+
+function MoreButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className="flex size-8 cursor-pointer items-center justify-center rounded-full text-[var(--muted)] transition hover:bg-[var(--panel)] hover:text-[var(--ink)]"
+    >
+      <MoreIcon />
+    </button>
+  );
+}
+
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 5v14M5 12h14"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function MoreIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <circle cx="6" cy="12" r="1.5" />
+      <circle cx="12" cy="12" r="1.5" />
+      <circle cx="18" cy="12" r="1.5" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="m9 6 6 6-6 6"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ChevronLeftIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="m15 6-6 6 6 6"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
