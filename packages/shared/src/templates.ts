@@ -12,8 +12,10 @@ import {
 export type StrategyTemplate = {
   id: string;
   name: string;
-  /** One-line desk blurb. */
+  /** One-line list subtitle. */
   blurb: string;
+  /** Longer body for the template detail pane. */
+  description: string;
   /**
    * Home chains this template is offered for.
    * Empty array = any supported chain.
@@ -34,6 +36,8 @@ export const STRATEGY_TEMPLATES: readonly StrategyTemplate[] = [
     id: "eth-dip-alert",
     name: "ETH dip watch",
     blurb: "Alert when ETH crosses below a USD level.",
+    description:
+      "Event-style watch for ETH USD. The host polls quietly and only fires when price crosses your level — useful for dip alerts without noisy interval spam. Import sets a draft; tweak the level, then Arm.",
     chainIds: [8453, 1],
     tags: ["alert", "price"],
     editableKeys: ["level", "direction"],
@@ -49,6 +53,8 @@ export const STRATEGY_TEMPLATES: readonly StrategyTemplate[] = [
     id: "eth-price-band",
     name: "ETH price band",
     blurb: "Alert when ETH leaves a USD band.",
+    description:
+      "Interval check that alerts when ETH spot USD moves outside your low–high band. Good for range monitoring. Defaults are a wide demo band — tighten before Arming.",
     chainIds: [8453, 1],
     tags: ["alert", "price"],
     editableKeys: ["low", "high"],
@@ -64,6 +70,8 @@ export const STRATEGY_TEMPLATES: readonly StrategyTemplate[] = [
     id: "native-low-balance",
     name: "Native balance low",
     blurb: "Alert when home-chain gas/native balance drops below a floor.",
+    description:
+      "Watches the shared wallet’s native/gas balance on this agent’s home chain. Fires an in-app alert when it drops below your floor so you can top up before txs fail. Works on any supported chain.",
     chainIds: [],
     tags: ["alert", "wallet"],
     editableKeys: ["threshold"],
