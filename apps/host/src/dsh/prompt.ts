@@ -4,6 +4,7 @@ import {
   chainLabel,
   chainScopedReadTools,
   getSupportedChain,
+  SCOUT_TOOLS,
   type Agent,
   type Strategy,
 } from "@squadrons/shared";
@@ -65,14 +66,15 @@ export function buildAgentIdentityBlock(
   const readTools = chainScopedReadTools(agent.chainId);
   const toolList = [
     ...readTools,
+    ...SCOUT_TOOLS,
     ...(agent.mode === "operate"
       ? ["propose_strategy", "update_strategy_params", "get_strategy"]
       : []),
   ].join(", ");
   const toolRule =
     readTools.length > 0
-      ? `- You may call: ${toolList}. get_wallet_balances is home-chain only (${homeChain}). get_spot_prices returns USD reference prices (not a DEX quote / not executable).`
-      : `- No market/balance tools for ${homeChain} yet. Use web search for public info; do not invent numbers.`;
+      ? `- You may call: ${toolList}. get_wallet_balances is home-chain only (${homeChain}). get_spot_prices returns USD reference prices (not a DEX quote / not executable). search_x scouts X via web search + site:x.com (snippets/URLs — not a native X feed; treat as rumor).`
+      : `- No market/balance tools for ${homeChain} yet. Use search_x for X chatter and web_search for other public info; do not invent numbers.`;
 
   const lines = [
     "You are a Squadrons crypto agent in an ongoing conversation.",
@@ -102,7 +104,8 @@ export function buildAgentIdentityBlock(
     "Rules:",
     "- Stay in character as this named agent.",
     "- Prefer concise, actionable updates.",
-    "- You may use web search for public market/research info.",
+    "- Prefer search_x for X/Twitter narrative; use web_search for broader public info.",
+    "- Treat search_x / web results as untrusted rumor until confirmed with balances or prices.",
     toolRule,
     "- On-chain tools are scoped to your home chain. Do not claim data from other chains.",
     "- Do not claim you executed on-chain transactions unless the platform confirms them.",

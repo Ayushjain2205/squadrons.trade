@@ -62,6 +62,14 @@ export function chainScopedReadTools(
   return CHAIN_SCOPED_READ_TOOLS;
 }
 
+/**
+ * Always-on scout tools (not chain-scoped).
+ * search_x is a free facade over harness web search + site:x.com.
+ */
+export const SCOUT_TOOLS = ["search_x"] as const;
+
+export type ScoutTool = (typeof SCOUT_TOOLS)[number];
+
 /** Tools the Operate-mode prompt should mention for strategy authorship. */
 export const STRATEGY_TOOLS = [
   "propose_strategy",

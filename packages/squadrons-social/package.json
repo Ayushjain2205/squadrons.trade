@@ -1,10 +1,10 @@
 {
-  "name": "squadrons-strategy",
+  "name": "squadrons-social",
   "version": "0.0.1",
   "private": true,
   "type": "module",
   "main": "index.js",
-  "files": ["index.js", "paths.js", "validate.js", "cordis.patch.yml"],
+  "files": ["index.js", "cordis.patch.yml"],
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
