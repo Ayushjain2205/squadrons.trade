@@ -134,6 +134,74 @@ export async function updateAgent(
   return data.agent;
 }
 
+export type {
+  AgentPluginView,
+  CreateCustomPluginInput,
+  CustomMcpConfig,
+  UpsertCatalogPluginInput,
+  UpdateCustomPluginInput,
+} from "@squadrons/shared";
+
+export async function listAgentPlugins(
+  agentId: string,
+): Promise<import("@squadrons/shared").AgentPluginView[]> {
+  const data = await hostFetch<{
+    plugins: import("@squadrons/shared").AgentPluginView[];
+  }>(`/v1/agents/${agentId}/plugins`);
+  return data.plugins;
+}
+
+export async function upsertCatalogPlugin(
+  agentId: string,
+  catalogId: string,
+  input: import("@squadrons/shared").UpsertCatalogPluginInput,
+): Promise<import("@squadrons/shared").AgentPluginView> {
+  const data = await hostFetch<{
+    plugin: import("@squadrons/shared").AgentPluginView;
+  }>(`/v1/agents/${agentId}/plugins/catalog/${catalogId}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+  return data.plugin;
+}
+
+export async function createCustomPlugin(
+  agentId: string,
+  input: import("@squadrons/shared").CreateCustomPluginInput,
+): Promise<import("@squadrons/shared").AgentPluginView> {
+  const data = await hostFetch<{
+    plugin: import("@squadrons/shared").AgentPluginView;
+  }>(`/v1/agents/${agentId}/plugins/custom`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  return data.plugin;
+}
+
+export async function updateCustomPlugin(
+  agentId: string,
+  pluginId: string,
+  input: import("@squadrons/shared").UpdateCustomPluginInput,
+): Promise<import("@squadrons/shared").AgentPluginView> {
+  const data = await hostFetch<{
+    plugin: import("@squadrons/shared").AgentPluginView;
+  }>(`/v1/agents/${agentId}/plugins/${pluginId}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
+  });
+  return data.plugin;
+}
+
+export async function deleteAgentPlugin(
+  agentId: string,
+  pluginId: string,
+): Promise<void> {
+  await hostFetch<{ ok: boolean }>(
+    `/v1/agents/${agentId}/plugins/${pluginId}`,
+    { method: "DELETE" },
+  );
+}
+
 export async function upsertStrategyDraft(
   agentId: string,
   draft: {

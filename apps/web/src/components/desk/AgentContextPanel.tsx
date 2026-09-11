@@ -23,8 +23,11 @@ import {
 } from "@/lib/host";
 import { ActivityTrail } from "./ActivityTrail";
 import { StrategyCard } from "./StrategyCard";
+import { AgentPluginsPanel } from "./AgentPluginsPanel";
 import { useToast } from "@/components/Toast";
 import { useHostSigner } from "@/hooks/useHostSigner";
+
+type PanelView = "desk" | "settings" | "plugins";
 
 export function AgentContextPanel({
   agent,
@@ -36,10 +39,10 @@ export function AgentContextPanel({
   /** Hide the desk rail (desktop). */
   onCollapse?: () => void;
 }) {
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [view, setView] = useState<PanelView>("desk");
 
   useEffect(() => {
-    setSettingsOpen(false);
+    setView("desk");
   }, [agent?.id]);
 
   if (!agent) {
@@ -58,24 +61,37 @@ export function AgentContextPanel({
     );
   }
 
+  const title =
+    view === "settings" ? "Settings" : view === "plugins" ? "Plugins" : "Desk";
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <DeskPanelHeader
-        title={settingsOpen ? "Settings" : "Desk"}
+        title={title}
         onCollapse={onCollapse}
-        settingsOpen={settingsOpen}
-        onToggleSettings={() => setSettingsOpen((open) => !open)}
+        view={view}
+        onToggleSettings={() =>
+          setView((v) => (v === "settings" ? "desk" : "settings"))
+        }
+        onTogglePlugins={() =>
+          setView((v) => (v === "plugins" ? "desk" : "plugins"))
+        }
       />
 
       <div className="desk-scroll flex min-h-0 flex-1 flex-col overflow-y-auto p-4">
-        {settingsOpen ? (
+        {view === "settings" ? (
           <AgentSettingsForm
             agent={agent}
             onSaved={(updated) => {
               onAgentUpdated?.(updated);
-              setSettingsOpen(false);
+              setView("desk");
             }}
-            onCancel={() => setSettingsOpen(false)}
+            onCancel={() => setView("desk")}
+          />
+        ) : view === "plugins" ? (
+          <AgentPluginsPanel
+            agentId={agent.id}
+            onClose={() => setView("desk")}
           />
         ) : (
           <AgentContextSummary
@@ -91,27 +107,45 @@ export function AgentContextPanel({
 function DeskPanelHeader({
   title,
   onCollapse,
-  settingsOpen,
+  view,
   onToggleSettings,
+  onTogglePlugins,
 }: {
   title: string;
   onCollapse?: () => void;
-  settingsOpen?: boolean;
+  view?: PanelView;
   onToggleSettings?: () => void;
+  onTogglePlugins?: () => void;
 }) {
   return (
     <div className="flex shrink-0 items-center justify-between gap-2 px-4 py-3">
       <h2 className="type-title text-[var(--ink)]">{title}</h2>
       <div className="flex items-center gap-0.5">
+        {onTogglePlugins ? (
+          <button
+            type="button"
+            onClick={onTogglePlugins}
+            aria-pressed={view === "plugins"}
+            aria-label={view === "plugins" ? "Close plugins" : "Open plugins"}
+            title={view === "plugins" ? "Close plugins" : "Plugins"}
+            className={`flex size-8 cursor-pointer items-center justify-center rounded-lg transition ${
+              view === "plugins"
+                ? "bg-[var(--panel-2)] text-[var(--ink)]"
+                : "text-[var(--muted)] hover:bg-[var(--panel)] hover:text-[var(--ink)]"
+            }`}
+          >
+            <PluginsIcon />
+          </button>
+        ) : null}
         {onToggleSettings ? (
           <button
             type="button"
             onClick={onToggleSettings}
-            aria-pressed={settingsOpen}
-            aria-label={settingsOpen ? "Close settings" : "Open settings"}
-            title={settingsOpen ? "Close settings" : "Settings"}
+            aria-pressed={view === "settings"}
+            aria-label={view === "settings" ? "Close settings" : "Open settings"}
+            title={view === "settings" ? "Close settings" : "Settings"}
             className={`flex size-8 cursor-pointer items-center justify-center rounded-lg transition ${
-              settingsOpen
+              view === "settings"
                 ? "bg-[var(--panel-2)] text-[var(--ink)]"
                 : "text-[var(--muted)] hover:bg-[var(--panel)] hover:text-[var(--ink)]"
             }`}
@@ -754,6 +788,24 @@ function SettingsIcon() {
         strokeLinejoin="round"
         d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.2.6.7 1.1 1.5 1.1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"
       />
+    </svg>
+  );
+}
+
+function PluginsIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z" />
     </svg>
   );
 }
