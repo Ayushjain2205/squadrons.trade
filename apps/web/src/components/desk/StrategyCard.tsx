@@ -6,6 +6,7 @@ import {
   describeStrategySchedule,
   type Strategy,
   type StrategyImprovementProposal,
+  type SupportedChainId,
 } from "@squadrons/shared";
 import type { AgentWithWorkspace } from "@/lib/host";
 import {
@@ -18,6 +19,7 @@ import {
   type TradeIntentRecord,
 } from "@/lib/host";
 import { useToast } from "@/components/Toast";
+import { StrategyTemplatesBrowser } from "./StrategyTemplatesBrowser";
 
 const IMPROVEMENT_ACTIVITY_LABELS = new Set([
   "Self-improvement suggested",
@@ -33,6 +35,7 @@ export function StrategyCard({
   spendMode = "observe",
   strategy,
   agentId,
+  chainId,
   agentWorking = false,
   onAction,
   onAgentUpdated,
@@ -40,6 +43,7 @@ export function StrategyCard({
   spendMode?: "observe" | "spend_enabled";
   strategy: Strategy | null;
   agentId: string;
+  chainId: SupportedChainId;
   /** True while a chat turn is in flight — freeze strategy controls. */
   agentWorking?: boolean;
   onAction?: (
@@ -54,8 +58,13 @@ export function StrategyCard({
   const [proposalHighlight, setProposalHighlight] = useState(false);
   const [intents, setIntents] = useState<TradeIntentRecord[]>([]);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [browsingTemplates, setBrowsingTemplates] = useState(false);
   const toast = useToast();
   const busy = pending || agentWorking;
+
+  useEffect(() => {
+    setBrowsingTemplates(false);
+  }, [agentId]);
 
   function refreshProposal(opts?: { highlight?: boolean }) {
     void listStrategyImprovements(agentId)
@@ -166,6 +175,23 @@ export function StrategyCard({
     });
   }
 
+  if (browsingTemplates) {
+    return (
+      <section className="shrink-0 space-y-3 rounded-xl bg-[var(--panel)] px-3 py-3">
+        <StrategyTemplatesBrowser
+          agentId={agentId}
+          chainId={chainId}
+          busy={busy}
+          onClose={() => setBrowsingTemplates(false)}
+          onImported={(updated) => {
+            setBrowsingTemplates(false);
+            onAgentUpdated?.(updated);
+          }}
+        />
+      </section>
+    );
+  }
+
   if (!strategy) {
     return (
       <section className="shrink-0 space-y-3 rounded-xl bg-[var(--panel)] px-3 py-3">
@@ -174,8 +200,16 @@ export function StrategyCard({
           <StatusPill status="none" />
         </div>
         <p className="type-meta text-[var(--muted)]">
-          Draft a plan in chat. When it’s saved, Arm it here.
+          Draft a plan in chat, or start from a template. Arm it here when ready.
         </p>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => setBrowsingTemplates(true)}
+          className="type-ui w-full cursor-pointer rounded-full border border-[var(--line)] px-4 py-2 text-[var(--ink)] transition hover:bg-[var(--panel-2)] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Browse templates
+        </button>
         <PrimaryButton
           disabled
           title="Waiting for a strategy draft"
@@ -470,6 +504,16 @@ export function StrategyCard({
                   {strategy.summary}
                 </p>
               </div>
+            ) : null}
+            {strategy.status !== "running" ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setBrowsingTemplates(true)}
+                className="type-meta text-[var(--muted)] hover:text-[var(--ink)] disabled:opacity-40"
+              >
+                Replace from template…
+              </button>
             ) : null}
           </div>
         ) : null}

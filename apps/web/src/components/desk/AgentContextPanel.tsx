@@ -298,6 +298,7 @@ function AgentContextSummary({
         spendMode={agent.spendMode}
         strategy={agent.strategy}
         agentId={agent.id}
+        chainId={agent.chainId}
         agentWorking={isWorking}
         onAgentUpdated={onAgentUpdated}
         onAction={async (action) => {
