@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AgentWithWorkspace } from "@/lib/host-types";
+import { useHostSigner } from "@/hooks/useHostSigner";
+import { useToast } from "@/components/Toast";
 import { AgentContextPanel } from "./AgentContextPanel";
 import { AgentRail } from "./AgentRail";
 import { ContextPanelSkeleton } from "./DeskSkeleton";
@@ -34,6 +36,9 @@ export function DeskShell({
   children: React.ReactNode;
 }) {
   const [deskCollapsed, setDeskCollapsed] = useState(false);
+  const { status, ensureHostSigner } = useHostSigner();
+  const toast = useToast();
+  const catchUpTried = useRef(false);
 
   useEffect(() => {
     try {
@@ -42,6 +47,43 @@ export function DeskShell({
       // ignore
     }
   }, []);
+
+  // If any agent already has spend enabled, grant host signer once (idempotent).
+  useEffect(() => {
+    if (catchUpTried.current) return;
+    if (!status.ready || !status.configured) return;
+    if (status.delegated) {
+      catchUpTried.current = true;
+      return;
+    }
+    const needsSigner = agents.some((a) => a.spendMode === "spend_enabled");
+    if (!needsSigner) return;
+    if (!status.address) return;
+
+    catchUpTried.current = true;
+    void ensureHostSigner()
+      .then((result) => {
+        if (!result.alreadyDelegated) {
+          toast.info("Host can now sign for this wallet");
+        }
+      })
+      .catch((err) => {
+        catchUpTried.current = false;
+        toast.error(
+          err instanceof Error
+            ? err.message
+            : "Could not grant host wallet access",
+        );
+      });
+  }, [
+    agents,
+    status.ready,
+    status.configured,
+    status.delegated,
+    status.address,
+    ensureHostSigner,
+    toast,
+  ]);
 
   function setCollapsed(next: boolean) {
     setDeskCollapsed(next);

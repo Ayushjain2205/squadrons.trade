@@ -24,6 +24,7 @@ import {
 import { ActivityTrail } from "./ActivityTrail";
 import { StrategyCard } from "./StrategyCard";
 import { useToast } from "@/components/Toast";
+import { useHostSigner } from "@/hooks/useHostSigner";
 
 export function AgentContextPanel({
   agent,
@@ -170,6 +171,7 @@ function AgentContextSummary({
   const [posturePending, startPosture] = useTransition();
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const toast = useToast();
+  const { ensureHostSigner } = useHostSigner();
 
   useEffect(() => {
     if (!strategyRunning) return;
@@ -244,7 +246,27 @@ function AgentContextSummary({
     setConfirm(
       spendConfirmRequest(spendMode, () => {
         setConfirm(null);
-        patchAgent({ spendMode });
+        if (spendMode !== "spend_enabled") {
+          patchAgent({ spendMode });
+          return;
+        }
+        if (posturePending || isWorking) return;
+        startPosture(async () => {
+          try {
+            const signer = await ensureHostSigner();
+            const updated = await updateAgent(agent.id, { spendMode });
+            onAgentUpdatedRef.current?.(updated);
+            if (!signer.alreadyDelegated) {
+              toast.info("Host can now sign for this wallet");
+            }
+          } catch (err) {
+            toast.error(
+              err instanceof Error
+                ? err.message
+                : "Could not enable spend — host wallet access failed",
+            );
+          }
+        });
       }),
     );
   }
@@ -351,7 +373,7 @@ function spendConfirmRequest(
   if (next === "spend_enabled") {
     return {
       title: "Enable spend?",
-      body: "This agent can propose trades within policy. Observe-only will no longer be the default posture.",
+      body: "This agent can propose capped trades. You’ll grant Squadrons permission to sign from your embedded wallet (Privy). You still approve token allowances in chat before first spend.",
       confirmLabel: "Enable spend",
       onConfirm,
     };
@@ -485,6 +507,7 @@ function AgentSettingsForm({
   const [pending, startTransition] = useTransition();
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const toast = useToast();
+  const { ensureHostSigner } = useHostSigner();
 
   const chainLocked = agent.status === "working";
 
@@ -500,21 +523,40 @@ function AgentSettingsForm({
 
   function onSubmit(event: React.FormEvent) {
     event.preventDefault();
-    startTransition(async () => {
-      try {
-        const updated = await updateAgent(agent.id, {
-          name,
-          description,
-          avatarId,
-          colorId,
-          chainId: chainLocked ? undefined : chainId,
-          spendMode,
-        });
-        onSaved(updated);
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Save failed");
-      }
-    });
+    const enablingSpend =
+      spendMode === "spend_enabled" && agent.spendMode !== "spend_enabled";
+
+    const save = () => {
+      startTransition(async () => {
+        try {
+          if (enablingSpend) {
+            await ensureHostSigner();
+          }
+          const updated = await updateAgent(agent.id, {
+            name,
+            description,
+            avatarId,
+            colorId,
+            chainId: chainLocked ? undefined : chainId,
+            spendMode,
+          });
+          onSaved(updated);
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Save failed");
+        }
+      });
+    };
+
+    if (enablingSpend) {
+      setConfirm(
+        spendConfirmRequest("spend_enabled", () => {
+          setConfirm(null);
+          save();
+        }),
+      );
+      return;
+    }
+    save();
   }
 
   return (

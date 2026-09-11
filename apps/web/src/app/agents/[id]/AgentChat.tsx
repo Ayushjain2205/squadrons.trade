@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { usePrivy, useSigners, useWallets } from "@privy-io/react-auth";
 import {
   displayActivityLabel,
   parseAllowanceApprovalMarker,
@@ -30,6 +29,7 @@ import {
 } from "@/lib/host";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { useToast } from "@/components/Toast";
+import { useHostSigner } from "@/hooks/useHostSigner";
 import { sanitizeAssistantContent } from "@/lib/sanitize-assistant";
 
 type ChatToolStep = {
@@ -56,9 +56,7 @@ export function AgentChat({
   const [pausing, setPausing] = useState(false);
   const [modePending, setModePending] = useState(false);
   const toast = useToast();
-  const { user } = usePrivy();
-  const { wallets } = useWallets();
-  const { addSigners } = useSigners();
+  const { ensureHostSigner } = useHostSigner();
   const [liveSteps, setLiveSteps] = useState<ChatToolStep[]>([]);
   const [stepsByUserMessageId, setStepsByUserMessageId] = useState<
     Record<string, ChatToolStep[]>
@@ -203,41 +201,8 @@ export function AgentChat({
     startTransition(async () => {
       try {
         if (kind === "approve") {
-          const signerId = process.env.NEXT_PUBLIC_PRIVY_SIGNER_ID?.trim();
-          if (!signerId) {
-            throw new Error(
-              "NEXT_PUBLIC_PRIVY_SIGNER_ID is not set — host cannot sign for your wallet",
-            );
-          }
-          const embedded =
-            wallets.find(
-              (w) =>
-                w.walletClientType === "privy" ||
-                w.walletClientType === "privy-v2",
-            ) ?? null;
-          const address =
-            embedded?.address ??
-            (user?.wallet?.address as string | undefined) ??
-            null;
-          if (!address) {
-            throw new Error("No embedded wallet found — re-login and try again");
-          }
-          const alreadyDelegated = Boolean(
-            user?.linkedAccounts?.some(
-              (account) =>
-                account.type === "wallet" &&
-                "address" in account &&
-                account.address?.toLowerCase() === address.toLowerCase() &&
-                "delegated" in account &&
-                account.delegated === true,
-            ),
-          );
-          if (!alreadyDelegated) {
-            await addSigners({
-              address,
-              signers: [{ signerId, policyIds: [] }],
-            });
-          }
+          setAllowancePhase("signer");
+          await ensureHostSigner();
           setAllowancePhase("broadcast");
           const result = await approveTradeAllowance(agent.id, intentId);
           if (result.outcome) {
