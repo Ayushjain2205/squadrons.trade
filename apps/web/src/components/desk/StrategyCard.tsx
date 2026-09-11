@@ -175,48 +175,45 @@ export function StrategyCard({
     });
   }
 
-  if (browsingTemplates) {
-    return (
-      <section className="shrink-0 space-y-3 rounded-xl bg-[var(--panel)] px-3 py-3">
-        <StrategyTemplatesBrowser
-          agentId={agentId}
-          chainId={chainId}
-          busy={busy}
-          onClose={() => setBrowsingTemplates(false)}
-          onImported={(updated) => {
-            setBrowsingTemplates(false);
-            onAgentUpdated?.(updated);
-          }}
-        />
-      </section>
-    );
-  }
+  const templatesModal = browsingTemplates ? (
+    <StrategyTemplatesBrowser
+      agentId={agentId}
+      chainId={chainId}
+      busy={busy}
+      onClose={() => setBrowsingTemplates(false)}
+      onImported={(updated) => {
+        setBrowsingTemplates(false);
+        onAgentUpdated?.(updated);
+      }}
+    />
+  ) : null;
 
   if (!strategy) {
     return (
-      <section className="shrink-0 space-y-3 rounded-xl bg-[var(--panel)] px-3 py-3">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="type-ui text-[var(--ink)]">Strategy</h3>
-          <StatusPill status="none" />
-        </div>
-        <p className="type-meta text-[var(--muted)]">
-          Draft a plan in chat, or start from a template. Arm it here when ready.
-        </p>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => setBrowsingTemplates(true)}
-          className="type-ui w-full cursor-pointer rounded-full border border-[var(--line)] px-4 py-2 text-[var(--ink)] transition hover:bg-[var(--panel-2)] disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Browse templates
-        </button>
-        <PrimaryButton
-          disabled
-          title="Waiting for a strategy draft"
-        >
-          Arm strategy
-        </PrimaryButton>
-      </section>
+      <>
+        <section className="shrink-0 space-y-3 rounded-xl bg-[var(--panel)] px-3 py-3">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="type-ui text-[var(--ink)]">Strategy</h3>
+            <StatusPill status="none" />
+          </div>
+          <p className="type-meta text-[var(--muted)]">
+            Draft a plan in chat, or start from a template. Arm it here when
+            ready.
+          </p>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setBrowsingTemplates(true)}
+            className="type-ui w-full cursor-pointer rounded-full border border-[var(--line)] px-4 py-2 text-[var(--ink)] transition hover:bg-[var(--panel-2)] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Browse templates
+          </button>
+          <PrimaryButton disabled title="Waiting for a strategy draft">
+            Arm strategy
+          </PrimaryButton>
+        </section>
+        {templatesModal}
+      </>
     );
   }
 
@@ -264,6 +261,7 @@ export function StrategyCard({
   ].filter(Boolean) as string[];
 
   return (
+    <>
     <section className="shrink-0 space-y-3 rounded-xl bg-[var(--panel)] px-3 py-3">
       <div className="flex items-center justify-between gap-2">
         <h3 className="type-ui text-[var(--ink)]">Strategy</h3>
@@ -519,6 +517,8 @@ export function StrategyCard({
         ) : null}
       </div>
     </section>
+    {templatesModal}
+    </>
   );
 }
 

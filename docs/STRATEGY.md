@@ -19,6 +19,7 @@ Curated, chain-filtered **prefilled drafts** over built-in recipes (Squadrons-au
 - Browse from the Strategy card → tweak editable knobs → **Import draft**
 - Import writes the same strategy draft as chat `propose_strategy`
 - User still **Arms** — templates never auto-run
+- Catalog entries include name, blurb, longer description, tags, and editable knobs
 - Catalog: `packages/shared/src/templates.ts`
 - Host: `GET /v1/strategy/templates?chainId=` · `POST /v1/agents/:id/strategy/from-template`
 
