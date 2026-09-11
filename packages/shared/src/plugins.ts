@@ -1,0 +1,160 @@
+/** Curated + custom MCP plugins attached per agent. */
+
+export type McpTransport = "stdio" | "streamable-http";
+
+export type PluginKind = "catalog" | "custom";
+
+/** One secret the operator must supply for a catalog (or custom) plugin. */
+export type PluginSecretSpec = {
+  /** Stable key used in storage / env injection (e.g. API_KEY). */
+  key: string;
+  /** Desk label. */
+  label: string;
+  /**
+   * When set, host injects the secret as this HTTP header on streamable-http.
+   * Otherwise it is injected as a process env var for stdio servers.
+   */
+  headerName?: string;
+  /** Env var name for stdio (defaults to key when omitted). */
+  envName?: string;
+};
+
+/** Product catalog entry — global menu, enabled per agent. */
+export type McpCatalogEntry = {
+  id: string;
+  name: string;
+  description: string;
+  /** dsh-mcp-client serverName → tools as mcp__<serverName>__… */
+  serverName: string;
+  transport: McpTransport;
+  /** streamable-http endpoint */
+  url?: string;
+  /** Extra static headers (no secrets). */
+  headers?: Record<string, string>;
+  /** stdio spawn (rare for curated crypto MCPs). */
+  command?: string;
+  args?: string[];
+  secrets: PluginSecretSpec[];
+  docsUrl?: string;
+};
+
+/**
+ * Curated crypto MCP servers. Enable per agent + paste API key.
+ * Add new OOTB entries here — no migration required.
+ */
+export const MCP_CATALOG: readonly McpCatalogEntry[] = [
+  {
+    id: "dune",
+    name: "Dune",
+    description: "Onchain analytics — SQL, datasets, and dashboards.",
+    serverName: "dune",
+    transport: "streamable-http",
+    url: "https://api.dune.com/mcp/v1",
+    secrets: [
+      {
+        key: "API_KEY",
+        label: "API key",
+        headerName: "x-dune-api-key",
+      },
+    ],
+    docsUrl: "https://docs.dune.com/docs/agents/mcp",
+  },
+  {
+    id: "nansen",
+    name: "Nansen",
+    description: "Wallet and token intelligence.",
+    serverName: "nansen",
+    transport: "streamable-http",
+    url: "https://mcp.nansen.ai/ra/mcp",
+    headers: {
+      Accept: "application/json, text/event-stream",
+    },
+    secrets: [
+      {
+        key: "API_KEY",
+        label: "API key",
+        headerName: "NANSEN-API-KEY",
+      },
+    ],
+    docsUrl: "https://docs.nansen.ai/mcp/connecting",
+  },
+] as const;
+
+export type McpCatalogId = (typeof MCP_CATALOG)[number]["id"];
+
+export function getMcpCatalogEntry(
+  id: string,
+): McpCatalogEntry | undefined {
+  return MCP_CATALOG.find((entry) => entry.id === id);
+}
+
+export function isMcpCatalogId(id: unknown): id is McpCatalogId {
+  return typeof id === "string" && MCP_CATALOG.some((e) => e.id === id);
+}
+
+/** Custom MCP connection config (no secrets — those are stored separately). */
+export type CustomMcpConfig = {
+  transport: McpTransport;
+  /** streamable-http */
+  url?: string;
+  /** Map secret key → header name for HTTP auth. */
+  headerSecretKeys?: Record<string, string>;
+  /** stdio */
+  command?: string;
+  args?: string[];
+  /** Map secret key → env var name for stdio. */
+  envSecretKeys?: Record<string, string>;
+};
+
+/**
+ * Agent plugin as returned to the desk (secrets never included).
+ * Catalog rows are always listed (even when never toggled) via merge with MCP_CATALOG.
+ */
+export type AgentPluginView = {
+  id: string;
+  kind: PluginKind;
+  catalogId: string | null;
+  name: string;
+  description: string;
+  serverName: string;
+  enabled: boolean;
+  /** True when every required catalog secret is present (custom: any saved secrets). */
+  configured: boolean;
+  secretSpecs: PluginSecretSpec[];
+  /** Which secret keys are set (values never returned). */
+  secretsSet: string[];
+  docsUrl?: string;
+  /** Present for custom plugins. */
+  custom?: CustomMcpConfig;
+  createdAt: number | null;
+  updatedAt: number | null;
+};
+
+export type UpsertCatalogPluginInput = {
+  enabled: boolean;
+  /** Partial secret map — only keys to set/replace. Empty string clears. */
+  secrets?: Record<string, string>;
+};
+
+export type CreateCustomPluginInput = {
+  name: string;
+  description?: string;
+  serverName: string;
+  enabled?: boolean;
+  config: CustomMcpConfig;
+  secrets?: Record<string, string>;
+};
+
+export type UpdateCustomPluginInput = {
+  name?: string;
+  description?: string;
+  enabled?: boolean;
+  config?: CustomMcpConfig;
+  secrets?: Record<string, string>;
+};
+
+const SERVER_NAME_RE = /^[A-Za-z0-9_-]{1,32}$/;
+
+export function isValidMcpServerName(name: unknown): name is string {
+  return typeof name === "string" && SERVER_NAME_RE.test(name);
+}
