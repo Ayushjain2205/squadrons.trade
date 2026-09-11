@@ -185,7 +185,7 @@ export class StrategyStore {
   }
 
   /**
-   * Patch params on draft / paused / running strategies (Operate live edit).
+   * Patch params on draft / paused / running strategies (live edit from chat).
    * Does not change recipeId, trigger, or arm state.
    */
   patchParams(
@@ -195,7 +195,7 @@ export class StrategyStore {
     const existing = this.get(agentId);
     if (!existing) throw new Error("strategy not found");
     if (!existing.recipeId) {
-      throw new Error("legacy strategy has no recipe; re-propose in Operate first");
+      throw new Error("legacy strategy has no recipe; re-propose a recipe-backed plan first");
     }
 
     const merged = { ...existing.params, ...patch };
@@ -286,7 +286,7 @@ export class StrategyStore {
     if (!existing) throw new Error("strategy not found");
     if (!existing.recipeId) {
       throw new Error(
-        "strategy has no recipe — switch to Operate and propose a recipe-backed plan first",
+        "strategy has no recipe — propose a recipe-backed plan in chat first",
       );
     }
     if (existing.status !== "draft" && existing.status !== "paused") {
@@ -313,7 +313,7 @@ export class StrategyStore {
     if (!existing) throw new Error("strategy not found");
     if (!existing.recipeId) {
       throw new Error(
-        "strategy has no recipe — switch to Operate and propose a recipe-backed plan first",
+        "strategy has no recipe — propose a recipe-backed plan in chat first",
       );
     }
     if (existing.status !== "paused") {

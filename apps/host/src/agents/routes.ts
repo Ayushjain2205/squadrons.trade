@@ -666,7 +666,7 @@ export function registerAgentRoutes(
     }
   });
 
-  /** Upsert a strategy draft (Operate mode only). */
+  /** Upsert a strategy draft. */
   app.put("/v1/agents/:id/strategy/draft", async (req, res, next) => {
     try {
       const user = await requireUser(req, users);
@@ -679,13 +679,6 @@ export function registerAgentRoutes(
       const existing = agents.getForUser(user.id, agentId);
       if (!existing) {
         res.status(404).json({ ok: false, error: "agent not found" });
-        return;
-      }
-      if (existing.mode !== "operate") {
-        res.status(400).json({
-          ok: false,
-          error: "switch to Operate mode before drafting a strategy",
-        });
         return;
       }
 
@@ -734,13 +727,6 @@ export function registerAgentRoutes(
       const existing = agents.getForUser(user.id, agentId);
       if (!existing) {
         res.status(404).json({ ok: false, error: "agent not found" });
-        return;
-      }
-      if (existing.mode !== "operate") {
-        res.status(400).json({
-          ok: false,
-          error: "switch to Operate mode before arming a strategy",
-        });
         return;
       }
 
@@ -823,13 +809,6 @@ export function registerAgentRoutes(
         res.status(404).json({ ok: false, error: "agent not found" });
         return;
       }
-      if (existing.mode !== "operate") {
-        res.status(400).json({
-          ok: false,
-          error: "switch to Operate mode before resuming a strategy",
-        });
-        return;
-      }
 
       const strategy = strategies.resume(existing.id);
       activity.publish({
@@ -908,13 +887,6 @@ export function registerAgentRoutes(
       const existing = agents.getForUser(user.id, agentId);
       if (!existing) {
         res.status(404).json({ ok: false, error: "agent not found" });
-        return;
-      }
-      if (existing.mode !== "operate") {
-        res.status(400).json({
-          ok: false,
-          error: "switch to Operate mode before editing self-improvement",
-        });
         return;
       }
       if (!existing.strategy) {
@@ -1426,7 +1398,7 @@ export function registerAgentRoutes(
       let draftSyncGate: Promise<void> = Promise.resolve();
       const syncPendingDraft = (announce: boolean) => {
         const run = draftSyncGate.then(async () => {
-          if (agent.mode !== "operate" || draftSyncedThisTurn) return false;
+          if (draftSyncedThisTurn) return false;
           const draft = await readPendingStrategyDraft(workspace);
           if (!draft) return false;
           const existingStrategy = strategies.get(agent.id);
@@ -1455,7 +1427,7 @@ export function registerAgentRoutes(
 
       const syncPendingParamsPatch = (announce: boolean) => {
         const run = draftSyncGate.then(async () => {
-          if (agent.mode !== "operate" || paramsPatchedThisTurn) return false;
+          if (paramsPatchedThisTurn) return false;
           const patch = await readPendingParamsPatch(workspace);
           if (!patch) return false;
           const updated = strategies.patchParams(agent.id, patch);

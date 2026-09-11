@@ -53,7 +53,7 @@ export function startStrategyScheduler(deps: {
           kind: "error",
           source: "strategy",
           label: "Strategy has no recipe",
-          detail: "Disarm and re-propose a recipe-backed plan in Operate",
+          detail: "Disarm and re-propose a recipe-backed plan in chat",
         });
         deps.strategies.pause(strategy.agentId);
         return;

@@ -18,11 +18,6 @@ import {
 export const name = "squadrons-strategy";
 export const inject = ["tools"];
 
-function deskMode() {
-  const raw = String(process.env.SQUADRONS_AGENT_MODE ?? "scout").toLowerCase();
-  return raw === "operate" ? "operate" : "scout";
-}
-
 async function readJson(file) {
   try {
     const raw = await readFile(file, "utf8");
@@ -40,7 +35,7 @@ export function apply(ctx) {
     defineTool({
       name: "propose_strategy",
       description:
-        "Commit or update this agent's strategy draft (Operate mode only). Requires a built-in recipeId + params. Does not arm — the user Arms in the desk. Prefer this over dumping JSON in chat. Cannot overwrite a running strategy (pause/disarm first, or use update_strategy_params for live knobs).",
+        "Commit or update this agent's strategy draft. Requires a built-in recipeId + params. Does not arm — the user Arms in the desk. Prefer this over dumping JSON in chat. Cannot overwrite a running strategy (pause/disarm first, or use update_strategy_params for live knobs).",
       parameters: {
         summary: {
           type: "string",
@@ -99,12 +94,6 @@ export function apply(ctx) {
         ],
       },
       async execute(args) {
-        if (deskMode() !== "operate") {
-          throw new Error(
-            "propose_strategy is only available in Operate mode. Ask the user to switch modes first.",
-          );
-        }
-
         const draft = parseStrategyDraftInput(args);
         if (!draft) {
           throw new Error(
@@ -148,7 +137,7 @@ export function apply(ctx) {
     defineTool({
       name: "update_strategy_params",
       description:
-        "Patch live strategy params (Operate mode). Works while draft, paused, or running — does not change recipe, trigger, or arm state. Host validates against the recipe schema.",
+        "Patch live strategy params. Works while draft, paused, or running — does not change recipe, trigger, or arm state. Host validates against the recipe schema.",
       parameters: {
         params: {
           type: "object",
@@ -169,11 +158,6 @@ export function apply(ctx) {
         ],
       },
       async execute(args) {
-        if (deskMode() !== "operate") {
-          throw new Error(
-            "update_strategy_params is only available in Operate mode.",
-          );
-        }
         const patch = parseStrategyParamsPatch(args);
         if (!patch) {
           throw new Error("Invalid params patch. Need { params: { ... } }.");
@@ -215,7 +199,7 @@ export function apply(ctx) {
     defineTool({
       name: "propose_improvement",
       description:
-        "Queue a self-improvement param patch for desk Approve/Dismiss. Use during a host self-improvement review, or in Operate when suggesting a retune. Does not apply params immediately.",
+        "Queue a self-improvement param patch for desk Approve/Dismiss. Use during a host self-improvement review, or when suggesting a retune in chat. Does not apply params immediately.",
       parameters: {
         patch: {
           type: "object",
@@ -302,7 +286,7 @@ export function apply(ctx) {
         const state = await readJson(statePath());
         const draft = await readJson(draftPath());
         /** @type {Record<string, unknown>} */
-        const out = { mode: deskMode() };
+        const out = {};
         if (state != null) out.strategy = state;
         if (draft != null) out.pendingDraft = draft;
         return out;

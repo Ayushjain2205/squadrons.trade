@@ -245,7 +245,7 @@ export function startImprovementScheduler(deps: {
   };
 }
 
-/** Used by routes when Operate queues a proposal via tool. */
+/** Used by routes when chat queues a proposal via tool. */
 export function applyImprovementProposalFromWorkspace(
   deps: {
     agent: Agent;
