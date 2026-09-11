@@ -36,14 +36,6 @@ function toneForTemplate(template: StrategyTemplate): TemplateTone {
   };
 }
 
-function chainsForTemplate(
-  template: StrategyTemplate,
-  agentChainId: SupportedChainId,
-): SupportedChainId[] {
-  if (template.chainIds.length === 0) return [agentChainId];
-  return [...template.chainIds];
-}
-
 export function StrategyTemplatesBrowser({
   agentId,
   chainId,
@@ -225,7 +217,6 @@ export function StrategyTemplatesBrowser({
                     {filtered.map((template) => {
                       const active = template.id === selected?.id;
                       const tone = toneForTemplate(template);
-                      const chains = chainsForTemplate(template, chainId);
                       return (
                         <li key={template.id}>
                           <button
@@ -237,13 +228,6 @@ export function StrategyTemplatesBrowser({
                                 ? "bg-[var(--panel-2)]"
                                 : "hover:bg-[var(--panel-2)]/70"
                             }`}
-                            style={
-                              active
-                                ? {
-                                    boxShadow: `inset 2px 0 0 ${tone.accent}`,
-                                  }
-                                : undefined
-                            }
                           >
                             <TemplateGlyph
                               template={template}
@@ -251,20 +235,8 @@ export function StrategyTemplatesBrowser({
                               size={34}
                             />
                             <span className="min-w-0 flex-1">
-                              <span className="type-ui flex items-center gap-1.5 text-[var(--ink)]">
-                                <span className="min-w-0 truncate">
-                                  {template.name}
-                                </span>
-                                <span className="flex shrink-0 items-center gap-0.5">
-                                  {chains.slice(0, 2).map((id) => (
-                                    <ChainLogo
-                                      key={id}
-                                      chainId={id}
-                                      size={12}
-                                      className="rounded-[3px]"
-                                    />
-                                  ))}
-                                </span>
+                              <span className="type-ui block truncate text-[var(--ink)]">
+                                {template.name}
                               </span>
                               <span className="type-meta mt-0.5 line-clamp-2 block text-[var(--muted)]">
                                 {template.blurb}
@@ -294,34 +266,20 @@ export function StrategyTemplatesBrowser({
                           {selected.name}
                         </h3>
                         <div className="flex flex-wrap items-center gap-1.5">
-                          {chainsForTemplate(selected, chainId).map((id) => (
-                            <span
-                              key={id}
-                              className="inline-flex items-center gap-1 rounded-md bg-[var(--panel-2)] px-1.5 py-0.5"
-                            >
-                              <ChainLogo
-                                chainId={id}
-                                size={12}
-                                className="rounded-[3px]"
-                              />
-                              <span className="type-meta text-[var(--ink-soft)]">
-                                {chainLabel(id)}
-                              </span>
+                          <span className="inline-flex items-center gap-1 rounded-md bg-[var(--panel-2)] px-1.5 py-0.5">
+                            <ChainLogo
+                              chainId={chainId}
+                              size={12}
+                              className="rounded-[3px]"
+                            />
+                            <span className="type-meta text-[var(--ink-soft)]">
+                              {chainLabel(chainId)}
                             </span>
-                          ))}
-                          {selected.chainIds.length === 0 ? (
-                            <span className="type-meta rounded-md bg-[var(--panel-2)] px-1.5 py-0.5 text-[var(--muted)]">
-                              Any chain
-                            </span>
-                          ) : null}
+                          </span>
                           {selected.tags.map((tag) => (
                             <span
                               key={tag}
-                              className="type-meta rounded-md px-1.5 py-0.5"
-                              style={{
-                                color: selectedTone.accent,
-                                background: selectedTone.dim,
-                              }}
+                              className="type-meta rounded-md bg-[var(--panel-2)] px-1.5 py-0.5 text-[var(--muted)]"
                             >
                               {tag}
                             </span>
