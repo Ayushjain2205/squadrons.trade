@@ -52,13 +52,18 @@ export const CHAIN_SCOPED_READ_TOOLS = [
   "get_spot_prices",
 ] as const;
 
+/** Base-only DEX quote (0x). Included when home chain is Base. */
+export const BASE_DEX_QUOTE_TOOLS = ["get_dex_quote"] as const;
+
 export type ChainScopedReadTool = (typeof CHAIN_SCOPED_READ_TOOLS)[number];
+export type BaseDexQuoteTool = (typeof BASE_DEX_QUOTE_TOOLS)[number];
 
 export function chainScopedReadTools(
-  _chainId: SupportedChainId,
-): readonly ChainScopedReadTool[] {
-  // All supported home chains currently share the same read surface;
-  // balance tools still execute against the agent's home chain only.
+  chainId: SupportedChainId,
+): readonly (ChainScopedReadTool | BaseDexQuoteTool)[] {
+  if (chainId === DEFAULT_POLICY.defaultChainId) {
+    return [...CHAIN_SCOPED_READ_TOOLS, ...BASE_DEX_QUOTE_TOOLS];
+  }
   return CHAIN_SCOPED_READ_TOOLS;
 }
 

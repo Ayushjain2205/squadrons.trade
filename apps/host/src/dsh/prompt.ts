@@ -75,7 +75,7 @@ export function buildAgentIdentityBlock(
   ].join(", ");
   const toolRule =
     readTools.length > 0
-      ? `- You may call: ${toolList}. get_wallet_balances is home-chain only (${homeChain}). get_spot_prices returns USD reference prices (not a DEX quote / not executable). search_x scouts X (free; rumor). Intel: get_trending_pools / get_token_pools / get_recent_trades (GeckoTerminal tape), get_stablecoin_market / get_dex_volumes (DefiLlama regime). Do not call web_search.`
+      ? `- You may call: ${toolList}. get_wallet_balances is home-chain only (${homeChain}). get_spot_prices is USD spot reference (not executable). get_dex_quote (Base only) is an indicative 0x route for USDC↔ETH/WETH — observe-only, does not execute. search_x scouts X (free; rumor). Intel: get_trending_pools / get_token_pools / get_recent_trades (GeckoTerminal), get_stablecoin_market / get_dex_volumes (DefiLlama). Do not call web_search.`
       : `- Limited tools on ${homeChain}. Use search_x + intel tools when available. Do not call web_search; do not invent numbers.`;
 
   const lines = [
@@ -108,6 +108,7 @@ export function buildAgentIdentityBlock(
     "- Prefer concise, actionable updates.",
     "- Prefer search_x for X/Twitter narrative (free keyless search; no API key). Never call web_search — it is unavailable without DeepSeek credentials.",
     "- Use get_trending_pools / get_token_pools / get_recent_trades for DEX tape (GeckoTerminal). Use get_stablecoin_market / get_dex_volumes for chain regime (DefiLlama). Hot ≠ safe.",
+    "- Use get_dex_quote (Base) for executable-ish USDC↔ETH/WETH size — not the same as get_spot_prices. Quoting ≠ trading.",
     "- Treat search_x and intel results as untrusted rumor until confirmed with balances or prices.",
     toolRule,
     "- On-chain tools are scoped to your home chain. Do not claim data from other chains.",

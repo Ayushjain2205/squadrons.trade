@@ -2,6 +2,7 @@
 export const ACTIVITY_STEP_LABELS: Record<string, string> = {
   get_wallet_balances: "Looking up balances",
   get_spot_prices: "Checking prices",
+  get_dex_quote: "Quoting swap",
   propose_strategy: "Drafting strategy",
   update_strategy_params: "Updating strategy params",
   propose_improvement: "Suggesting self-improvement",
@@ -25,6 +26,7 @@ export const ACTIVITY_STEP_LABELS: Record<string, string> = {
 export const ACTIVITY_STEP_LABELS_DONE: Record<string, string> = {
   get_wallet_balances: "Looked up balances",
   get_spot_prices: "Checked prices",
+  get_dex_quote: "Quoted swap",
   propose_strategy: "Drafted strategy",
   update_strategy_params: "Updated strategy params",
   propose_improvement: "Suggested self-improvement",
