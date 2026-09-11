@@ -70,6 +70,20 @@ export const SCOUT_TOOLS = ["search_x"] as const;
 
 export type ScoutTool = (typeof SCOUT_TOOLS)[number];
 
+/**
+ * Market intel tools (DefiLlama + GeckoTerminal). Home-chain biased via env.
+ * Tape/analytics only — not executable quotes.
+ */
+export const INTEL_TOOLS = [
+  "get_trending_pools",
+  "get_token_pools",
+  "get_recent_trades",
+  "get_stablecoin_market",
+  "get_dex_volumes",
+] as const;
+
+export type IntelTool = (typeof INTEL_TOOLS)[number];
+
 /** Tools the Operate-mode prompt should mention for strategy authorship. */
 export const STRATEGY_TOOLS = [
   "propose_strategy",

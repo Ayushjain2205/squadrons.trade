@@ -33,7 +33,8 @@ cat > "$DEST/profiles/sdk/package.json" <<EOF
     "@deepseek-ai/dsh-sdk-app": "0.1.2-rc.1",
     "squadrons-defi": "link:$ROOT/packages/squadrons-defi",
     "squadrons-strategy": "link:$ROOT/packages/squadrons-strategy",
-    "squadrons-social": "link:$ROOT/packages/squadrons-social"
+    "squadrons-social": "link:$ROOT/packages/squadrons-social",
+    "squadrons-intel": "link:$ROOT/packages/squadrons-intel"
   },
   "dsh": {
     "profile": {
@@ -42,7 +43,8 @@ cat > "$DEST/profiles/sdk/package.json" <<EOF
         "@deepseek-ai/dsh-sdk-app",
         "squadrons-defi",
         "squadrons-strategy",
-        "squadrons-social"
+        "squadrons-social",
+        "squadrons-intel"
       ],
       "patchReload": "startup"
     }
@@ -83,7 +85,7 @@ autoInstallPeers: false
 EOF
 
 cd "$DEST/profiles/sdk"
-pnpm install
+CI=true pnpm install --no-frozen-lockfile
 
 echo
 echo "Verifying openrouter config…"

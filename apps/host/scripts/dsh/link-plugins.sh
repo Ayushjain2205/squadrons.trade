@@ -30,6 +30,7 @@ const plugins = {
   "squadrons-defi": "link:$ROOT/packages/squadrons-defi",
   "squadrons-strategy": "link:$ROOT/packages/squadrons-strategy",
   "squadrons-social": "link:$ROOT/packages/squadrons-social",
+  "squadrons-intel": "link:$ROOT/packages/squadrons-intel",
 };
 for (const [name, spec] of Object.entries(plugins)) {
   data.dependencies[name] = spec;
@@ -46,5 +47,5 @@ fs.writeFileSync(file, JSON.stringify(data, null, 2) + "\n");
 console.log("Updated", file);
 EOF
 
-(cd "$PROFILE" && pnpm install --no-frozen-lockfile)
+(cd "$PROFILE" && CI=true pnpm install --no-frozen-lockfile)
 echo "Squadrons Cordis plugins linked into $PROFILE"

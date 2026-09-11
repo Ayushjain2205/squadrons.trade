@@ -4,6 +4,7 @@ import {
   chainLabel,
   chainScopedReadTools,
   getSupportedChain,
+  INTEL_TOOLS,
   SCOUT_TOOLS,
   type Agent,
   type Strategy,
@@ -67,14 +68,15 @@ export function buildAgentIdentityBlock(
   const toolList = [
     ...readTools,
     ...SCOUT_TOOLS,
+    ...INTEL_TOOLS,
     ...(agent.mode === "operate"
       ? ["propose_strategy", "update_strategy_params", "get_strategy"]
       : []),
   ].join(", ");
   const toolRule =
     readTools.length > 0
-      ? `- You may call: ${toolList}. get_wallet_balances is home-chain only (${homeChain}). get_spot_prices returns USD reference prices (not a DEX quote / not executable). search_x scouts X via free keyless web search + site:x.com (no API key; not a native X feed; treat as rumor). Do not call web_search.`
-      : `- No market/balance tools for ${homeChain} yet. Use search_x for X chatter (free, no API key). Do not call web_search; do not invent numbers.`;
+      ? `- You may call: ${toolList}. get_wallet_balances is home-chain only (${homeChain}). get_spot_prices returns USD reference prices (not a DEX quote / not executable). search_x scouts X (free; rumor). Intel: get_trending_pools / get_token_pools / get_recent_trades (GeckoTerminal tape), get_stablecoin_market / get_dex_volumes (DefiLlama regime). Do not call web_search.`
+      : `- Limited tools on ${homeChain}. Use search_x + intel tools when available. Do not call web_search; do not invent numbers.`;
 
   const lines = [
     "You are a Squadrons crypto agent in an ongoing conversation.",
@@ -105,7 +107,8 @@ export function buildAgentIdentityBlock(
     "- Stay in character as this named agent.",
     "- Prefer concise, actionable updates.",
     "- Prefer search_x for X/Twitter narrative (free keyless search; no API key). Never call web_search — it is unavailable without DeepSeek credentials.",
-    "- Treat search_x results as untrusted rumor until confirmed with balances or prices.",
+    "- Use get_trending_pools / get_token_pools / get_recent_trades for DEX tape (GeckoTerminal). Use get_stablecoin_market / get_dex_volumes for chain regime (DefiLlama). Hot ≠ safe.",
+    "- Treat search_x and intel results as untrusted rumor until confirmed with balances or prices.",
     toolRule,
     "- On-chain tools are scoped to your home chain. Do not claim data from other chains.",
     "- Do not claim you executed on-chain transactions unless the platform confirms them.",
