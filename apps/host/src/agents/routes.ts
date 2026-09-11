@@ -992,6 +992,62 @@ export function registerAgentRoutes(
     }
   });
 
+  /** Remove strategy entirely (draft/paused only). */
+  app.delete("/v1/agents/:id/strategy", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      const agentId = req.params.id;
+      if (!agentId) {
+        res.status(400).json({ ok: false, error: "missing agent id" });
+        return;
+      }
+
+      const existing = agents.getForUser(user.id, agentId);
+      if (!existing) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+      if (!existing.strategy) {
+        res.status(400).json({ ok: false, error: "no strategy to remove" });
+        return;
+      }
+      if (existing.strategy.status === "running") {
+        res.status(400).json({
+          ok: false,
+          error: "pause or disarm before removing the strategy",
+        });
+        return;
+      }
+
+      const summary = existing.strategy.summary;
+      strategies.delete(existing.id);
+      clearEventEdgeState(existing.id);
+      const pending = improvements.getPending(existing.id);
+      if (pending) {
+        improvements.resolve(existing.id, pending.id, "dismissed");
+      }
+      activity.publish({
+        agentId: existing.id,
+        kind: "info",
+        source: "system",
+        label: "Removed strategy",
+        detail: summary,
+      });
+
+      const agent = agents.getForUser(user.id, existing.id);
+      const workspace = agentWorkspacePath(user.id, existing.id);
+      if (agent) await writeStrategyStateFile(workspace, agent);
+      res.json({
+        ok: true,
+        agent: agent
+          ? { ...agent, workspace }
+          : { ...existing, strategy: null, workspace },
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.patch("/v1/agents/:id/strategy/improvement", async (req, res, next) => {
     try {
       const user = await requireUser(req, users);
