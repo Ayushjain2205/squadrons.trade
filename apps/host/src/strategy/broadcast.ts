@@ -6,11 +6,13 @@ export type BroadcastResult =
   | { ok: false; reason: string };
 
 function getAuthorizationPrivateKey(): string | null {
-  return (
+  const raw =
     process.env.PRIVY_AUTHORIZATION_PRIVATE_KEY?.trim() ||
     process.env.PRIVY_AUTHORIZATION_KEY?.trim() ||
-    null
-  );
+    null;
+  if (!raw) return null;
+  // Privy dashboard sometimes exports as "wallet-auth:<pkcs8-base64>"
+  return raw.startsWith("wallet-auth:") ? raw.slice("wallet-auth:".length) : raw;
 }
 
 export function isPrivyBroadcastConfigured(): boolean {
