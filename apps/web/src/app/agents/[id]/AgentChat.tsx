@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { usePrivy, useSigners, useWallets } from "@privy-io/react-auth";
 import {
   displayActivityLabel,
   parseAllowanceApprovalMarker,
+  parseTradeOutcomeMarker,
   stripAllowanceApprovalMarker,
+  stripTradeOutcomeMarker,
   type AgentMode,
   type AvatarId,
   type OrbColorId,
@@ -53,6 +56,9 @@ export function AgentChat({
   const [pausing, setPausing] = useState(false);
   const [modePending, setModePending] = useState(false);
   const toast = useToast();
+  const { user } = usePrivy();
+  const { wallets } = useWallets();
+  const { addSigners } = useSigners();
   const [liveSteps, setLiveSteps] = useState<ChatToolStep[]>([]);
   const [stepsByUserMessageId, setStepsByUserMessageId] = useState<
     Record<string, ChatToolStep[]>
@@ -64,6 +70,9 @@ export function AgentChat({
     TradeIntentRecord[]
   >([]);
   const [allowanceBusyId, setAllowanceBusyId] = useState<string | null>(null);
+  const [allowancePhase, setAllowancePhase] = useState<
+    "signer" | "broadcast" | null
+  >(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const liveStepsRef = useRef<ChatToolStep[]>([]);
@@ -91,20 +100,28 @@ export function AgentChat({
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, pending, liveSteps, awaitingAllowance]);
 
-  // Strategy may post allowance cards while chat is idle — listen always.
+  // One Approve card per pending intent — attach to the latest marker message only.
+  const allowanceCardMessageIds = useMemo(() => {
+    const awaitingIds = new Set(awaitingAllowance.map((row) => row.id));
+    const latestByIntent = new Map<string, string>();
+    for (const message of messages) {
+      if (message.role !== "system") continue;
+      const intentId = parseAllowanceApprovalMarker(message.content);
+      if (!intentId || !awaitingIds.has(intentId)) continue;
+      latestByIntent.set(intentId, message.id);
+    }
+    return new Set(latestByIntent.values());
+  }, [messages, awaitingAllowance]);
+
+  // Strategy may post allowance cards / outcomes while chat is idle — listen always.
   useEffect(() => {
     const unsubscribe = subscribeActivity(agent.id, (event) => {
       if (event.source !== "strategy" && event.source !== "system") return;
-      if (
-        event.label === "Allowance approval needed" ||
-        event.label.startsWith("Allowance approved") ||
-        event.label === "Allowance dismissed"
-      ) {
-        refreshAllowanceRequests();
-        void listMessages(agent.id)
-          .then(setMessages)
-          .catch(() => {});
-      }
+      refreshAllowanceRequests();
+      // Any strategy/system activity may append a chat message (allowance, trade, etc.)
+      void listMessages(agent.id)
+        .then(setMessages)
+        .catch(() => {});
     });
     return unsubscribe;
   }, [agent.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -182,12 +199,57 @@ export function AgentChat({
   function resolveAllowance(intentId: string, kind: "approve" | "dismiss") {
     if (allowanceBusyId) return;
     setAllowanceBusyId(intentId);
+    setAllowancePhase(kind === "approve" ? "signer" : null);
     startTransition(async () => {
       try {
         if (kind === "approve") {
-          await approveTradeAllowance(agent.id, intentId);
+          const signerId = process.env.NEXT_PUBLIC_PRIVY_SIGNER_ID?.trim();
+          if (!signerId) {
+            throw new Error(
+              "NEXT_PUBLIC_PRIVY_SIGNER_ID is not set — host cannot sign for your wallet",
+            );
+          }
+          const embedded =
+            wallets.find(
+              (w) =>
+                w.walletClientType === "privy" ||
+                w.walletClientType === "privy-v2",
+            ) ?? null;
+          const address =
+            embedded?.address ??
+            (user?.wallet?.address as string | undefined) ??
+            null;
+          if (!address) {
+            throw new Error("No embedded wallet found — re-login and try again");
+          }
+          const alreadyDelegated = Boolean(
+            user?.linkedAccounts?.some(
+              (account) =>
+                account.type === "wallet" &&
+                "address" in account &&
+                account.address?.toLowerCase() === address.toLowerCase() &&
+                "delegated" in account &&
+                account.delegated === true,
+            ),
+          );
+          if (!alreadyDelegated) {
+            await addSigners({
+              address,
+              signers: [{ signerId, policyIds: [] }],
+            });
+          }
+          setAllowancePhase("broadcast");
+          const result = await approveTradeAllowance(agent.id, intentId);
+          if (result.outcome) {
+            if (result.outcome.kind === "failed") {
+              toast.error(result.outcome.title);
+            } else {
+              toast.info(result.outcome.title);
+            }
+          }
         } else {
           await dismissTradeAllowance(agent.id, intentId);
+          toast.info("Allowance dismissed");
         }
         const nextMessages = await listMessages(agent.id);
         setMessages(nextMessages);
@@ -198,6 +260,7 @@ export function AgentChat({
         );
       } finally {
         setAllowanceBusyId(null);
+        setAllowancePhase(null);
       }
     });
   }
@@ -381,9 +444,10 @@ export function AgentChat({
                 message.role === "system"
                   ? parseAllowanceApprovalMarker(message.content)
                   : null;
-              const pendingAllowance = allowanceIntentId
-                ? awaitingAllowance.find((row) => row.id === allowanceIntentId)
-                : null;
+              const pendingAllowance =
+                allowanceIntentId && allowanceCardMessageIds.has(message.id)
+                  ? awaitingAllowance.find((row) => row.id === allowanceIntentId)
+                  : null;
               return (
                 <div key={message.id} className="flex flex-col gap-2">
                   <MessageBubble message={message} />
@@ -391,6 +455,11 @@ export function AgentChat({
                     <AllowanceApprovalCard
                       intent={pendingAllowance}
                       busy={allowanceBusyId === pendingAllowance.id}
+                      phase={
+                        allowanceBusyId === pendingAllowance.id
+                          ? allowancePhase
+                          : null
+                      }
                       onApprove={() =>
                         resolveAllowance(pendingAllowance.id, "approve")
                       }
@@ -803,6 +872,21 @@ function Caret({ open }: { open: boolean }) {
 
 function MessageBubble({ message }: { message: AgentMessage }) {
   const isUser = message.role === "user";
+  if (message.role === "system") {
+    const outcomeMeta = parseTradeOutcomeMarker(message.content);
+    if (outcomeMeta) {
+      const text = stripTradeOutcomeMarker(message.content);
+      const [titleLine, ...rest] = text.split("\n");
+      return (
+        <TradeOutcomeCard
+          kind={outcomeMeta.kind}
+          code={outcomeMeta.code}
+          title={titleLine || "Trade update"}
+          body={rest.join("\n").trim()}
+        />
+      );
+    }
+  }
   const content =
     message.role === "system"
       ? stripAllowanceApprovalMarker(message.content)
@@ -827,26 +911,75 @@ function MessageBubble({ message }: { message: AgentMessage }) {
   );
 }
 
+function TradeOutcomeCard({
+  kind,
+  code,
+  title,
+  body,
+}: {
+  kind: "submitted" | "dry_run" | "failed" | "dismissed";
+  code: string;
+  title: string;
+  body: string;
+}) {
+  const tone =
+    kind === "submitted"
+      ? "border-[var(--accent)]/35 text-[var(--accent)]"
+      : kind === "failed"
+        ? "border-[var(--danger)]/40 text-[var(--danger)]"
+        : "border-[var(--line-soft)] text-[var(--ink-soft)]";
+  const label =
+    kind === "submitted"
+      ? "Submitted"
+      : kind === "failed"
+        ? code === "insufficient_gas"
+          ? "Needs gas"
+          : "Failed"
+        : kind === "dry_run"
+          ? "Dry-run"
+          : "Dismissed";
+  return (
+    <div
+      className={`max-w-[min(100%,var(--measure-chat))] space-y-1.5 rounded-2xl border bg-[var(--panel)] px-4 py-3 ${tone}`}
+    >
+      <p className="type-meta uppercase tracking-[0.08em]">{label}</p>
+      <p className="type-ui text-[var(--ink)]">{title}</p>
+      {body ? (
+        <p className="type-meta text-[var(--ink-soft)]">{body}</p>
+      ) : null}
+    </div>
+  );
+}
+
 function AllowanceApprovalCard({
   intent,
   busy,
+  phase,
   onApprove,
   onDismiss,
 }: {
   intent: TradeIntentRecord;
   busy: boolean;
+  phase: "signer" | "broadcast" | null;
   onApprove: () => void;
   onDismiss: () => void;
 }) {
   const side = intent.side ?? "trade";
   const symbol = intent.symbol ? ` ${intent.symbol}` : "";
+  const busyLabel =
+    phase === "signer"
+      ? "Granting wallet access…"
+      : phase === "broadcast"
+        ? "Sending on Base…"
+        : "Working…";
   return (
     <div className="max-w-[min(100%,var(--measure-chat))] space-y-3 rounded-2xl border border-[var(--line-soft)] bg-[var(--panel)] px-4 py-3">
       <div>
         <p className="type-ui text-[var(--ink)]">Approve token spend?</p>
         <p className="type-meta mt-1 text-[var(--ink-soft)]">
           Allow ERC-20 allowance for {side} ${intent.amountUsd}
-          {symbol}. Still capped — no spend beyond this trade’s quote.
+          {symbol} on Base. Needs a little ETH in this wallet for gas. Still
+          capped — no spend beyond this trade’s quote.
         </p>
       </div>
       <div className="flex gap-2">
@@ -856,7 +989,7 @@ function AllowanceApprovalCard({
           onClick={onApprove}
           className="type-ui flex-1 cursor-pointer rounded-full bg-[var(--ink)] px-3 py-1.5 font-semibold text-[var(--canvas)] disabled:opacity-40"
         >
-          {busy ? "Working…" : "Approve"}
+          {busy ? busyLabel : "Approve"}
         </button>
         <button
           type="button"

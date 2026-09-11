@@ -200,6 +200,13 @@ export async function approveTradeAllowance(
   return hostFetch<{
     intent: TradeIntentRecord;
     execution: { status: string; detail?: string; txHash?: string };
+    outcome?: {
+      kind: string;
+      code: string;
+      title: string;
+      body: string;
+      txHash?: string;
+    };
   }>(
     `/v1/agents/${agentId}/strategy/trade-intents/${intentId}/approve-allowance`,
     { method: "POST", body: "{}" },

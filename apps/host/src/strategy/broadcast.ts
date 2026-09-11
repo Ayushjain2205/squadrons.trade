@@ -15,14 +15,19 @@ function getAuthorizationPrivateKey(): string | null {
   return raw.startsWith("wallet-auth:") ? raw.slice("wallet-auth:".length) : raw;
 }
 
+/** True when an app authorization key is present (server signer). */
 export function isPrivyBroadcastConfigured(): boolean {
   return Boolean(getAuthorizationPrivateKey());
 }
 
+export function canBroadcast(): boolean {
+  return isPrivyBroadcastConfigured();
+}
+
 /**
- * Sign + broadcast an EVM tx via Privy Wallet API.
- * Requires PRIVY_AUTHORIZATION_PRIVATE_KEY (app authorization key) for
- * autonomous server-side sends. Fail-closed when missing.
+ * Sign + broadcast an EVM tx via Privy Wallet API using the app authorization key.
+ * The key must be added as a session signer on the user's embedded wallet first
+ * (client `useSigners().addSigners` with the key quorum id).
  */
 export async function broadcastEvmTx(input: {
   walletId: string;

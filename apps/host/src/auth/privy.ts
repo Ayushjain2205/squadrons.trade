@@ -36,7 +36,8 @@ export class AuthError extends Error {
   }
 }
 
-function extractAccessToken(req: Request): string | null {
+/** Privy access token from Authorization header or SSE query. */
+export function extractAccessToken(req: Request): string | null {
   const header = req.header("authorization")?.trim();
   if (header?.toLowerCase().startsWith("bearer ")) {
     const token = header.slice(7).trim();
@@ -46,6 +47,24 @@ function extractAccessToken(req: Request): string | null {
   const query = req.query.access_token;
   if (typeof query === "string" && query.trim()) return query.trim();
   return null;
+}
+
+/**
+ * Privy identity token for Wallet API user signing (`user_jwts`).
+ * Access tokens are invalid for this slot — use `privy-id-token` header.
+ */
+export function extractIdentityToken(req: Request): string | null {
+  const header = req.header("privy-id-token")?.trim();
+  if (header) return header;
+  const cookie = req.header("cookie");
+  if (!cookie) return null;
+  const match = cookie.match(/(?:^|;\s*)privy-id-token=([^;]+)/);
+  if (!match?.[1]) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return match[1];
+  }
 }
 
 export type PickedWallet = {

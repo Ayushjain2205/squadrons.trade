@@ -7,7 +7,7 @@ import {
 import { buildApproveFromSwap } from "./approve.js";
 import {
   broadcastEvmTx,
-  isPrivyBroadcastConfigured,
+  canBroadcast,
 } from "./broadcast.js";
 import {
   buildSwapFromPlan,
@@ -211,7 +211,7 @@ export async function executeGatedTrade(input: {
     };
   }
 
-  if (!isPrivyBroadcastConfigured()) {
+  if (!canBroadcast()) {
     return {
       status: "failed",
       reason:

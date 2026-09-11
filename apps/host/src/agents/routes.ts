@@ -8,6 +8,7 @@ import {
   isOrbColorId,
   isSupportedChainId,
   parseStrategyDraftInput,
+  formatTradeOutcomeMessage,
 } from "@squadrons/shared";
 import {
   AuthError,
@@ -880,36 +881,55 @@ export function registerAgentRoutes(
           },
         });
 
-        const outcome =
+        const outcomeMsg =
           executed.status === "submitted"
-            ? `Allowance approved — submitted ${executed.txHash}`
+            ? formatTradeOutcomeMessage({
+                kind: "submitted",
+                txHash: executed.txHash,
+                detail: executed.detail,
+                ...("approveTxHash" in executed && executed.approveTxHash
+                  ? { approveTxHash: executed.approveTxHash }
+                  : {}),
+              })
             : executed.status === "dry_run"
-              ? `Allowance approved — dry-run only (no broadcast). ${executed.detail}`
-              : executed.status === "failed"
-                ? `Allowance approved but trade failed: ${executed.reason}`
-                : `Allowance approved — ${executed.detail}`;
-        messages.append(existing.id, "system", outcome);
+              ? formatTradeOutcomeMessage({
+                  kind: "dry_run",
+                  detail: executed.detail,
+                })
+              : formatTradeOutcomeMessage({
+                  kind: "failed",
+                  reason:
+                    executed.status === "failed"
+                      ? executed.reason
+                      : "Still needs allowance after approval",
+                  detail: executed.detail,
+                  ...("approveTxHash" in executed && executed.approveTxHash
+                    ? { approveTxHash: executed.approveTxHash }
+                    : {}),
+                });
+        messages.append(existing.id, "system", outcomeMsg.content);
 
         const activityLabel =
           executed.status === "submitted"
-            ? "Allowance approved — trade submitted"
+            ? "Trade submitted"
             : executed.status === "dry_run"
-              ? "Allowance approved — dry-run (no broadcast)"
+              ? "Dry-run complete (no broadcast)"
               : executed.status === "failed"
-                ? "Allowance approved — trade failed"
-                : "Allowance approved";
+                ? outcomeMsg.outcome.title
+                : "Allowance resolved";
         activity.publish({
           agentId: existing.id,
           kind: executed.status === "failed" ? "error" : "info",
           source: "strategy",
           label: activityLabel,
-          detail: executed.detail,
+          detail: outcomeMsg.outcome.body,
         });
 
         res.json({
           ok: true,
           intent: tradeIntents.get(record.id),
           execution: executed,
+          outcome: outcomeMsg.outcome,
         });
       } catch (error) {
         next(error);
@@ -948,11 +968,8 @@ export function registerAgentRoutes(
           detail: "Dismissed in chat — no allowance broadcast",
           reason: "dismissed_by_user",
         });
-        messages.append(
-          existing.id,
-          "system",
-          "Dismissed — I won’t approve that token spend.",
-        );
+        const dismissed = formatTradeOutcomeMessage({ kind: "dismissed" });
+        messages.append(existing.id, "system", dismissed.content);
         activity.publish({
           agentId: existing.id,
           kind: "info",
