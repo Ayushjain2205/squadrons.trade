@@ -883,18 +883,26 @@ export function registerAgentRoutes(
         const outcome =
           executed.status === "submitted"
             ? `Allowance approved — submitted ${executed.txHash}`
-            : executed.status === "failed"
-              ? `Allowance approved but trade failed: ${executed.reason}`
-              : `Allowance approved — ${executed.detail}`;
+            : executed.status === "dry_run"
+              ? `Allowance approved — dry-run only (no broadcast). ${executed.detail}`
+              : executed.status === "failed"
+                ? `Allowance approved but trade failed: ${executed.reason}`
+                : `Allowance approved — ${executed.detail}`;
         messages.append(existing.id, "system", outcome);
+
+        const activityLabel =
+          executed.status === "submitted"
+            ? "Allowance approved — trade submitted"
+            : executed.status === "dry_run"
+              ? "Allowance approved — dry-run (no broadcast)"
+              : executed.status === "failed"
+                ? "Allowance approved — trade failed"
+                : "Allowance approved";
         activity.publish({
           agentId: existing.id,
-          kind: executed.status === "submitted" ? "info" : "error",
+          kind: executed.status === "failed" ? "error" : "info",
           source: "strategy",
-          label:
-            executed.status === "submitted"
-              ? "Allowance approved — trade submitted"
-              : "Allowance approved — trade failed",
+          label: activityLabel,
           detail: executed.detail,
         });
 
