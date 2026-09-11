@@ -1,8 +1,9 @@
 import { defineTool } from "@deepseek-ai/dsh-tools";
+import { freeWebSearch } from "./duckduckgo.js";
 
 /** Cordis plugin id / package export name. */
 export const name = "squadrons-social";
-export const inject = ["tools", "web"];
+export const inject = ["tools"];
 
 const DEFAULT_MAX_RESULTS = 8;
 const SITE_CONSTRAINT = "(site:x.com OR site:twitter.com)";
@@ -39,16 +40,13 @@ function isXUrl(url) {
 }
 
 /**
- * @param {{ url: string, title?: string, snippet?: string, publishedAt?: string }} source
+ * @param {{ url: string, title?: string, snippet?: string }} source
  */
 function projectSource(source) {
   return {
     url: source.url,
     ...(source.title !== undefined ? { title: source.title } : {}),
     ...(source.snippet !== undefined ? { snippet: source.snippet } : {}),
-    ...(source.publishedAt !== undefined
-      ? { publishedAt: source.publishedAt }
-      : {}),
     onX: isXUrl(source.url),
   };
 }
@@ -61,7 +59,7 @@ export function apply(ctx) {
     defineTool({
       name: "search_x",
       description:
-        "Scout recent public discussion on X/Twitter via web search restricted to site:x.com (and twitter.com). Returns titles, snippets, and URLs — not a native X API feed. Treat results as rumor; confirm with balances/prices before acting. Prefer this over generic web_search when looking for tweets or X chatter.",
+        "Scout recent public discussion on X/Twitter via free keyless web search (DuckDuckGo HTML, Bing RSS fallback) restricted to site:x.com (and twitter.com). No DeepSeek/OpenRouter search key required. Returns titles, snippets, and URLs — not a native X API feed. Treat results as rumor; confirm with balances/prices before acting. Prefer this over web_search for X chatter (web_search needs DEEPSEEK_API_KEY).",
       parameters: {
         query: {
           type: "string",
@@ -106,21 +104,22 @@ export function apply(ctx) {
         }
 
         const webQuery = buildXWebQuery(query);
-        const result = await ctx.web.search(
-          { query: webQuery, maxResults },
+        const result = await freeWebSearch(
+          webQuery,
+          maxResults,
           exec.signal,
         );
 
-        const projected = (result.sources ?? []).map(projectSource);
+        const projected = result.sources.map(projectSource);
         const onX = projected.filter((s) => s.onX);
-        // Prefer on-X hits; if the provider ignored site:, fall back to all.
+        // Prefer on-X hits; if site: was ignored, fall back to all.
         const sources = onX.length > 0 ? onX : projected;
 
         return {
           query,
           webQuery,
-          note: "Via web search + site:x.com — not the X API. Snippets may be stale or off-platform; treat as rumor.",
-          ...(result.content ? { content: result.content } : {}),
+          provider: result.provider,
+          note: "Via free keyless web search + site:x.com — not the X API and not DeepSeek web_search. Snippets may be stale or off-platform; treat as rumor.",
           sources,
           truncated: Boolean(result.truncated),
         };
@@ -134,8 +133,7 @@ export function apply(ctx) {
  *   query: string,
  *   webQuery: string,
  *   note: string,
- *   content?: string,
- *   sources: Array<{ url: string, title?: string, snippet?: string, publishedAt?: string, onX: boolean }>,
+ *   sources: Array<{ url: string, title?: string, snippet?: string, onX: boolean }>,
  *   truncated: boolean,
  * }} value
  */
@@ -147,16 +145,11 @@ function formatSearchXOutput(value) {
     `Web query: ${value.webQuery}`,
   ];
 
-  if (value.content) {
-    parts.push(value.content);
-  }
-
   if (value.sources.length > 0) {
     const lines = value.sources.map((source) => {
       const label = source.title || source.url;
       const meta = [];
       if (source.snippet) meta.push(source.snippet);
-      if (source.publishedAt) meta.push(`(${source.publishedAt})`);
       const badge = source.onX ? " [x.com]" : "";
       const suffix = meta.length > 0 ? ` — ${meta.join(" ")}` : "";
       return `- [${label}](${source.url})${badge}${suffix}`;
@@ -164,7 +157,7 @@ function formatSearchXOutput(value) {
     parts.push(`Sources:\n${lines.join("\n")}`);
   } else {
     parts.push(
-      "No results found. Try different keywords, or fall back to web_search for broader coverage.",
+      "No results found. Try different keywords. (Do not fall back to web_search unless DEEPSEEK_API_KEY is configured.)",
     );
   }
 
@@ -174,6 +167,8 @@ function formatSearchXOutput(value) {
     );
   }
 
-  parts.push("Cite relevant URLs as markdown links. Confirm with on-chain/market tools before acting.");
+  parts.push(
+    "Cite relevant URLs as markdown links. Confirm with on-chain/market tools before acting.",
+  );
   return parts.join("\n\n");
 }

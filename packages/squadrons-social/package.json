@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "main": "index.js",
-  "files": ["index.js", "cordis.patch.yml"],
+  "files": ["index.js", "duckduckgo.js", "cordis.patch.yml"],
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"

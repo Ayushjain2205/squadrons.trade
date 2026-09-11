@@ -64,7 +64,7 @@ export function chainScopedReadTools(
 
 /**
  * Always-on scout tools (not chain-scoped).
- * search_x is a free facade over harness web search + site:x.com.
+ * search_x is a free keyless web facade (DDG → Bing → optional SearXNG) with site:x.com.
  */
 export const SCOUT_TOOLS = ["search_x"] as const;
 
