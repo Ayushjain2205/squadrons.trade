@@ -38,6 +38,14 @@ import {
   writeStrategyStateFile,
 } from "../strategy/workspace-draft.js";
 import { loadNativeBalances } from "../wallet/balances.js";
+import type { AgentPluginStore } from "../plugins/store.js";
+import { prepareAgentPlugins } from "../plugins/prepare.js";
+import {
+  isMcpCatalogId,
+  type CreateCustomPluginInput,
+  type UpdateCustomPluginInput,
+  type UpsertCatalogPluginInput,
+} from "@squadrons/shared";
 
 const GREETING =
   "Hey — I'm ready when you are. What should we dig into?";
@@ -51,6 +59,7 @@ export function registerAgentRoutes(
   strategies: StrategyStore,
   improvements: ImprovementProposalStore,
   tradeIntents: TradeIntentStore,
+  plugins: AgentPluginStore,
 ): void {
   app.get("/v1/me", async (req, res, next) => {
     try {
@@ -309,6 +318,229 @@ export function registerAgentRoutes(
         },
       });
     } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/v1/agents/:id/plugins", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      const agentId = req.params.id;
+      if (!agentId) {
+        res.status(400).json({ ok: false, error: "missing agent id" });
+        return;
+      }
+      const agent = agents.getForUser(user.id, agentId);
+      if (!agent) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+      res.json({ ok: true, plugins: plugins.listForAgent(agent.id) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.put("/v1/agents/:id/plugins/catalog/:catalogId", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      const agentId = req.params.id;
+      const catalogId = req.params.catalogId;
+      if (!agentId || !catalogId) {
+        res.status(400).json({ ok: false, error: "missing agent or catalog id" });
+        return;
+      }
+      if (!isMcpCatalogId(catalogId)) {
+        res.status(400).json({ ok: false, error: "unknown catalog plugin" });
+        return;
+      }
+      const agent = agents.getForUser(user.id, agentId);
+      if (!agent) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+
+      const body = (req.body ?? {}) as UpsertCatalogPluginInput;
+      if (typeof body.enabled !== "boolean") {
+        res.status(400).json({ ok: false, error: "enabled (boolean) required" });
+        return;
+      }
+      const secrets =
+        body.secrets && typeof body.secrets === "object" && !Array.isArray(body.secrets)
+          ? Object.fromEntries(
+              Object.entries(body.secrets).filter(
+                (entry): entry is [string, string] => typeof entry[1] === "string",
+              ),
+            )
+          : undefined;
+
+      const plugin = plugins.upsertCatalog(agent.id, catalogId, {
+        enabled: body.enabled,
+        secrets,
+      });
+
+      if (plugin.enabled && !plugin.configured) {
+        plugins.upsertCatalog(agent.id, catalogId, { enabled: false });
+        const fixed = plugins.listForAgent(agent.id).find(
+          (p) => p.catalogId === catalogId,
+        );
+        res.status(400).json({
+          ok: false,
+          error: "Add the required API key before enabling this plugin",
+          plugin: fixed ?? plugin,
+        });
+        return;
+      }
+
+      await invalidateAgentRuntime(agent.id);
+      res.json({ ok: true, plugin });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/v1/agents/:id/plugins/custom", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      const agentId = req.params.id;
+      if (!agentId) {
+        res.status(400).json({ ok: false, error: "missing agent id" });
+        return;
+      }
+      const agent = agents.getForUser(user.id, agentId);
+      if (!agent) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+
+      const body = (req.body ?? {}) as CreateCustomPluginInput;
+      if (!body.serverName || !body.config) {
+        res.status(400).json({
+          ok: false,
+          error: "serverName and config required",
+        });
+        return;
+      }
+
+      const plugin = plugins.createCustom(agent.id, {
+        name: typeof body.name === "string" ? body.name : body.serverName,
+        description:
+          typeof body.description === "string" ? body.description : "",
+        serverName: body.serverName,
+        enabled: body.enabled,
+        config: body.config,
+        secrets:
+          body.secrets && typeof body.secrets === "object"
+            ? Object.fromEntries(
+                Object.entries(body.secrets).filter(
+                  (entry): entry is [string, string] =>
+                    typeof entry[1] === "string",
+                ),
+              )
+            : undefined,
+      });
+
+      await invalidateAgentRuntime(agent.id);
+      res.status(201).json({ ok: true, plugin });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/serverName|url|command|args|reserved|already in use/i.test(message)) {
+        res.status(400).json({ ok: false, error: message });
+        return;
+      }
+      next(error);
+    }
+  });
+
+  app.patch("/v1/agents/:id/plugins/:pluginId", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      const agentId = req.params.id;
+      const pluginId = req.params.pluginId;
+      if (!agentId || !pluginId) {
+        res.status(400).json({ ok: false, error: "missing agent or plugin id" });
+        return;
+      }
+      const agent = agents.getForUser(user.id, agentId);
+      if (!agent) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+
+      const body = (req.body ?? {}) as UpdateCustomPluginInput;
+      const plugin = plugins.updateCustom(agent.id, pluginId, {
+        name: typeof body.name === "string" ? body.name : undefined,
+        description:
+          typeof body.description === "string" ? body.description : undefined,
+        enabled: typeof body.enabled === "boolean" ? body.enabled : undefined,
+        config: body.config,
+        secrets:
+          body.secrets && typeof body.secrets === "object"
+            ? Object.fromEntries(
+                Object.entries(body.secrets).filter(
+                  (entry): entry is [string, string] =>
+                    typeof entry[1] === "string",
+                ),
+              )
+            : undefined,
+      });
+
+      await invalidateAgentRuntime(agent.id);
+      res.json({ ok: true, plugin });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/not found/i.test(message)) {
+        res.status(404).json({ ok: false, error: message });
+        return;
+      }
+      if (/Not a custom|url|command|args|serverName/i.test(message)) {
+        res.status(400).json({ ok: false, error: message });
+        return;
+      }
+      next(error);
+    }
+  });
+
+  app.delete("/v1/agents/:id/plugins/:pluginId", async (req, res, next) => {
+    try {
+      const user = await requireUser(req, users);
+      const agentId = req.params.id;
+      const pluginId = req.params.pluginId;
+      if (!agentId || !pluginId) {
+        res.status(400).json({ ok: false, error: "missing agent or plugin id" });
+        return;
+      }
+      const agent = agents.getForUser(user.id, agentId);
+      if (!agent) {
+        res.status(404).json({ ok: false, error: "agent not found" });
+        return;
+      }
+
+      // Catalog rows use real UUIDs once saved; virtual catalog:id has no row
+      if (pluginId.startsWith("catalog:")) {
+        const catalogId = pluginId.slice("catalog:".length);
+        if (isMcpCatalogId(catalogId)) {
+          const existing = plugins
+            .listForAgent(agent.id)
+            .find((p) => p.catalogId === catalogId && !p.id.startsWith("catalog:"));
+          if (existing) {
+            plugins.delete(agent.id, existing.id);
+            await invalidateAgentRuntime(agent.id);
+          }
+          res.json({ ok: true });
+          return;
+        }
+      }
+
+      plugins.delete(agent.id, pluginId);
+      await invalidateAgentRuntime(agent.id);
+      res.json({ ok: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/not found/i.test(message)) {
+        res.status(404).json({ ok: false, error: message });
+        return;
+      }
       next(error);
     }
   });
@@ -912,7 +1144,8 @@ export function registerAgentRoutes(
                 kind: "submitted",
                 txHash: executed.txHash,
                 detail: executed.detail,
-                ...("approveTxHash" in executed && executed.approveTxHash
+                ...("approveTxHash" in executed &&
+                typeof executed.approveTxHash === "string"
                   ? { approveTxHash: executed.approveTxHash }
                   : {}),
               })
@@ -928,7 +1161,8 @@ export function registerAgentRoutes(
                       ? executed.reason
                       : "Still needs allowance after approval",
                   detail: executed.detail,
-                  ...("approveTxHash" in executed && executed.approveTxHash
+                  ...("approveTxHash" in executed &&
+                  typeof executed.approveTxHash === "string"
                     ? { approveTxHash: executed.approveTxHash }
                     : {}),
                 });
@@ -1249,6 +1483,7 @@ export function registerAgentRoutes(
 
       let turn;
       try {
+        const mcp = await prepareAgentPlugins(plugins, agent.id, workspace);
         turn = await runDshTurn({
           agentId: agent.id,
           agent,
@@ -1259,6 +1494,10 @@ export function registerAgentRoutes(
             role: m.role,
             content: m.content,
           })),
+          patches: mcp.patches,
+          pluginEnv: mcp.pluginEnv,
+          pluginsHash: mcp.pluginsHash,
+          enabledPluginNames: mcp.enabledNames,
           onActivity: (event) => {
             activity.publish({ ...event, source: "chat" });
           },

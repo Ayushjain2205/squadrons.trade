@@ -13,6 +13,8 @@ import type { UserStore } from "../auth/privy.js";
 import { isSuccessfulProposeImprovementResult } from "../dsh/activity-map.js";
 import { runDshSelfImprovement } from "../dsh/runner.js";
 import type { ImprovementProposalStore } from "./improvement-store.js";
+import type { AgentPluginStore } from "../plugins/store.js";
+import { prepareAgentPlugins } from "../plugins/prepare.js";
 import {
   clearPendingImprovementProposal,
   readPendingImprovementProposal,
@@ -112,6 +114,7 @@ async function runOne(deps: {
   users: UserStore;
   activity: ActivityHub;
   improvements: ImprovementProposalStore;
+  plugins: AgentPluginStore;
   strategy: Strategy;
 }): Promise<void> {
   const agent = deps.agents.getById(deps.strategy.agentId);
@@ -127,9 +130,8 @@ async function runOne(deps: {
   await clearPendingImprovementProposal(workspace);
 
   const recent = deps.activity
-    .list(agent.id, 30)
-    .filter((event) => event.source === "strategy")
-    .slice(0, 12);
+    .list(agent.id, { limit: 30, sources: ["strategy"] })
+    .events.slice(0, 12);
 
   deps.activity.publish({
     agentId: agent.id,
@@ -140,6 +142,7 @@ async function runOne(deps: {
   });
 
   try {
+    const mcp = await prepareAgentPlugins(deps.plugins, agent.id, workspace);
     await runDshSelfImprovement({
       agent,
       strategy: deps.strategies.get(agent.id) ?? deps.strategy,
@@ -150,6 +153,10 @@ async function runOne(deps: {
         detail: event.detail,
         createdAt: event.createdAt,
       })),
+      patches: mcp.patches,
+      pluginEnv: mcp.pluginEnv,
+      pluginsHash: mcp.pluginsHash,
+      enabledPluginNames: mcp.enabledNames,
       onActivity: (event) => {
         deps.activity.publish({ ...event, source: "system" });
       },
@@ -195,6 +202,7 @@ export function startImprovementScheduler(deps: {
   users: UserStore;
   activity: ActivityHub;
   improvements: ImprovementProposalStore;
+  plugins: AgentPluginStore;
   scanIntervalMs?: number;
 }): ImprovementScheduler {
   const scanMs = deps.scanIntervalMs ?? DEFAULT_SCAN_MS;

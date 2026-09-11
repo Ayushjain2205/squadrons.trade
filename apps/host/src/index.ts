@@ -38,6 +38,7 @@ import { getExecutionMode } from "./strategy/executor.js";
 import { isPrivyBroadcastConfigured } from "./strategy/broadcast.js";
 import { isZeroExConfigured } from "./strategy/swap-build.js";
 import { isTenderlyConfigured } from "./strategy/tenderly.js";
+import { AgentPluginStore } from "./plugins/store.js";
 
 const port = Number(process.env.PORT ?? 8787);
 const host = process.env.HOST ?? "0.0.0.0";
@@ -77,6 +78,7 @@ const messages = new MessageStore(db);
 const users = new UserStore(db);
 const activity = new ActivityHub(new ActivityStore(db));
 const tradeIntents = new TradeIntentStore(db);
+const plugins = new AgentPluginStore(db);
 const strategyScheduler = startStrategyScheduler({
   agents,
   strategies,
@@ -91,6 +93,7 @@ const improvementScheduler = startImprovementScheduler({
   users,
   activity,
   improvements,
+  plugins,
 });
 
 const app = express();
@@ -139,6 +142,7 @@ registerAgentRoutes(
   strategies,
   improvements,
   tradeIntents,
+  plugins,
 );
 
 app.post("/v1/dsh/smoke", async (req, res) => {
