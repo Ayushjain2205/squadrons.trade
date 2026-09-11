@@ -16,10 +16,10 @@ Arm is always a human desk action. Runtime ticks do **not** call an LLM.
 
 Curated, chain-filtered **prefilled drafts** over built-in recipes (Squadrons-authored only).
 
-- Browse from the Strategy card → tweak editable knobs → **Import draft**
+- Browse from the Strategy card → **Import draft** (defaults) → refine in chat → Arm
 - Import writes the same strategy draft as chat `propose_strategy`
 - User still **Arms** — templates never auto-run
-- Catalog entries include name, blurb, longer description, tags, and editable knobs
+- Catalog entries include name, blurb, longer description, tags, and chain scope
 - Catalog: `packages/shared/src/templates.ts`
 - Host: `GET /v1/strategy/templates?chainId=` · `POST /v1/agents/:id/strategy/from-template`
 
