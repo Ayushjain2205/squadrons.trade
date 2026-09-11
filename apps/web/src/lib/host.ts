@@ -271,6 +271,16 @@ export function disarmStrategy(agentId: string) {
   return strategyAction(agentId, "disarm");
 }
 
+export async function removeStrategy(
+  agentId: string,
+): Promise<AgentWithWorkspace> {
+  const data = await hostFetch<{ agent: AgentWithWorkspace }>(
+    `/v1/agents/${agentId}/strategy`,
+    { method: "DELETE" },
+  );
+  return data.agent;
+}
+
 export async function listStrategyImprovements(agentId: string) {
   return hostFetch<{
     pending: import("@squadrons/shared").StrategyImprovementProposal | null;

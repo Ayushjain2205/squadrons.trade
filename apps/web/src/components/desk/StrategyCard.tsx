@@ -14,6 +14,7 @@ import {
   dismissStrategyImprovement,
   listStrategyImprovements,
   listTradeIntents,
+  removeStrategy,
   subscribeActivity,
   updateStrategyImprovement,
   type TradeIntentRecord,
@@ -175,6 +176,20 @@ export function StrategyCard({
     });
   }
 
+  function clearStrategy() {
+    if (busy || !strategy || strategy.status === "running") return;
+    startTransition(async () => {
+      try {
+        const updated = await removeStrategy(agentId);
+        onAgentUpdated?.(updated);
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Could not remove strategy",
+        );
+      }
+    });
+  }
+
   const templatesModal = browsingTemplates ? (
     <StrategyTemplatesBrowser
       agentId={agentId}
@@ -237,6 +252,9 @@ export function StrategyCard({
   const canResume = !needsRecipe && strategy.status === "paused";
   const canDisarm =
     strategy.status === "running" || strategy.status === "paused";
+  const canBrowseTemplates = strategy.status !== "running";
+  const canRemove =
+    strategy.status === "draft" || strategy.status === "paused";
 
   const armHint = needsRecipe
     ? "Ask chat for a recipe-backed plan first"
@@ -416,6 +434,28 @@ export function StrategyCard({
             {pending ? "Disarming…" : "Disarm"}
           </button>
         ) : null}
+
+        {canBrowseTemplates ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setBrowsingTemplates(true)}
+            className="type-ui w-full cursor-pointer rounded-full border border-[var(--line)] px-4 py-2 text-[var(--ink)] transition hover:bg-[var(--panel-2)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Browse templates
+          </button>
+        ) : null}
+
+        {canRemove ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={clearStrategy}
+            className="type-ui w-full cursor-pointer rounded-full px-4 py-2 text-[var(--muted)] transition hover:bg-[var(--panel-2)] hover:text-[var(--danger)] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {pending ? "Removing…" : "Remove strategy"}
+          </button>
+        ) : null}
       </div>
 
       <div>
@@ -502,16 +542,6 @@ export function StrategyCard({
                   {strategy.summary}
                 </p>
               </div>
-            ) : null}
-            {strategy.status !== "running" ? (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => setBrowsingTemplates(true)}
-                className="type-meta text-[var(--muted)] hover:text-[var(--ink)] disabled:opacity-40"
-              >
-                Replace from template…
-              </button>
             ) : null}
           </div>
         ) : null}
