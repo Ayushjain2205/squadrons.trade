@@ -172,10 +172,6 @@ export function StrategyTemplatesBrowser({
               >
                 Strategy templates
               </h2>
-              <p className="type-meta text-[var(--muted)]">
-                Curated for {chainLabel(chainId)} · import draft, refine in
-                chat, then Arm
-              </p>
             </div>
           </div>
           <button
