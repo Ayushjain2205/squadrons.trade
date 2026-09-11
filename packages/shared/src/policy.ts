@@ -104,7 +104,7 @@ export const INTEL_TOOLS = [
 
 export type IntelTool = (typeof INTEL_TOOLS)[number];
 
-/** Tools the Operate-mode prompt should mention for strategy authorship. */
+/** Tools the prompt should mention for strategy authorship. */
 export const STRATEGY_TOOLS = [
   "propose_strategy",
   "update_strategy_params",

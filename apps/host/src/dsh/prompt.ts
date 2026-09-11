@@ -6,6 +6,7 @@ import {
   getSupportedChain,
   INTEL_TOOLS,
   SCOUT_TOOLS,
+  STRATEGY_TOOLS,
   type Agent,
   type Strategy,
 } from "@squadrons/shared";
@@ -40,16 +41,20 @@ export function buildAgentTurnPrompt(
 /** Short user-only prompt once the session already carries conversation. */
 export function buildContinuingTurnPrompt(
   userText: string,
-  options?: { mode?: Agent["mode"] },
+  options?: { hasStrategy?: boolean },
 ): string {
-  if (options?.mode === "operate") {
+  if (options?.hasStrategy) {
     return [
-      "Operate mode reminder: when the strategy is concrete, call propose_strategy (not a JSON fence). User still Arms it.",
+      "Reminder: when the plan should change, call propose_strategy or update_strategy_params (not a JSON fence). User still Arms / Resumes in the desk.",
       "",
       userText,
     ].join("\n");
   }
-  return userText;
+  return [
+    "Reminder: research freely; when a runnable plan is concrete, call propose_strategy (not a JSON fence). User still Arms it in the desk.",
+    "",
+    userText,
+  ].join("\n");
 }
 
 export function buildAgentIdentityBlock(
@@ -71,9 +76,7 @@ export function buildAgentIdentityBlock(
     ...readTools,
     ...SCOUT_TOOLS,
     ...INTEL_TOOLS,
-    ...(agent.mode === "operate"
-      ? ["propose_strategy", "update_strategy_params", "get_strategy"]
-      : []),
+    ...STRATEGY_TOOLS,
   ].join(", ");
   const pluginNote =
     enabledPlugins && enabledPlugins.length > 0
@@ -84,16 +87,20 @@ export function buildAgentIdentityBlock(
       ? `- You may call: ${toolList}. get_wallet_balances is home-chain only (${homeChain}). get_spot_prices is USD spot reference (not executable). get_dex_quote (Base/Ethereum) is an indicative 0x route for stable↔ETH/WETH — observe-only, does not execute. search_x scouts X (free; rumor). Intel: get_trending_pools / get_token_pools / get_recent_trades (GeckoTerminal), get_stablecoin_market / get_dex_volumes (DefiLlama). Do not call web_search.${pluginNote}`
       : `- Limited tools on ${homeChain}. Use search_x + intel tools when available. Do not call web_search; do not invent numbers.${pluginNote}`;
 
+  const strategyStatus = agent.strategy?.status;
+  const postureLine =
+    strategyStatus === "running"
+      ? "Strategy is armed/running — prefer update_strategy_params for live knobs; do not invent execution"
+      : strategyStatus === "paused" || strategyStatus === "draft"
+        ? "Strategy draft exists — refine with propose_strategy / update_strategy_params; user Arms or Resumes in the desk"
+        : "No armed strategy — research and dig; when ready, propose a runnable plan the user can Arm";
+
   const lines = [
     "You are a Squadrons crypto agent in an ongoing conversation.",
     `Name: ${agent.name}`,
     `Description: ${agent.description}`,
     `Home chain: ${homeChain}`,
-    `Desk mode: ${
-      agent.mode === "operate"
-        ? "Operate (shape or steer a runnable strategy; do not invent live execution)"
-        : "Scout (research and dig; do not arm or claim a live strategy loop)"
-    }`,
+    `Posture: ${postureLine}`,
     `Spend mode: ${spendLabel}`,
   ];
   if (walletAddress) {
@@ -120,22 +127,18 @@ export function buildAgentIdentityBlock(
     "- On-chain tools are scoped to your home chain. Do not claim data from other chains.",
     "- Do not claim you executed on-chain transactions unless the platform confirms them.",
     "- Do not invent balances, quotes, or tx hashes. Prefer tools over guessing.",
-    agent.mode === "operate"
-      ? [
-          "- In Operate mode, help define a clear strategy the user can arm later. Do not claim it is running unless status is running.",
-          "- When the plan is concrete, call propose_strategy with: summary, recipeId, params, trigger, action, optional caps/improvement.",
-          '- recipeId must be "balance_threshold_alert", "price_band_alert", or "price_cross_alert". Runtime is deterministic — the host runs the recipe, not an LLM tick.',
-          "- balance_threshold_alert params: { walletAddress?, asset: native|ETH|USDC|WETH, op: below|above, threshold }.",
-          "- price_band_alert params: { symbol, low, high }.",
-          '- price_cross_alert params: { symbol, level, direction: above|below|either }. Prefer trigger { type: "event", event: "price_cross", intervalSec }.',
-          '- trigger.type is "interval" (intervalSec >= 15) or "event" (event string + optional intervalSec poll floor).',
-          '- action.type is "alert" or "propose_trade" (observe agents should prefer alert).',
-          "- Optional improvement: { enabled, cadence: hourly|daily|weekly, allowedKeys }. Self-improvement proposes param patches for desk approve.",
-          "- While a strategy is running, use update_strategy_params to change knobs live (does not disarm).",
-          "- Use get_strategy to inspect the current draft or armed plan.",
-          "- propose_strategy only saves a draft — the user still has to Arm it in the desk.",
-        ].join("\n")
-      : "- In Scout mode, focus on research and findings. Suggest switching to Operate when ready to define a runnable strategy. Do not call propose_strategy.",
+    "- Help research findings and, when the plan is concrete, define a clear strategy the user can arm. Do not claim it is running unless status is running.",
+    "- When the plan is concrete, call propose_strategy with: summary, recipeId, params, trigger, action, optional caps/improvement.",
+    '- recipeId must be "balance_threshold_alert", "price_band_alert", or "price_cross_alert". Runtime is deterministic — the host runs the recipe, not an LLM tick.',
+    "- balance_threshold_alert params: { walletAddress?, asset: native|ETH|USDC|WETH, op: below|above, threshold }.",
+    "- price_band_alert params: { symbol, low, high }.",
+    '- price_cross_alert params: { symbol, level, direction: above|below|either }. Prefer trigger { type: "event", event: "price_cross", intervalSec }.',
+    '- trigger.type is "interval" (intervalSec >= 15) or "event" (event string + optional intervalSec poll floor).',
+    '- action.type is "alert" or "propose_trade" (observe agents should prefer alert).',
+    "- Optional improvement: { enabled, cadence: hourly|daily|weekly, allowedKeys }. Self-improvement proposes param patches for desk approve.",
+    "- While a strategy is running, use update_strategy_params to change knobs live (does not disarm).",
+    "- Use get_strategy to inspect the current draft or armed plan.",
+    "- propose_strategy only saves a draft — the user still has to Arm it in the desk.",
   );
   return lines.join("\n");
 }
@@ -192,4 +195,3 @@ export function buildSelfImprovementPrompt(
     "- Host will queue a desk proposal for Approve/Dismiss — nothing auto-applies.",
   ].join("\n");
 }
-
