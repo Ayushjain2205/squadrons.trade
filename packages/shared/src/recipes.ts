@@ -7,6 +7,7 @@ export const RECIPE_IDS = [
   "price_cross_swap",
   "take_profit_stop",
   "inventory_rebalance",
+  "stable_depeg_alert",
 ] as const;
 
 export type RecipeId = (typeof RECIPE_IDS)[number];
@@ -95,6 +96,17 @@ export const RECIPE_CATALOG: Record<RecipeId, RecipeParamSchema> = {
       bandPct: 0.1,
       amountUsd: 10,
       minPortfolioUsd: 5,
+    },
+  },
+  stable_depeg_alert: {
+    label: "Stablecoin depeg",
+    description:
+      "Event-style: alert when a stablecoin USD price leaves a tight peg band.",
+    paramKeys: ["symbol", "low", "high"],
+    defaultParams: {
+      symbol: "USDC",
+      low: 0.99,
+      high: 1.01,
     },
   },
 };
@@ -211,6 +223,15 @@ export function describeRecipePlan(
     return `Propose ETH/USDC rebalance when ETH share leaves ${(low * 100).toFixed(0)}–${(high * 100).toFixed(0)}%${size}`;
   }
 
+  if (recipeId === "stable_depeg_alert") {
+    const symbol =
+      typeof params.symbol === "string" ? params.symbol.toUpperCase() : "stable";
+    const low = Number(params.low);
+    const high = Number(params.high);
+    if (!Number.isFinite(low) || !Number.isFinite(high)) return null;
+    return `${verb} ${symbol} leaves peg ${formatUsd(low)}–${formatUsd(high)}`;
+  }
+
   return null;
 }
 
@@ -224,6 +245,9 @@ export function describeStrategySchedule(trigger: {
     if (trigger.event === "price_cross") return "Watches for a price cross";
     if (trigger.event === "price_tp_stop") {
       return "Watches for take-profit or stop";
+    }
+    if (trigger.event === "stable_depeg") {
+      return "Watches for a stablecoin depeg";
     }
     if (trigger.event) return `Watches for ${trigger.event.replace(/_/g, " ")}`;
     return "Watches for an event";
@@ -380,6 +404,24 @@ export function parseRecipeParams(
       return null;
     }
     return { targetEthPct, bandPct, amountUsd, minPortfolioUsd };
+  }
+
+  if (recipeId === "stable_depeg_alert") {
+    const symbol =
+      typeof raw.symbol === "string" && raw.symbol.trim()
+        ? raw.symbol.trim().toUpperCase()
+        : String(base.symbol);
+    const low = Number(raw.low ?? base.low);
+    const high = Number(raw.high ?? base.high);
+    if (
+      !Number.isFinite(low) ||
+      !Number.isFinite(high) ||
+      low < 0 ||
+      high <= low
+    ) {
+      return null;
+    }
+    return { symbol, low, high };
   }
 
   return null;

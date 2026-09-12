@@ -9,6 +9,7 @@ const RECIPE_IDS = [
   "price_cross_swap",
   "take_profit_stop",
   "inventory_rebalance",
+  "stable_depeg_alert",
 ];
 
 const RECIPE_DEFAULTS = {
@@ -35,6 +36,7 @@ const RECIPE_DEFAULTS = {
     amountUsd: 10,
     minPortfolioUsd: 5,
   },
+  stable_depeg_alert: { symbol: "USDC", low: 0.99, high: 1.01 },
 };
 
 function isRecipeId(value) {
@@ -170,6 +172,24 @@ function parseRecipeParams(recipeId, value) {
       return null;
     }
     return { targetEthPct, bandPct, amountUsd, minPortfolioUsd };
+  }
+
+  if (recipeId === "stable_depeg_alert") {
+    const symbol =
+      typeof raw.symbol === "string" && raw.symbol.trim()
+        ? raw.symbol.trim().toUpperCase()
+        : defaults.symbol;
+    const low = Number(raw.low ?? defaults.low);
+    const high = Number(raw.high ?? defaults.high);
+    if (
+      !Number.isFinite(low) ||
+      !Number.isFinite(high) ||
+      low < 0 ||
+      high <= low
+    ) {
+      return null;
+    }
+    return { symbol, low, high };
   }
 
   return null;

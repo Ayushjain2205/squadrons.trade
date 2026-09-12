@@ -44,7 +44,7 @@ export function apply(ctx) {
         recipeId: {
           type: "string",
           description:
-            'Built-in recipe: "balance_threshold_alert", "price_band_alert", "price_cross_alert", "price_cross_swap", "take_profit_stop", or "inventory_rebalance".',
+            'Built-in recipe id (see catalog). Includes alerts, price_cross_swap, take_profit_stop, inventory_rebalance, stable_depeg_alert.',
           enum: [
             "balance_threshold_alert",
             "price_band_alert",
@@ -52,12 +52,13 @@ export function apply(ctx) {
             "price_cross_swap",
             "take_profit_stop",
             "inventory_rebalance",
+            "stable_depeg_alert",
           ],
         },
         params: {
           type: "object",
           description:
-            "Recipe params. balance_threshold_alert: { walletAddress?, asset: native|ETH|USDC|WETH, op, threshold }. price_band_alert: { symbol, low, high }. price_cross_alert / price_cross_swap: level cross (swap adds side, amountUsd). take_profit_stop: { symbol, takeProfit, stopLoss, side, amountUsd } + event price_tp_stop. inventory_rebalance: { targetEthPct, bandPct, amountUsd, minPortfolioUsd } on interval.",
+            "Recipe params. Alerts: balance/price_band/price_cross/stable_depeg. Trades: price_cross_swap, take_profit_stop, inventory_rebalance. Pair event recipes with the matching trigger.event.",
           additionalProperties: true,
         },
         trigger: {
