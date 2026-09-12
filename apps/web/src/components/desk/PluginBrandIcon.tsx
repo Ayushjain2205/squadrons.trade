@@ -69,6 +69,26 @@ function BrandGlyph({
       </svg>
     );
   }
+  if (iconId === "backtest") {
+    return (
+      <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+        <path
+          d="M4 16.5 9 11l3.5 3.5L20 7"
+          stroke="white"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M4 20h16"
+          stroke="white"
+          strokeOpacity="0.45"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
   if (iconId === "custom") {
     return (
       <svg

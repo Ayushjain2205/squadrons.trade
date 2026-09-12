@@ -10,16 +10,19 @@ import {
   matchSlashSkillQuery,
   mentionablePlugins,
   parseAllowanceApprovalMarker,
+  parseBacktestArtifact,
   parseTradeOutcomeMarker,
   stripAllowanceApprovalMarker,
   stripTradeOutcomeMarker,
   chainLabel,
   type AgentPluginView,
   type AvatarId,
+  type BacktestArtifact,
   type DeskSkill,
   type OrbColorId,
 } from "@squadrons/shared";
 import { AgentOrb } from "@/components/AgentOrb";
+import { BacktestChartCard } from "@/components/desk/BacktestChartCard";
 import { PluginAtMenu } from "@/components/desk/PluginAtMenu";
 import { SkillSlashMenu } from "@/components/desk/SkillSlashMenu";
 import {
@@ -51,6 +54,7 @@ type ChatToolStep = {
   toolName: string | null;
   status: "running" | "done" | "error";
   detail: string | null;
+  artifact?: BacktestArtifact | null;
 };
 
 export function AgentChat({
@@ -73,9 +77,15 @@ export function AgentChat({
   const [stepsByUserMessageId, setStepsByUserMessageId] = useState<
     Record<string, ChatToolStep[]>
   >({});
+  const [chartsByUserMessageId, setChartsByUserMessageId] = useState<
+    Record<string, BacktestArtifact[]>
+  >({});
   const [activeUserMessageId, setActiveUserMessageId] = useState<string | null>(
     null,
   );
+  const pendingChartsRef = useRef<BacktestArtifact[]>([]);
+  const activeUserMessageIdRef = useRef<string | null>(null);
+  activeUserMessageIdRef.current = activeUserMessageId;
   const [awaitingAllowance, setAwaitingAllowance] = useState<
     TradeIntentRecord[]
   >([]);
@@ -129,8 +139,10 @@ export function AgentChat({
   useEffect(() => {
     setMessages(initialMessages);
     setStepsByUserMessageId({});
+    setChartsByUserMessageId({});
     setLiveSteps([]);
     setActiveUserMessageId(null);
+    pendingChartsRef.current = [];
     setDraft("");
     closeSlashMenu();
     closeAtMenu();
@@ -212,6 +224,67 @@ export function AgentChat({
     return unsubscribe;
   }, [agent.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Backtest chart artifacts — always listen (tool_result can arrive as the HTTP
+  // turn completes and the pending-only tool-step subscription is already gone).
+  useEffect(() => {
+    const unsubscribe = subscribeActivity(agent.id, (event) => {
+      if (event.source === "strategy") return;
+      if (event.kind !== "tool_result") return;
+      const artifact = parseBacktestArtifact(event.detail);
+      if (!artifact) return;
+
+      pendingChartsRef.current = [...pendingChartsRef.current, artifact];
+      const anchorId = activeUserMessageIdRef.current;
+      if (anchorId) {
+        setChartsByUserMessageId((prev) => ({
+          ...prev,
+          [anchorId]: [...(prev[anchorId] ?? []), artifact],
+        }));
+      }
+
+      setLiveSteps((prev) => {
+        const label =
+          displayActivityLabel(
+            { ...event, kind: "tool_call" },
+            { done: true },
+          ) ?? event.label;
+        const idx = [...prev]
+          .reverse()
+          .findIndex(
+            (step) =>
+              step.status === "running" ||
+              (event.toolName != null && step.toolName === event.toolName),
+          );
+        if (idx === -1) {
+          return [
+            ...prev,
+            {
+              id: event.id,
+              label,
+              toolName: event.toolName,
+              status: "done" as const,
+              detail: event.detail,
+              artifact,
+            },
+          ];
+        }
+        const realIndex = prev.length - 1 - idx;
+        return prev.map((step, i) =>
+          i === realIndex
+            ? {
+                ...step,
+                status: "done" as const,
+                label,
+                detail: event.detail,
+                artifact: artifact ?? step.artifact,
+              }
+            : step,
+        );
+      });
+    });
+    return unsubscribe;
+  }, [agent.id]);
+
   // Live chat tool steps while a turn is in flight (Cursor-style).
   useEffect(() => {
     if (!pending && agent.status !== "working") return;
@@ -235,6 +308,7 @@ export function AgentChat({
               toolName: event.toolName,
               status: "running",
               detail: null,
+              artifact: null,
             },
           ];
         }
@@ -258,6 +332,7 @@ export function AgentChat({
               toolName: event.toolName,
               status: "error",
               detail: event.detail,
+              artifact: null,
             },
           ];
         }
@@ -460,6 +535,12 @@ export function AgentChat({
     const optimisticId = `local-${Date.now()}`;
     setActiveUserMessageId(optimisticId);
     setLiveSteps([]);
+    pendingChartsRef.current = [];
+    setChartsByUserMessageId((prev) => {
+      const next = { ...prev };
+      delete next[optimisticId];
+      return next;
+    });
     setMessages((prev) => [
       ...prev,
       {
@@ -480,6 +561,21 @@ export function AgentChat({
         const steps = liveStepsRef.current.map((step) =>
           step.status === "running" ? { ...step, status: "done" as const } : step,
         );
+        const chartsFromSteps = steps
+          .map((step) => step.artifact)
+          .filter((a): a is BacktestArtifact => a != null);
+        const charts = [
+          ...pendingChartsRef.current,
+          ...chartsFromSteps,
+        ].filter(
+          (artifact, index, all) =>
+            all.findIndex(
+              (row) =>
+                row.title === artifact.title &&
+                row.stats.endEquity === artifact.stats.endEquity &&
+                row.stats.days === artifact.stats.days,
+            ) === index,
+        );
         setMessages((prev) => {
           const withoutOptimistic = prev.filter((m) => m.id !== optimisticId);
           return [...withoutOptimistic, ...result.messages];
@@ -490,7 +586,16 @@ export function AgentChat({
             [userMsg.id]: steps,
           }));
         }
+        if (userMsg && charts.length > 0) {
+          setChartsByUserMessageId((prev) => {
+            const next = { ...prev };
+            delete next[optimisticId];
+            next[userMsg.id] = charts;
+            return next;
+          });
+        }
         setLiveSteps([]);
+        pendingChartsRef.current = [];
         setActiveUserMessageId(userMsg?.id ?? null);
       } catch (err) {
         try {
@@ -663,6 +768,14 @@ export function AgentChat({
                 message.role === "user" &&
                 !!stepsForMessage &&
                 stepsForMessage.length > 0;
+              const chartsForMessage =
+                message.role === "user"
+                  ? chartsByUserMessageId[message.id] ??
+                    stepsForMessage
+                      ?.map((step) => step.artifact)
+                      .filter((a): a is BacktestArtifact => a != null) ??
+                    []
+                  : [];
               const allowanceIntentId =
                 message.role === "system"
                   ? parseAllowanceApprovalMarker(message.content)
@@ -699,8 +812,15 @@ export function AgentChat({
                     <ChatToolSteps
                       steps={stepsForMessage}
                       live={isActiveUser}
+                      hideCharts
                     />
                   ) : null}
+                  {chartsForMessage.map((artifact, index) => (
+                    <BacktestChartCard
+                      key={`${message.id}-${artifact.title}-${artifact.stats.endEquity}-${index}`}
+                      artifact={artifact}
+                    />
+                  ))}
                 </div>
               );
             })
@@ -811,12 +931,19 @@ export function AgentChat({
 function ChatToolSteps({
   steps,
   live,
+  hideCharts = false,
 }: {
   steps: ChatToolStep[];
   live?: boolean;
+  hideCharts?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const failed = steps.some((step) => step.status === "error");
+  const charts = hideCharts
+    ? []
+    : steps
+        .map((step) => step.artifact)
+        .filter((artifact): artifact is BacktestArtifact => artifact != null);
 
   return (
     <div className="max-w-[min(100%,var(--measure-chat))]">
@@ -871,6 +998,12 @@ function ChatToolSteps({
           })}
         </ol>
       ) : null}
+      {charts.map((artifact, index) => (
+        <BacktestChartCard
+          key={`${artifact.title}-${artifact.stats.days}-${index}`}
+          artifact={artifact}
+        />
+      ))}
     </div>
   );
 }

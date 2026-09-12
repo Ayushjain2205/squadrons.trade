@@ -361,6 +361,7 @@ function InstallCatalogSheet({
   onError: (message: string) => void;
 }) {
   const entry = getMcpCatalogEntry(plugin.catalogId ?? "");
+  const needsSecret = plugin.secretSpecs.length > 0;
   const secretKey = plugin.secretSpecs[0]?.key ?? "API_KEY";
   const [keyDraft, setKeyDraft] = useState("");
   const [saving, setSaving] = useState(false);
@@ -368,7 +369,7 @@ function InstallCatalogSheet({
   async function install(event: React.FormEvent) {
     event.preventDefault();
     if (!plugin.catalogId) return;
-    if (!keyDraft.trim()) {
+    if (needsSecret && !keyDraft.trim()) {
       onError("Paste an API key to connect");
       return;
     }
@@ -376,7 +377,10 @@ function InstallCatalogSheet({
     try {
       const updated = await upsertCatalogPlugin(agentId, plugin.catalogId, {
         enabled: true,
-        secrets: { [secretKey]: keyDraft.trim() },
+        secrets:
+          needsSecret && keyDraft.trim()
+            ? { [secretKey]: keyDraft.trim() }
+            : undefined,
       });
       onInstalled(updated);
     } catch (err) {
@@ -389,36 +393,54 @@ function InstallCatalogSheet({
   return (
     <SheetFrame
       title={plugin.name}
-      subtitle="Add your key to connect this MCP server."
+      subtitle={
+        needsSecret
+          ? "Add your key to connect this MCP server."
+          : "Enable this first-party plugin for the agent."
+      }
       catalogId={plugin.catalogId}
       onBack={onBack}
     >
       <form onSubmit={install} className="space-y-4">
-        <Field
-          label={plugin.secretSpecs[0]?.label ?? "API key"}
-          value={keyDraft}
-          onChange={setKeyDraft}
-          placeholder="Paste key"
-          type="password"
-          required
-        />
-        {entry?.docsUrl ? (
-          <a
-            href={entry.docsUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="type-meta text-[var(--link)] hover:underline"
-          >
-            Get an API key →
-          </a>
-        ) : null}
+        {needsSecret ? (
+          <>
+            <Field
+              label={plugin.secretSpecs[0]?.label ?? "API key"}
+              value={keyDraft}
+              onChange={setKeyDraft}
+              placeholder="Paste key"
+              type="password"
+              required
+            />
+            {entry?.docsUrl ? (
+              <a
+                href={entry.docsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="type-meta text-[var(--link)] hover:underline"
+              >
+                Get an API key →
+              </a>
+            ) : null}
+          </>
+        ) : (
+          <p className="type-meta text-[var(--ink-soft)]">
+            {plugin.description}
+          </p>
+        )}
         <div className="flex gap-2 pt-1">
           <button
             type="submit"
             disabled={saving}
             className="type-ui cursor-pointer rounded-full bg-[var(--ink)] px-4 py-2 font-semibold text-[var(--canvas)] transition hover:opacity-90 disabled:opacity-60"
           >
-            {saving ? "Connecting…" : "Connect"}
+            {saving
+              ? needsSecret
+                ? "Connecting…"
+                : "Enabling…"
+              : needsSecret
+                ? "Connect"
+                : "Enable"}
           </button>
           <button
             type="button"
@@ -446,6 +468,7 @@ function ManageCatalogSheet({
   onUpdated: (plugin: AgentPluginView) => void;
   onError: (message: string) => void;
 }) {
+  const needsSecret = plugin.secretSpecs.length > 0;
   const secretKey = plugin.secretSpecs[0]?.key ?? "API_KEY";
   const [keyDraft, setKeyDraft] = useState("");
   const [saving, setSaving] = useState(false);
@@ -459,6 +482,21 @@ function ManageCatalogSheet({
         secrets: { [secretKey]: keyDraft.trim() },
       });
       setKeyDraft("");
+      onUpdated(updated);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Update failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function setEnabled(enabled: boolean) {
+    if (!plugin.catalogId) return;
+    setSaving(true);
+    try {
+      const updated = await upsertCatalogPlugin(agentId, plugin.catalogId, {
+        enabled,
+      });
       onUpdated(updated);
     } catch (err) {
       onError(err instanceof Error ? err.message : "Update failed");
@@ -487,22 +525,30 @@ function ManageCatalogSheet({
       title={plugin.name}
       subtitle={
         plugin.enabled
-          ? "Connected — tools load on the next chat turn."
+          ? needsSecret
+            ? "Connected — tools load on the next chat turn."
+            : "Enabled — tools load on the next chat turn."
           : "Saved but not enabled."
       }
       catalogId={plugin.catalogId}
       onBack={onBack}
     >
       <div className="space-y-4">
-        <Field
-          label={`${plugin.secretSpecs[0]?.label ?? "API key"} · saved`}
-          value={keyDraft}
-          onChange={setKeyDraft}
-          placeholder="•••••••• (new key to rotate)"
-          type="password"
-        />
+        {needsSecret ? (
+          <Field
+            label={`${plugin.secretSpecs[0]?.label ?? "API key"} · saved`}
+            value={keyDraft}
+            onChange={setKeyDraft}
+            placeholder="•••••••• (new key to rotate)"
+            type="password"
+          />
+        ) : (
+          <p className="type-meta text-[var(--ink-soft)]">
+            {plugin.description}
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
-          {keyDraft.trim() ? (
+          {needsSecret && keyDraft.trim() ? (
             <button
               type="button"
               disabled={saving}
@@ -510,6 +556,16 @@ function ManageCatalogSheet({
               className="type-ui cursor-pointer rounded-full bg-[var(--ink)] px-4 py-2 font-semibold text-[var(--canvas)] disabled:opacity-60"
             >
               {saving ? "Saving…" : "Update key"}
+            </button>
+          ) : null}
+          {!needsSecret ? (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void setEnabled(!plugin.enabled)}
+              className="type-ui cursor-pointer rounded-full bg-[var(--ink)] px-4 py-2 font-semibold text-[var(--canvas)] disabled:opacity-60"
+            >
+              {plugin.enabled ? "Disable" : "Enable"}
             </button>
           ) : null}
           <button
