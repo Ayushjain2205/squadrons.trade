@@ -67,17 +67,18 @@ export function SkillSlashMenu({
               data-skill-index={index}
               onMouseEnter={() => onActiveIndexChange(index)}
               onClick={() => onSelect(skill)}
-              className={`flex w-full cursor-pointer flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition ${
+              className={`flex w-full cursor-pointer items-baseline gap-2 rounded-lg px-2.5 py-1.5 text-left transition ${
                 active
                   ? "bg-[var(--panel-2)] text-[var(--ink)]"
                   : "text-[var(--ink-soft)] hover:bg-[var(--panel-2)] hover:text-[var(--ink)]"
               }`}
             >
-              <span className="type-ui flex items-baseline gap-2 font-medium text-[var(--ink)]">
-                <span className="type-data text-[var(--accent)]">/{skill.name}</span>
-                <span>{skill.label}</span>
+              <span className="type-data shrink-0 text-[var(--accent)]">
+                /{skill.name}
               </span>
-              <span className="type-meta text-[var(--muted)]">{skill.blurb}</span>
+              <span className="type-meta min-w-0 truncate text-[var(--muted)]">
+                {skill.blurb}
+              </span>
             </button>
           </li>
         );

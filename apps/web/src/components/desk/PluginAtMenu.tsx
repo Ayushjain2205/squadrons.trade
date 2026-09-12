@@ -70,7 +70,7 @@ export function PluginAtMenu({
               data-plugin-index={index}
               onMouseEnter={() => onActiveIndexChange(index)}
               onClick={() => onSelect(plugin)}
-              className={`flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition ${
+              className={`flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-left transition ${
                 active
                   ? "bg-[var(--panel-2)] text-[var(--ink)]"
                   : "text-[var(--ink-soft)] hover:bg-[var(--panel-2)] hover:text-[var(--ink)]"
@@ -79,18 +79,13 @@ export function PluginAtMenu({
               <PluginBrandIcon
                 catalogId={plugin.catalogId}
                 name={plugin.name}
-                size={28}
+                size={22}
               />
-              <span className="min-w-0 flex-1">
-                <span className="type-ui flex items-baseline gap-2 font-medium text-[var(--ink)]">
-                  <span className="type-data text-[var(--link)]">
-                    @{plugin.serverName}
-                  </span>
-                  <span className="truncate">{plugin.name}</span>
-                </span>
-                <span className="type-meta block truncate text-[var(--muted)]">
-                  {plugin.description || "MCP plugin"}
-                </span>
+              <span className="type-data shrink-0 text-[var(--link)]">
+                @{plugin.serverName}
+              </span>
+              <span className="type-meta min-w-0 truncate text-[var(--muted)]">
+                {plugin.description || "MCP plugin"}
               </span>
             </button>
           </li>
