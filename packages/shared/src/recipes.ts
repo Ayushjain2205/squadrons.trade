@@ -8,6 +8,7 @@ export const RECIPE_IDS = [
   "take_profit_stop",
   "inventory_rebalance",
   "stable_depeg_alert",
+  "pool_liquidity_shock",
 ] as const;
 
 export type RecipeId = (typeof RECIPE_IDS)[number];
@@ -107,6 +108,17 @@ export const RECIPE_CATALOG: Record<RecipeId, RecipeParamSchema> = {
       symbol: "USDC",
       low: 0.99,
       high: 1.01,
+    },
+  },
+  pool_liquidity_shock: {
+    label: "Pool liquidity shock",
+    description:
+      "Event-style: alert when a watched DEX pool's reserve USD drops by a percentage (GeckoTerminal).",
+    paramKeys: ["poolAddress", "dropPct", "minReserveUsd"],
+    defaultParams: {
+      poolAddress: "0x6c561b446416e1a00e8e93e221854d6ea4171372",
+      dropPct: 0.2,
+      minReserveUsd: 0,
     },
   },
 };
@@ -232,6 +244,21 @@ export function describeRecipePlan(
     return `${verb} ${symbol} leaves peg ${formatUsd(low)}–${formatUsd(high)}`;
   }
 
+  if (recipeId === "pool_liquidity_shock") {
+    const pool =
+      typeof params.poolAddress === "string" && params.poolAddress
+        ? shortAddress(params.poolAddress)
+        : "pool";
+    const dropPct = Number(params.dropPct);
+    if (!Number.isFinite(dropPct) || dropPct <= 0) return null;
+    const minReserve = Number(params.minReserveUsd);
+    const floor =
+      Number.isFinite(minReserve) && minReserve > 0
+        ? ` or below ${formatUsd(minReserve)}`
+        : "";
+    return `${verb} ${pool} liquidity drops ≥${(dropPct * 100).toFixed(0)}%${floor}`;
+  }
+
   return null;
 }
 
@@ -248,6 +275,9 @@ export function describeStrategySchedule(trigger: {
     }
     if (trigger.event === "stable_depeg") {
       return "Watches for a stablecoin depeg";
+    }
+    if (trigger.event === "pool_liquidity_shock") {
+      return "Watches for a pool liquidity shock";
     }
     if (trigger.event) return `Watches for ${trigger.event.replace(/_/g, " ")}`;
     return "Watches for an event";
@@ -422,6 +452,35 @@ export function parseRecipeParams(
       return null;
     }
     return { symbol, low, high };
+  }
+
+  if (recipeId === "pool_liquidity_shock") {
+    const poolAddress =
+      typeof raw.poolAddress === "string" && raw.poolAddress.trim()
+        ? raw.poolAddress.trim()
+        : String(base.poolAddress);
+    if (
+      !/^0x[a-fA-F0-9]{40}$/.test(poolAddress) &&
+      !/^0x[a-fA-F0-9]{64}$/.test(poolAddress)
+    ) {
+      return null;
+    }
+    const dropPct = Number(raw.dropPct ?? base.dropPct);
+    const minReserveUsd = Number(raw.minReserveUsd ?? base.minReserveUsd ?? 0);
+    if (
+      !Number.isFinite(dropPct) ||
+      dropPct <= 0 ||
+      dropPct > 1 ||
+      !Number.isFinite(minReserveUsd) ||
+      minReserveUsd < 0
+    ) {
+      return null;
+    }
+    return {
+      poolAddress: poolAddress.toLowerCase(),
+      dropPct,
+      minReserveUsd,
+    };
   }
 
   return null;

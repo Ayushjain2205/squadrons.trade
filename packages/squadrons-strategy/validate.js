@@ -10,6 +10,7 @@ const RECIPE_IDS = [
   "take_profit_stop",
   "inventory_rebalance",
   "stable_depeg_alert",
+  "pool_liquidity_shock",
 ];
 
 const RECIPE_DEFAULTS = {
@@ -37,6 +38,11 @@ const RECIPE_DEFAULTS = {
     minPortfolioUsd: 5,
   },
   stable_depeg_alert: { symbol: "USDC", low: 0.99, high: 1.01 },
+  pool_liquidity_shock: {
+    poolAddress: "0x6c561b446416e1a00e8e93e221854d6ea4171372",
+    dropPct: 0.2,
+    minReserveUsd: 0,
+  },
 };
 
 function isRecipeId(value) {
@@ -190,6 +196,37 @@ function parseRecipeParams(recipeId, value) {
       return null;
     }
     return { symbol, low, high };
+  }
+
+  if (recipeId === "pool_liquidity_shock") {
+    const poolAddress =
+      typeof raw.poolAddress === "string" && raw.poolAddress.trim()
+        ? raw.poolAddress.trim()
+        : defaults.poolAddress;
+    if (
+      !/^0x[a-fA-F0-9]{40}$/.test(poolAddress) &&
+      !/^0x[a-fA-F0-9]{64}$/.test(poolAddress)
+    ) {
+      return null;
+    }
+    const dropPct = Number(raw.dropPct ?? defaults.dropPct);
+    const minReserveUsd = Number(
+      raw.minReserveUsd ?? defaults.minReserveUsd ?? 0,
+    );
+    if (
+      !Number.isFinite(dropPct) ||
+      dropPct <= 0 ||
+      dropPct > 1 ||
+      !Number.isFinite(minReserveUsd) ||
+      minReserveUsd < 0
+    ) {
+      return null;
+    }
+    return {
+      poolAddress: poolAddress.toLowerCase(),
+      dropPct,
+      minReserveUsd,
+    };
   }
 
   return null;
