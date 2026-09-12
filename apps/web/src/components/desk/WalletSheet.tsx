@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useAddFunds } from "@privy-io/react-auth";
 import { SUPPORTED_CHAINS, getSupportedChain } from "@squadrons/shared";
 import { ChainLogo } from "@/components/ChainLogo";
 import { WalletIcon } from "@/components/WalletIcon";
@@ -8,9 +9,52 @@ import { useHostSigner } from "@/hooks/useHostSigner";
 import { getWalletSummary, type WalletChainBalance } from "@/lib/host";
 import { useToast } from "@/components/Toast";
 
+/** Base mainnet USDC — destination for Privy add-funds. */
+const BASE_USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+const BASE_CAIP2 = "eip155:8453" as const;
+
+function fundingEnvironment(): "sandbox" | "production" {
+  return process.env.NEXT_PUBLIC_PRIVY_FUNDING_ENV === "sandbox"
+    ? "sandbox"
+    : "production";
+}
+
 function truncateAddress(address: string): string {
   if (address.length < 12) return address;
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
+}
+
+function isFundingCancel(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return /cancel|exited|closed|abort|dismiss/i.test(message);
+}
+
+function CopyIcon({ size = 12 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+    >
+      <rect
+        x="9"
+        y="9"
+        width="13"
+        height="13"
+        rx="2"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+      <path
+        d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
 }
 
 function explorerFor(
@@ -44,10 +88,12 @@ export function WalletSheet({
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement | null>(null);
   const toast = useToast();
+  const { addFunds } = useAddFunds();
   const { status, ensureHostSigner } = useHostSigner();
   const [chains, setChains] = useState<WalletChainBalance[]>([]);
   const [loading, setLoading] = useState(false);
   const [signerBusy, setSignerBusy] = useState(false);
+  const [fundingBusy, setFundingBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!address) {
@@ -116,6 +162,49 @@ export function WalletSheet({
     }
   }
 
+  async function onAddFunds() {
+    if (!address) return;
+    setFundingBusy(true);
+    try {
+      const result = await addFunds({
+        destination: {
+          address,
+          chain: BASE_CAIP2,
+          asset: BASE_USDC_ADDRESS,
+        },
+        fiat: {
+          source: {
+            assets: ["usd", "eur"],
+            defaultAsset: "usd",
+          },
+          environment: fundingEnvironment(),
+          defaultAmount: "50",
+        },
+        crypto: {
+          slippageBps: 100,
+        },
+      });
+
+      if (result.method === "fiat") {
+        toast.info(
+          result.status === "confirmed"
+            ? "Funds confirmed — USDC on Base may take a moment to arrive"
+            : "Payment submitted — USDC on Base may take a moment to arrive",
+        );
+      } else {
+        toast.info("Deposit complete — refreshing balances");
+      }
+      void refresh();
+    } catch (err) {
+      if (isFundingCancel(err)) return;
+      toast.error(
+        err instanceof Error ? err.message : "Could not start funding",
+      );
+    } finally {
+      setFundingBusy(false);
+    }
+  }
+
   const balanceByChain = new Map(chains.map((row) => [row.chainId, row]));
 
   return (
@@ -143,9 +232,26 @@ export function WalletSheet({
             <h2 id={titleId} className="type-ui text-[var(--ink)]">
               Wallet
             </h2>
-            <p className="type-data mt-0.5 truncate !text-[length:var(--text-ui)] !text-[var(--ink-soft)]">
-              {address ? truncateAddress(address) : "No wallet yet"}
-            </p>
+            {address ? (
+              <div className="group/addr mt-0.5 flex min-w-0 items-center gap-1">
+                <p className="type-data truncate !text-[length:var(--text-ui)] !text-[var(--ink-soft)]">
+                  {truncateAddress(address)}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void onCopy()}
+                  className="inline-flex size-5 shrink-0 cursor-pointer items-center justify-center rounded text-[var(--muted)] opacity-100 transition hover:bg-[var(--panel-2)] hover:text-[var(--ink)] focus-visible:opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/addr:opacity-100"
+                  aria-label="Copy address"
+                  title="Copy address"
+                >
+                  <CopyIcon />
+                </button>
+              </div>
+            ) : (
+              <p className="type-data mt-0.5 truncate !text-[length:var(--text-ui)] !text-[var(--ink-soft)]">
+                No wallet yet
+              </p>
+            )}
           </div>
           <button
             type="button"
@@ -161,11 +267,15 @@ export function WalletSheet({
           <div className="mt-3">
             <button
               type="button"
-              onClick={() => void onCopy()}
-              className="type-ui w-full cursor-pointer rounded-full border border-[var(--line)] px-3 py-1.5 text-[var(--ink-soft)] transition hover:bg-[var(--panel-2)] hover:text-[var(--ink)]"
+              disabled={fundingBusy}
+              onClick={() => void onAddFunds()}
+              className="type-ui w-full cursor-pointer rounded-full bg-[var(--ink)] px-3 py-1.5 font-semibold text-[var(--canvas)] transition hover:opacity-90 disabled:opacity-40"
             >
-              Copy address
+              {fundingBusy ? "Opening…" : "Add funds"}
             </button>
+            <p className="type-meta mt-1.5 text-center text-[var(--muted)]">
+              Buys or deposits land as USDC on Base
+            </p>
           </div>
         ) : null}
 
