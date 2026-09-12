@@ -33,9 +33,23 @@ function isQuietCheck(event: ActivityEvent): boolean {
 }
 
 function toDisplayStep(event: ActivityEvent): DisplayStep | null {
-  const displayLabel = displayActivityLabel(event, { done: true });
-  if (!displayLabel) return null;
-  return { ...event, displayLabel, count: 1 };
+  const raw = displayActivityLabel(event, { done: true });
+  if (!raw) return null;
+  return {
+    ...event,
+    displayLabel: humanizeActivityText(raw),
+    detail: event.detail ? humanizeActivityText(event.detail) : event.detail,
+    count: 1,
+  };
+}
+
+/** Soft-rewrite legacy dry-run / spend wording for older stored rows. */
+function humanizeActivityText(text: string): string {
+  return text
+    .replace(/\bDry-run\b/gi, "Paper")
+    .replace(/\bdry-run\b/g, "paper")
+    .replace(/^Spend set to observe$/i, "Run mode set to Observe")
+    .replace(/^Spend enabled$/i, "Run mode set to Paper");
 }
 
 function sameActivityRow(a: DisplayStep, b: DisplayStep): boolean {
@@ -194,8 +208,7 @@ export function ActivityTrail({
 
       {lastCheck ? (
         <p className="type-meta mt-2 truncate text-[var(--muted)]">
-          Last check: {lastCheck.displayLabel}
-          {lastCheck.detail ? ` — ${lastCheck.detail}` : null}
+          Last check {formatRelative(lastCheck.createdAt)}
         </p>
       ) : null}
 

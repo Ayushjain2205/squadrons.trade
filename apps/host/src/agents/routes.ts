@@ -13,6 +13,7 @@ import {
   parseStrategyDraftInput,
   formatTradeOutcomeMessage,
   runModeLabel,
+  strategyLifecycleDetail,
   templateMatchesChain,
 } from "@squadrons/shared";
 import {
@@ -826,7 +827,11 @@ export function registerAgentRoutes(
         kind: "info",
           source: "system",
         label: "Saved strategy draft",
-        detail: draft.summary,
+        detail: strategyLifecycleDetail({
+          recipeId: draft.recipeId,
+          params: draft.params ?? {},
+          action: draft.action,
+        }),
       });
 
       const agent = agents.getForUser(user.id, existing.id);
@@ -868,7 +873,7 @@ export function registerAgentRoutes(
         kind: "info",
           source: "system",
         label: "Armed strategy",
-        detail: strategy.summary,
+        detail: strategyLifecycleDetail(strategy),
       });
 
       const agent = agents.getForUser(user.id, existing.id);
@@ -908,7 +913,7 @@ export function registerAgentRoutes(
         kind: "info",
           source: "system",
         label: "Paused strategy",
-        detail: strategy.summary,
+        detail: strategyLifecycleDetail(strategy),
       });
 
       const agent = agents.getForUser(user.id, existing.id);
@@ -948,7 +953,7 @@ export function registerAgentRoutes(
         kind: "info",
           source: "system",
         label: "Resumed strategy",
-        detail: strategy.summary,
+        detail: strategyLifecycleDetail(strategy),
       });
 
       const agent = agents.getForUser(user.id, existing.id);
@@ -989,7 +994,7 @@ export function registerAgentRoutes(
         kind: "info",
           source: "system",
         label: "Disarmed strategy",
-        detail: strategy.summary,
+        detail: strategyLifecycleDetail(strategy),
       });
 
       const agent = agents.getForUser(user.id, existing.id);
@@ -1035,7 +1040,7 @@ export function registerAgentRoutes(
         return;
       }
 
-      const summary = existing.strategy.summary;
+      const planDetail = strategyLifecycleDetail(existing.strategy);
       strategies.delete(existing.id);
       clearEventEdgeState(existing.id);
       const pending = improvements.getPending(existing.id);
@@ -1047,7 +1052,7 @@ export function registerAgentRoutes(
         kind: "info",
         source: "system",
         label: "Removed strategy",
-        detail: summary,
+        detail: planDetail,
       });
 
       const agent = agents.getForUser(user.id, existing.id);
@@ -1599,7 +1604,11 @@ export function registerAgentRoutes(
               kind: "info",
               source: "system",
               label: "Saved strategy draft",
-              detail: draft.summary,
+              detail: strategyLifecycleDetail({
+                recipeId: draft.recipeId,
+                params: draft.params ?? {},
+                action: draft.action,
+              }),
             });
           }
           const latest = agents.getForUser(user.id, agent.id);
@@ -1627,7 +1636,7 @@ export function registerAgentRoutes(
               kind: "info",
               source: "system",
               label: "Updated strategy params",
-              detail: updated.summary,
+              detail: strategyLifecycleDetail(updated),
             });
           }
           const latest = agents.getForUser(user.id, agent.id);

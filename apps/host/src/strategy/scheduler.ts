@@ -103,7 +103,7 @@ export function startStrategyScheduler(deps: {
         kind: "info",
         source: "strategy",
         label: "Strategy tick",
-        detail: strategy.summary,
+        detail: null,
       });
 
       let publishedDecision = false;

@@ -291,6 +291,22 @@ export function describeRecipePlan(
   return null;
 }
 
+/**
+ * Detail line for arm/pause/disarm activity — recipe plan only.
+ * Never use freeform strategy.summary (often LLM/smoke junk like "Dry-run smoke").
+ */
+export function strategyLifecycleDetail(strategy: {
+  recipeId: RecipeId | null;
+  params: Record<string, unknown>;
+  action: { type: "alert" | "propose_trade" };
+}): string | null {
+  return describeRecipePlan(
+    strategy.recipeId,
+    strategy.params,
+    strategy.action.type,
+  );
+}
+
 /** Human wake schedule — not host poll internals. */
 export function describeStrategySchedule(trigger: {
   type: string;
