@@ -192,6 +192,28 @@ export const STRATEGY_TEMPLATES: readonly StrategyTemplate[] = [
       action: { type: "alert" },
     },
   },
+  {
+    id: "copy-eth-usdc-wallet",
+    name: "Copy wallet (ETH↔USDC)",
+    blurb: "Propose a capped ETH swap when a watched wallet looks like it traded.",
+    description:
+      "Polls a target wallet’s ETH(+WETH) and USDC. When balances move like a swap above minUsd, proposes a capped mirror (fail-closed). Not HFT — lag equals your poll interval. Replace the demo targetAddress before Arming; needs spend enabled.",
+    chainIds: [8453, 1],
+    tags: ["trade", "copy", "propose"],
+    editableKeys: ["targetAddress", "amountUsd", "minUsd"],
+    draft: {
+      summary: "Propose copy ETH↔USDC when target moves ≥$100 (~$10 max)",
+      recipeId: "copy_wallet_propose",
+      params: {
+        targetAddress: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+        amountUsd: 10,
+        minUsd: 100,
+      },
+      trigger: { type: "event", event: "target_trade_seen", intervalSec: 60 },
+      action: { type: "propose_trade" },
+      caps: { maxTradeUsd: 10 },
+    },
+  },
 ] as const;
 
 export type StrategyTemplateId = (typeof STRATEGY_TEMPLATES)[number]["id"];
@@ -322,6 +344,22 @@ export function buildDraftFromTemplate(
     if (Number.isFinite(dropPct) && dropPct > 0) {
       summary = `Alert when Base WETH/USDC pool liquidity drops ≥${Math.round(dropPct * 100)}%`;
     }
+  } else if (template.id === "copy-eth-usdc-wallet") {
+    const amountUsd = Number(params.amountUsd);
+    const minUsd = Number(params.minUsd);
+    const target =
+      typeof params.targetAddress === "string" && params.targetAddress.length > 10
+        ? `${params.targetAddress.slice(0, 6)}…${params.targetAddress.slice(-4)}`
+        : "target";
+    const size =
+      Number.isFinite(amountUsd) && amountUsd > 0
+        ? ` (~$${Math.round(amountUsd).toLocaleString()} max)`
+        : "";
+    const floor =
+      Number.isFinite(minUsd) && minUsd > 0
+        ? `≥$${Math.round(minUsd).toLocaleString()}`
+        : "ETH↔USDC";
+    summary = `Propose copy of ${target} when move ${floor}${size}`;
   }
 
   return parseStrategyDraftInput({

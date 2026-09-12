@@ -3,6 +3,7 @@ import type {
   StrategyTickDecision,
 } from "@squadrons/shared";
 import { executeBalanceThresholdAlert } from "./balance-threshold.js";
+import { executeCopyWalletPropose } from "./copy-wallet.js";
 import { executeInventoryRebalance } from "./inventory-rebalance.js";
 import { executePoolLiquidityShock } from "./pool-liquidity.js";
 import { executePriceBandAlert } from "./price-band.js";
@@ -29,6 +30,7 @@ const EXECUTORS: Record<RecipeId, RecipeExecutor> = {
   inventory_rebalance: executeInventoryRebalance,
   stable_depeg_alert: executeStableDepegAlert,
   pool_liquidity_shock: executePoolLiquidityShock,
+  copy_wallet_propose: executeCopyWalletPropose,
 };
 
 export function hasRecipeExecutor(recipeId: RecipeId | null): boolean {

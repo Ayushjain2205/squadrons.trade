@@ -46,12 +46,15 @@ One strategy per agent:
 | `inventory_rebalance` | ETH share of ETH+USDC leaves target±band → propose corrective swap |
 | `stable_depeg_alert` | Stablecoin USD leaves peg band (pair with `event: stable_depeg`) |
 | `pool_liquidity_shock` | Watched pool reserve USD drops ≥`dropPct` (pair with `event: pool_liquidity_shock`) |
+| `copy_wallet_propose` | Target wallet ETH(+WETH)↔USDC delta looks like a swap → propose capped mirror (`event: target_trade_seen`) |
 
 Recipes live in `apps/host/src/strategy/recipes/`. Catalog / param schemas live in `@squadrons/shared` (`recipes.ts`).
 
 ### Event wakes
 
-`trigger: { type: "event", event: "price_cross", intervalSec }` polls on `intervalSec` but stays quiet until an edge fires, then runs the recipe once. `price_tp_stop`, `stable_depeg`, and `pool_liquidity_shock` do the same for exits, peg bands, and pool reserve shocks. Edge state is in-memory (resets on host restart / disarm).
+`trigger: { type: "event", event: "price_cross", intervalSec }` polls on `intervalSec` but stays quiet until an edge fires, then runs the recipe once. `price_tp_stop`, `stable_depeg`, `pool_liquidity_shock`, and `target_trade_seen` do the same for exits, peg bands, pool reserve shocks, and copy-wallet balance deltas. Edge state is in-memory (resets on host restart / disarm).
+
+`copy_wallet_propose` is deliberately laggy (poll-based balance deltas, ETH↔USDC only) — it proposes a capped mirror, it does not claim co-located copy execution.
 
 ## Flow
 

@@ -1,4 +1,12 @@
 import type { Strategy } from "@squadrons/shared";
+import {
+  clearCopyWalletState,
+  detectCopyTrade,
+  getCopySnapshot,
+  sampleCopyTarget,
+  setCopySnapshot,
+  setPendingCopySignal,
+} from "./recipes/copy-detect.js";
 
 const SPOT_IDS: Record<string, string> = {
   ETH: "ethereum",
@@ -141,6 +149,13 @@ export async function evaluateEventEdge(
     strategy.recipeId === "pool_liquidity_shock"
   ) {
     return evaluatePoolLiquidityShockEdge(strategy, chainId);
+  }
+
+  if (
+    event === "target_trade_seen" ||
+    strategy.recipeId === "copy_wallet_propose"
+  ) {
+    return evaluateCopyWalletEdge(strategy, chainId);
   }
 
   // Unknown events: treat like interval (always fire when due).
@@ -336,7 +351,51 @@ async function evaluatePoolLiquidityShockEdge(
   return { kind: "quiet", detail };
 }
 
+async function evaluateCopyWalletEdge(
+  strategy: Strategy,
+  chainId: number,
+): Promise<EventEdgeResult> {
+  const targetAddress =
+    typeof strategy.params.targetAddress === "string"
+      ? strategy.params.targetAddress.trim()
+      : "";
+  const minUsd = Number(strategy.params.minUsd ?? 100);
+
+  if (!/^0x[a-fA-F0-9]{40}$/.test(targetAddress) || !(minUsd > 0)) {
+    return { kind: "skip", reason: "invalid copy wallet params" };
+  }
+
+  const next = await sampleCopyTarget(chainId, targetAddress);
+  if (!next) {
+    return { kind: "skip", reason: "could not sample target balances" };
+  }
+
+  const short = `${targetAddress.slice(0, 6)}…${targetAddress.slice(-4)}`;
+  const prev = getCopySnapshot(strategy.agentId);
+  setCopySnapshot(strategy.agentId, next);
+
+  if (!prev) {
+    return {
+      kind: "armed",
+      detail: `${short} ETH $${next.ethUsd.toFixed(0)} / USDC $${next.usdcUsd.toFixed(0)} — watching ETH↔USDC ≥ $${minUsd}`,
+    };
+  }
+
+  const signal = detectCopyTrade(prev, next, minUsd);
+  const detail = `${short} ETH $${prev.ethUsd.toFixed(0)}→$${next.ethUsd.toFixed(0)} USDC $${prev.usdcUsd.toFixed(0)}→$${next.usdcUsd.toFixed(0)}`;
+
+  if (signal) {
+    setPendingCopySignal(strategy.agentId, signal);
+    return {
+      kind: "fire",
+      detail: `${detail} · ${signal.side} ~$${signal.observedUsd.toFixed(0)}`,
+    };
+  }
+  return { kind: "quiet", detail };
+}
+
 export function clearEventEdgeState(agentId: string): void {
   lastPrices.delete(agentId);
   lastPoolReserves.delete(agentId);
+  clearCopyWalletState(agentId);
 }
