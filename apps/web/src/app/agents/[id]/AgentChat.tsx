@@ -4,14 +4,22 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   displayActivityLabel,
+  filterDeskSkills,
+  matchSlashSkillQuery,
   parseAllowanceApprovalMarker,
   parseTradeOutcomeMarker,
   stripAllowanceApprovalMarker,
   stripTradeOutcomeMarker,
   type AvatarId,
+  type DeskSkill,
   type OrbColorId,
 } from "@squadrons/shared";
 import { AgentOrb } from "@/components/AgentOrb";
+import { SkillSlashMenu } from "@/components/desk/SkillSlashMenu";
+import {
+  SkillComposerBackdrop,
+  SkillHighlightedText,
+} from "@/components/desk/SkillHighlightedText";
 import {
   approveTradeAllowance,
   dismissTradeAllowance,
@@ -68,10 +76,22 @@ export function AgentChat({
   const [allowancePhase, setAllowancePhase] = useState<
     "signer" | "broadcast" | null
   >(null);
+  const [slashOpen, setSlashOpen] = useState(false);
+  const [slashQuery, setSlashQuery] = useState("");
+  const [slashRange, setSlashRange] = useState<{ start: number; end: number } | null>(
+    null,
+  );
+  const [slashIndex, setSlashIndex] = useState(0);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const liveStepsRef = useRef<ChatToolStep[]>([]);
   liveStepsRef.current = liveSteps;
+
+  const slashSkills = useMemo(
+    () => filterDeskSkills(slashQuery),
+    [slashQuery],
+  );
+  const showSlashMenu = slashOpen && !pending;
 
   function refreshAllowanceRequests() {
     void listTradeIntents(agent.id, 20)
@@ -88,8 +108,15 @@ export function AgentChat({
     setStepsByUserMessageId({});
     setLiveSteps([]);
     setActiveUserMessageId(null);
+    setDraft("");
+    closeSlashMenu();
     refreshAllowanceRequests();
   }, [initialAgent.id]); // eslint-disable-line react-hooks/exhaustive-deps -- only reset transcript when switching agents
+
+  useEffect(() => {
+    if (slashIndex < slashSkills.length) return;
+    setSlashIndex(0);
+  }, [slashSkills.length, slashIndex]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -227,10 +254,98 @@ export function AgentChat({
     });
   }
 
+  function closeSlashMenu() {
+    setSlashOpen(false);
+    setSlashQuery("");
+    setSlashRange(null);
+    setSlashIndex(0);
+  }
+
+  function syncSlashFromDraft(nextDraft: string, cursor?: number) {
+    const pos =
+      cursor ??
+      inputRef.current?.selectionStart ??
+      nextDraft.length;
+    const match = matchSlashSkillQuery(nextDraft, pos);
+    if (!match) {
+      closeSlashMenu();
+      return;
+    }
+    setSlashOpen(true);
+    setSlashQuery(match.query);
+    setSlashRange({ start: match.start, end: match.end });
+    setSlashIndex(0);
+  }
+
+  function insertSkill(skill: DeskSkill) {
+    const el = inputRef.current;
+    const cursor = el?.selectionStart ?? draft.length;
+    const match =
+      slashRange ??
+      (() => {
+        const found = matchSlashSkillQuery(draft, cursor);
+        return found
+          ? { start: found.start, end: found.end }
+          : { start: cursor, end: cursor };
+      })();
+    const token = `/${skill.name} `;
+    const next = draft.slice(0, match.start) + token + draft.slice(match.end);
+    const nextCursor = match.start + token.length;
+    setDraft(next);
+    closeSlashMenu();
+    requestAnimationFrame(() => {
+      const input = inputRef.current;
+      if (!input) return;
+      input.focus();
+      input.setSelectionRange(nextCursor, nextCursor);
+    });
+  }
+
+  function openSlashPicker() {
+    if (pending) return;
+    const el = inputRef.current;
+    const cursor = el?.selectionStart ?? draft.length;
+    const before = draft.slice(0, cursor);
+    const needsSlash = !/(^|\s)$/.test(before) && before.length > 0;
+    // Insert `/` at cursor when opening from the + control.
+    const insertAt = cursor;
+    const prefix = needsSlash ? " /" : before.endsWith("/") ? "" : "/";
+    if (prefix) {
+      const next = draft.slice(0, insertAt) + prefix + draft.slice(insertAt);
+      const nextCursor = insertAt + prefix.length;
+      setDraft(next);
+      setSlashOpen(true);
+      setSlashQuery("");
+      setSlashRange({
+        start: nextCursor - 1,
+        end: nextCursor,
+      });
+      setSlashIndex(0);
+      requestAnimationFrame(() => {
+        const input = inputRef.current;
+        if (!input) return;
+        input.focus();
+        input.setSelectionRange(nextCursor, nextCursor);
+      });
+      return;
+    }
+    syncSlashFromDraft(draft, cursor);
+    el?.focus();
+  }
+
+  function onDraftChange(value: string) {
+    setDraft(value);
+    // selectionStart is still pre-change in some browsers; use end of value for typing.
+    requestAnimationFrame(() => {
+      syncSlashFromDraft(value, inputRef.current?.selectionStart ?? value.length);
+    });
+  }
+
   function onSend(event?: React.FormEvent) {
     event?.preventDefault();
     const content = draft.trim();
     if (!content || pending) return;
+    closeSlashMenu();
 
     setDraft("");
     const optimisticId = `local-${Date.now()}`;
@@ -307,6 +422,34 @@ export function AgentChat({
   }
 
   function onKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (showSlashMenu) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeSlashMenu();
+        return;
+      }
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        if (slashSkills.length === 0) return;
+        setSlashIndex((i) => (i + 1) % slashSkills.length);
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        if (slashSkills.length === 0) return;
+        setSlashIndex(
+          (i) => (i - 1 + slashSkills.length) % slashSkills.length,
+        );
+        return;
+      }
+      if (event.key === "Enter" || event.key === "Tab") {
+        event.preventDefault();
+        const skill = slashSkills[slashIndex];
+        if (skill) insertSkill(skill);
+        return;
+      }
+    }
+
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       onSend();
@@ -438,24 +581,53 @@ export function AgentChat({
         ) : null}
         <form
           onSubmit={onSend}
-          className="chat-composer flex w-full items-end gap-1.5 rounded-full border border-[var(--line)] bg-[var(--msg-bot)] px-2 py-2 shadow-[0_8px_30px_rgba(0,0,0,0.35)]"
+          className="chat-composer relative flex w-full items-end gap-1.5 rounded-full border border-[var(--line)] bg-[var(--msg-bot)] px-2 py-2 shadow-[0_8px_30px_rgba(0,0,0,0.35)]"
         >
-          <span
-            className="mb-0.5 flex size-10 shrink-0 items-center justify-center rounded-full text-[var(--muted)]"
-            aria-hidden
+          {showSlashMenu ? (
+            <SkillSlashMenu
+              skills={slashSkills}
+              activeIndex={Math.min(slashIndex, Math.max(slashSkills.length - 1, 0))}
+              onActiveIndexChange={setSlashIndex}
+              onSelect={insertSkill}
+              onClose={closeSlashMenu}
+            />
+          ) : null}
+          <button
+            type="button"
+            onClick={openSlashPicker}
+            disabled={pending}
+            className="mb-0.5 flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--muted)] transition hover:bg-[var(--panel)] hover:text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Insert skill"
+            title="Skills"
           >
             +
-          </span>
-          <textarea
-            ref={inputRef}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={onKeyDown}
-            rows={1}
-            placeholder={placeholder}
-            disabled={pending}
-            className="chat-input type-body max-h-32 min-h-10 flex-1 resize-none bg-transparent py-2.5 text-[var(--ink)] placeholder:text-[var(--muted)] outline-none ring-0 disabled:opacity-60"
-          />
+          </button>
+          <div
+            className={`relative min-h-10 min-w-0 flex-1 ${
+              pending ? "opacity-60" : ""
+            }`}
+          >
+            <SkillComposerBackdrop
+              value={draft}
+              className="chat-input type-body absolute inset-0 max-h-32 overflow-hidden py-2.5"
+            />
+            <textarea
+              ref={inputRef}
+              value={draft}
+              onChange={(e) => onDraftChange(e.target.value)}
+              onKeyDown={onKeyDown}
+              onScroll={(e) => {
+                const mirror = e.currentTarget.previousElementSibling;
+                if (mirror instanceof HTMLElement) {
+                  mirror.scrollTop = e.currentTarget.scrollTop;
+                }
+              }}
+              rows={1}
+              placeholder={`${placeholder}  ·  / for skills`}
+              disabled={pending}
+              className="chat-input type-body relative z-[1] max-h-32 min-h-10 w-full resize-none overflow-y-auto bg-transparent py-2.5 text-transparent caret-[var(--ink)] outline-none ring-0 [-webkit-text-fill-color:transparent] placeholder:text-[var(--muted)] placeholder:[-webkit-text-fill-color:var(--muted)] disabled:cursor-not-allowed"
+            />
+          </div>
           {isWorking ? (
             <button
               type="button"
@@ -637,7 +809,9 @@ function MessageBubble({ message }: { message: AgentMessage }) {
         }`}
       >
         {isUser ? (
-          <p className="whitespace-pre-wrap">{content}</p>
+          <p className="whitespace-pre-wrap">
+            <SkillHighlightedText text={content} />
+          </p>
         ) : (
           <MarkdownContent content={sanitizeAssistantContent(content)} />
         )}
