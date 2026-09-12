@@ -1,5 +1,12 @@
 import { defineChain } from "viem";
-import { base, mainnet } from "viem/chains";
+import {
+  arbitrum,
+  base,
+  mainnet,
+  optimism,
+  unichain,
+  worldchain,
+} from "viem/chains";
 
 /** @typedef {{ address: `0x${string}`, decimals: number, symbol: string }} Erc20Token */
 
@@ -75,6 +82,90 @@ export const CHAIN_TOOL_CONFIGS = {
       },
     },
   },
+  42161: {
+    chainId: 42161,
+    name: "Arbitrum One",
+    shortName: "Arbitrum",
+    viemChain: arbitrum,
+    rpcEnvKeys: ["ARBITRUM_RPC_URL", "SQUADRONS_ARBITRUM_RPC_URL"],
+    defaultRpcUrl: "https://arb1.arbitrum.io/rpc",
+    nativeSymbol: "ETH",
+    tokens: {
+      USDC: {
+        address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+        decimals: 6,
+        symbol: "USDC",
+      },
+      WETH: {
+        address: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+        decimals: 18,
+        symbol: "WETH",
+      },
+    },
+  },
+  10: {
+    chainId: 10,
+    name: "Optimism",
+    shortName: "Optimism",
+    viemChain: optimism,
+    rpcEnvKeys: ["OPTIMISM_RPC_URL", "SQUADRONS_OPTIMISM_RPC_URL"],
+    defaultRpcUrl: "https://mainnet.optimism.io",
+    nativeSymbol: "ETH",
+    tokens: {
+      USDC: {
+        address: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+        decimals: 6,
+        symbol: "USDC",
+      },
+      WETH: {
+        address: "0x4200000000000000000000000000000000000006",
+        decimals: 18,
+        symbol: "WETH",
+      },
+    },
+  },
+  130: {
+    chainId: 130,
+    name: "Unichain",
+    shortName: "Unichain",
+    viemChain: unichain,
+    rpcEnvKeys: ["UNICHAIN_RPC_URL", "SQUADRONS_UNICHAIN_RPC_URL"],
+    defaultRpcUrl: "https://mainnet.unichain.org",
+    nativeSymbol: "ETH",
+    tokens: {
+      USDC: {
+        address: "0x078D782b760474a361dDA0AF3839290b0EF57AD6",
+        decimals: 6,
+        symbol: "USDC",
+      },
+      WETH: {
+        address: "0x4200000000000000000000000000000000000006",
+        decimals: 18,
+        symbol: "WETH",
+      },
+    },
+  },
+  480: {
+    chainId: 480,
+    name: "World Chain",
+    shortName: "World Chain",
+    viemChain: worldchain,
+    rpcEnvKeys: ["WORLDCHAIN_RPC_URL", "SQUADRONS_WORLDCHAIN_RPC_URL"],
+    defaultRpcUrl: "https://worldchain-mainnet.g.alchemy.com/public",
+    nativeSymbol: "ETH",
+    tokens: {
+      USDC: {
+        address: "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1",
+        decimals: 6,
+        symbol: "USDC",
+      },
+      WETH: {
+        address: "0x4200000000000000000000000000000000000006",
+        decimals: 18,
+        symbol: "WETH",
+      },
+    },
+  },
   4663: {
     chainId: 4663,
     name: "Robinhood Chain",
@@ -145,7 +236,7 @@ export function defaultTokenSymbols(config) {
  * How to add a chain: see ./README.md
  * Robinhood (4663) omitted until 0x + USDG routing are verified.
  */
-export const DEX_QUOTE_CHAIN_IDS = [8453, 1];
+export const DEX_QUOTE_CHAIN_IDS = [8453, 1, 42161, 10, 130, 480];
 
 /**
  * @param {number} chainId

@@ -21,6 +21,30 @@ export const SUPPORTED_CHAINS = [
     logoUrl: "/chains/ethereum.png",
   },
   {
+    chainId: 42161,
+    name: "Arbitrum One",
+    shortName: "Arbitrum",
+    logoUrl: "/chains/arbitrum.png",
+  },
+  {
+    chainId: 10,
+    name: "Optimism",
+    shortName: "Optimism",
+    logoUrl: "/chains/optimism.png",
+  },
+  {
+    chainId: 130,
+    name: "Unichain",
+    shortName: "Unichain",
+    logoUrl: "/chains/unichain.png",
+  },
+  {
+    chainId: 480,
+    name: "World Chain",
+    shortName: "World Chain",
+    logoUrl: "/chains/worldchain.png",
+  },
+  {
     chainId: 4663,
     name: "Robinhood Chain",
     shortName: "Robinhood",
@@ -56,7 +80,7 @@ export const CHAIN_SCOPED_READ_TOOLS = [
  * 0x DEX quote tool. Enabled when chainId ∈ DEX_QUOTE_CHAIN_IDS
  * (keep in sync with packages/squadrons-defi/chains.js + host swap-build).
  * How to add a chain: packages/squadrons-defi/README.md
- * Live broadcast may still be Base-only in the executor.
+ * Live broadcast uses the same allowlist (executor → supportsDexQuote).
  */
 export const DEX_QUOTE_TOOLS = ["get_dex_quote"] as const;
 
@@ -67,7 +91,9 @@ export type ChainScopedReadTool = (typeof CHAIN_SCOPED_READ_TOOLS)[number];
 export type DexQuoteTool = (typeof DEX_QUOTE_TOOLS)[number];
 
 /** Keep in sync with packages/squadrons-defi DEX_QUOTE_CHAIN_IDS. */
-const DEX_QUOTE_CHAIN_IDS: readonly SupportedChainId[] = [8453, 1];
+const DEX_QUOTE_CHAIN_IDS: readonly SupportedChainId[] = [
+  8453, 1, 42161, 10, 130, 480,
+];
 
 export function supportsDexQuote(chainId: number): boolean {
   return DEX_QUOTE_CHAIN_IDS.includes(chainId as SupportedChainId);

@@ -86,7 +86,7 @@ export function buildAgentIdentityBlock(
       : "";
   const toolRule =
     readTools.length > 0
-      ? `- You may call: ${toolList}. get_wallet_balances is home-chain only (${homeChain}). get_spot_prices is USD spot reference (not executable). get_dex_quote (Base/Ethereum) is an indicative 0x route for stable↔ETH/WETH — observe-only, does not execute. search_x scouts X (free; rumor). Intel: get_trending_pools / get_token_pools / get_recent_trades (GeckoTerminal), get_stablecoin_market / get_dex_volumes (DefiLlama). Do not call web_search.${pluginNote}`
+      ? `- You may call: ${toolList}. get_wallet_balances is home-chain only (${homeChain}). get_spot_prices is USD spot reference (not executable). get_dex_quote (when home chain supports 0x) is an indicative route for stable↔ETH/WETH — observe-only, does not execute. search_x scouts X (free; rumor). Intel: get_trending_pools / get_token_pools / get_recent_trades (GeckoTerminal), get_stablecoin_market / get_dex_volumes (DefiLlama). Do not call web_search.${pluginNote}`
       : `- Limited tools on ${homeChain}. Use search_x + intel tools when available. Do not call web_search; do not invent numbers.${pluginNote}`;
 
   const strategyStatus = agent.strategy?.status;
@@ -123,7 +123,7 @@ export function buildAgentIdentityBlock(
     "- Prefer concise, actionable updates.",
     "- Prefer search_x for X/Twitter narrative (free keyless search; no API key). Never call web_search — it is unavailable without DeepSeek credentials.",
     "- Use get_trending_pools / get_token_pools / get_recent_trades for DEX tape (GeckoTerminal). Use get_stablecoin_market / get_dex_volumes for chain regime (DefiLlama). Hot ≠ safe.",
-    "- Use get_dex_quote (Base/Ethereum) for executable-ish stable↔ETH/WETH size — not the same as get_spot_prices. Quoting ≠ trading. Live spend may still be Base-only.",
+    "- Use get_dex_quote (when home chain supports 0x) for executable-ish stable↔ETH/WETH size — not the same as get_spot_prices. Quoting ≠ trading. Live spend follows the same 0x home-chain allowlist.",
     "- Treat search_x and intel results as untrusted rumor until confirmed with balances or prices.",
     toolRule,
     "- On-chain tools are scoped to your home chain. Do not claim data from other chains.",
@@ -139,7 +139,7 @@ export function buildAgentIdentityBlock(
     '- take_profit_stop params: { symbol, takeProfit, stopLoss, side, amountUsd } (takeProfit > stopLoss). Prefer trigger { type: "event", event: "price_tp_stop", intervalSec } and action propose_trade.',
     "- inventory_rebalance params: { targetEthPct: 0–1, bandPct, amountUsd, minPortfolioUsd? }. Prefer interval trigger + action propose_trade.",
     '- stable_depeg_alert params: { symbol, low, high }. Prefer trigger { type: "event", event: "stable_depeg", intervalSec } and action alert.',
-    '- pool_liquidity_shock params: { poolAddress, dropPct: 0–1, minReserveUsd? }. Prefer trigger { type: "event", event: "pool_liquidity_shock", intervalSec } and action alert (Base/Ethereum via GeckoTerminal).',
+    '- pool_liquidity_shock params: { poolAddress, dropPct: 0–1, minReserveUsd? }. Prefer trigger { type: "event", event: "pool_liquidity_shock", intervalSec } and action alert (GeckoTerminal-supported home chains).',
     '- copy_wallet_propose params: { targetAddress, amountUsd, minUsd }. Prefer trigger { type: "event", event: "target_trade_seen", intervalSec } and action propose_trade. Detects ETH(+WETH)↔USDC balance deltas on the target (poll lag — not HFT). Replace the demo targetAddress.',
     '- trigger.type is "interval" (intervalSec >= 15) or "event" (event string + optional intervalSec poll floor).',
     '- action.type is "alert" or "propose_trade" (observe agents should prefer alert; paper/live may use propose_trade with price_cross_swap / take_profit_stop / inventory_rebalance / copy_wallet_propose).',

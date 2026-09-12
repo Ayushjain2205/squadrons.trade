@@ -1,7 +1,15 @@
 "use client";
 
 import { PrivyProvider } from "@privy-io/react-auth";
-import { base, mainnet, type Chain } from "viem/chains";
+import {
+  arbitrum,
+  base,
+  mainnet,
+  optimism,
+  unichain,
+  worldchain,
+  type Chain,
+} from "viem/chains";
 import type { ReactNode } from "react";
 import { ToastProvider } from "@/components/Toast";
 
@@ -36,7 +44,15 @@ export function Providers({ children }: { children: ReactNode }) {
         },
         loginMethods: ["email", "wallet"],
         defaultChain: base,
-        supportedChains: [base, mainnet, robinhood],
+        supportedChains: [
+          base,
+          mainnet,
+          arbitrum,
+          optimism,
+          unichain,
+          worldchain,
+          robinhood,
+        ],
         embeddedWallets: {
           ethereum: {
             createOnLogin: "all-users",

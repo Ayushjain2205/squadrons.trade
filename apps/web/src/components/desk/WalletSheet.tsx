@@ -70,6 +70,30 @@ function explorerFor(
       url: `https://etherscan.io/address/${address}`,
     };
   }
+  if (chainId === 42161) {
+    return {
+      label: "Arbiscan",
+      url: `https://arbiscan.io/address/${address}`,
+    };
+  }
+  if (chainId === 10) {
+    return {
+      label: "Optimistic Etherscan",
+      url: `https://optimistic.etherscan.io/address/${address}`,
+    };
+  }
+  if (chainId === 130) {
+    return {
+      label: "Uniscan",
+      url: `https://uniscan.xyz/address/${address}`,
+    };
+  }
+  if (chainId === 480) {
+    return {
+      label: "Worldscan",
+      url: `https://worldscan.org/address/${address}`,
+    };
+  }
   // Robinhood — no public explorer wired yet
   return null;
 }

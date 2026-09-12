@@ -27,6 +27,11 @@ export type StrategyTemplate = {
   draft: UpsertStrategyDraftInput;
 };
 
+/** ETH L2s / mainnet with USDC + 0x quotes (excludes Robinhood). */
+const DEX_TEMPLATE_CHAINS = [
+  8453, 1, 42161, 10, 130, 480,
+] as const satisfies readonly SupportedChainId[];
+
 /**
  * Squadrons-authored templates only. Add entries here — no migration.
  * Each draft must use a built-in recipeId.
@@ -38,7 +43,7 @@ export const STRATEGY_TEMPLATES: readonly StrategyTemplate[] = [
     blurb: "Alert when ETH crosses below a USD level.",
     description:
       "Event-style watch for ETH USD. The host polls quietly and only fires when price crosses your level — useful for dip alerts without noisy interval spam. Import sets a draft; tweak the level, then Arm.",
-    chainIds: [8453, 1],
+    chainIds: DEX_TEMPLATE_CHAINS,
     tags: ["alert", "price"],
     editableKeys: ["level", "direction"],
     draft: {
@@ -55,7 +60,7 @@ export const STRATEGY_TEMPLATES: readonly StrategyTemplate[] = [
     blurb: "Alert when ETH leaves a USD band.",
     description:
       "Interval check that alerts when ETH spot USD moves outside your low–high band. Good for range monitoring. Defaults are a wide demo band — tighten before Arming.",
-    chainIds: [8453, 1],
+    chainIds: DEX_TEMPLATE_CHAINS,
     tags: ["alert", "price"],
     editableKeys: ["low", "high"],
     draft: {
@@ -89,7 +94,7 @@ export const STRATEGY_TEMPLATES: readonly StrategyTemplate[] = [
     blurb: "Propose a capped ETH buy when price crosses below a level.",
     description:
       "Event-style dip buy on ETH USD. When price crosses your level, the host proposes a capped USDC→ETH swap (spend still fail-closed / desk confirm). Defaults to $10 — tighten level and size before Arming. Needs spend enabled on the agent.",
-    chainIds: [8453, 1],
+    chainIds: DEX_TEMPLATE_CHAINS,
     tags: ["trade", "price", "propose"],
     editableKeys: ["level", "amountUsd", "direction", "side"],
     draft: {
@@ -113,7 +118,7 @@ export const STRATEGY_TEMPLATES: readonly StrategyTemplate[] = [
     blurb: "Propose a capped ETH sell at take-profit or stop-loss.",
     description:
       "Long-exit watch: fires when ETH crosses above your take-profit or below your stop. Proposes a capped sell (fail-closed). Set levels around your entry before Arming; requires spend enabled.",
-    chainIds: [8453, 1],
+    chainIds: DEX_TEMPLATE_CHAINS,
     tags: ["trade", "price", "propose"],
     editableKeys: ["takeProfit", "stopLoss", "amountUsd", "side"],
     draft: {
@@ -136,8 +141,8 @@ export const STRATEGY_TEMPLATES: readonly StrategyTemplate[] = [
     name: "ETH/USDC rebalance",
     blurb: "Propose a swap when ETH share leaves a 50% ±10% band.",
     description:
-      "Interval check of the shared wallet’s ETH + USDC on the home chain. When ETH’s USD share drifts outside your band, proposes a capped corrective swap (fail-closed). Base and Ethereum only (needs USDC + 0x).",
-    chainIds: [8453, 1],
+      "Interval check of the shared wallet’s ETH + USDC on the home chain. When ETH’s USD share drifts outside your band, proposes a capped corrective swap (fail-closed). Needs USDC + 0x on the home chain.",
+    chainIds: DEX_TEMPLATE_CHAINS,
     tags: ["trade", "wallet", "propose"],
     editableKeys: ["targetEthPct", "bandPct", "amountUsd", "minPortfolioUsd"],
     draft: {
@@ -160,7 +165,7 @@ export const STRATEGY_TEMPLATES: readonly StrategyTemplate[] = [
     blurb: "Alert when USDC leaves a $0.99–$1.01 peg band.",
     description:
       "Event-style peg watch. The host polls quietly and alerts when USDC USD moves outside your band — useful before USDC-centric strategies. Alert-only by default.",
-    chainIds: [8453, 1],
+    chainIds: DEX_TEMPLATE_CHAINS,
     tags: ["alert", "stable"],
     editableKeys: ["low", "high"],
     draft: {
@@ -198,7 +203,7 @@ export const STRATEGY_TEMPLATES: readonly StrategyTemplate[] = [
     blurb: "Propose a capped ETH swap when a watched wallet looks like it traded.",
     description:
       "Polls a target wallet’s ETH(+WETH) and USDC. When balances move like a swap above minUsd, proposes a capped mirror (fail-closed). Not HFT — lag equals your poll interval. Replace the demo targetAddress before Arming; needs spend enabled.",
-    chainIds: [8453, 1],
+    chainIds: DEX_TEMPLATE_CHAINS,
     tags: ["trade", "copy", "propose"],
     editableKeys: ["targetAddress", "amountUsd", "minUsd"],
     draft: {

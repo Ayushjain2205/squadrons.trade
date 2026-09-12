@@ -36,6 +36,10 @@ export type PoolReserveSnapshot = {
 function geckoNetworkId(chainId: number): string | null {
   if (chainId === 8453) return "base";
   if (chainId === 1) return "eth";
+  if (chainId === 42161) return "arbitrum";
+  if (chainId === 10) return "optimism";
+  if (chainId === 130) return "unichain";
+  if (chainId === 480) return "world-chain";
   return null;
 }
 

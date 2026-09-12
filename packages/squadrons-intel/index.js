@@ -72,7 +72,7 @@ export function apply(ctx) {
         const chainId = resolveHomeChainId();
         if (!geckoNetworkId(chainId)) {
           throw new Error(
-            `get_trending_pools is unavailable on chain ${chainId}. Use Base (8453) or Ethereum (1).`,
+            `get_trending_pools is unavailable on chain ${chainId}. Use a GeckoTerminal-supported home chain (e.g. Base, Ethereum, Arbitrum, Optimism, Unichain, World Chain).`,
           );
         }
         const maxResults = resolveCount(
@@ -112,7 +112,7 @@ export function apply(ctx) {
         const chainId = resolveHomeChainId();
         if (!geckoNetworkId(chainId)) {
           throw new Error(
-            `get_token_pools is unavailable on chain ${chainId}. Use Base (8453) or Ethereum (1).`,
+            `get_token_pools is unavailable on chain ${chainId}. Use a GeckoTerminal-supported home chain (e.g. Base, Ethereum, Arbitrum, Optimism, Unichain, World Chain).`,
           );
         }
         const tokenAddress =
@@ -162,7 +162,7 @@ export function apply(ctx) {
         const chainId = resolveHomeChainId();
         if (!geckoNetworkId(chainId)) {
           throw new Error(
-            `get_recent_trades is unavailable on chain ${chainId}. Use Base (8453) or Ethereum (1).`,
+            `get_recent_trades is unavailable on chain ${chainId}. Use a GeckoTerminal-supported home chain (e.g. Base, Ethereum, Arbitrum, Optimism, Unichain, World Chain).`,
           );
         }
         const poolAddress =

@@ -63,6 +63,14 @@ export function geckoNetworkId(chainId) {
       return "base";
     case 1:
       return "eth";
+    case 42161:
+      return "arbitrum";
+    case 10:
+      return "optimism";
+    case 130:
+      return "unichain";
+    case 480:
+      return "world-chain";
     case 4663:
       // Not on GeckoTerminal public networks as of integration.
       return null;

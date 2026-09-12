@@ -48,6 +48,14 @@ export function llamaChainSlug(chainId) {
       return "Base";
     case 1:
       return "Ethereum";
+    case 42161:
+      return "Arbitrum";
+    case 10:
+      return "Optimism";
+    case 130:
+      return "Unichain";
+    case 480:
+      return "World Chain";
     case 4663:
       return "Robinhood Chain";
     default:

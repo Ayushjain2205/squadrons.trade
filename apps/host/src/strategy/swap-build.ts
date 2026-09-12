@@ -12,6 +12,10 @@ export const ZEROEX_NATIVE_TOKEN =
 export const DEX_QUOTE_CHAIN_IDS = [
   DEFAULT_POLICY.defaultChainId,
   1,
+  42161,
+  10,
+  130,
+  480,
 ] as const;
 
 export function supportsDexQuote(chainId: number): boolean {
@@ -97,7 +101,7 @@ function resolveQuoteStable(
  * Map a capped USD trade plan to a 0x AllowanceHolder quote.
  * buy  → sell stable for asset (exact-in stable)
  * sell → sell asset for stable (exact-out stable)
- * Enabled on {@link DEX_QUOTE_CHAIN_IDS} (Base + Ethereum). Live broadcast may still be Base-only.
+ * Enabled on {@link DEX_QUOTE_CHAIN_IDS} (ETH L2s with USDC + 0x). Live broadcast uses the same allowlist.
  */
 export async function buildSwapFromPlan(
   plan: TradePlan,

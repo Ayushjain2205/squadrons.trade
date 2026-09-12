@@ -30,6 +30,18 @@ const FUNDING_CHAINS: readonly FundingChain[] = [
     shortName: "Ethereum",
     usdc: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
   },
+  {
+    chainId: 42161,
+    caip2: "eip155:42161",
+    shortName: "Arbitrum",
+    usdc: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+  },
+  {
+    chainId: 10,
+    caip2: "eip155:10",
+    shortName: "Optimism",
+    usdc: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+  },
 ] as const;
 
 export type FundingDestination = {
