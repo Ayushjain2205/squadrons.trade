@@ -486,7 +486,7 @@ function RunModeToggle({
 
   return (
     <div
-      className={`inline-flex min-h-7 items-center gap-0.5 rounded-full bg-[var(--panel-2)] px-0.5 py-0.5 ring-1 ring-[var(--line-soft)] ${
+      className={`inline-flex items-center gap-0.5 rounded-full bg-[var(--panel)] p-0.5 ring-1 ring-[var(--line)] ${
         disabled ? "opacity-50" : ""
       }`}
       role="group"
@@ -499,20 +499,23 @@ function RunModeToggle({
           <button
             key={option.id}
             type="button"
-            disabled={disabled || selected || locked}
+            disabled={disabled || locked}
             title={
               locked
                 ? "Host ceiling is paper-only (SQUADRONS_EXECUTION_MODE)"
                 : undefined
             }
             aria-pressed={selected}
-            onClick={() => onChange(option.id)}
-            className={`type-meta rounded-full px-2.5 py-0.5 transition ${
+            onClick={() => {
+              if (selected || locked || disabled) return;
+              onChange(option.id);
+            }}
+            className={`type-ui rounded-full px-3 py-1 transition ${
               selected
-                ? "bg-[var(--ink)] font-semibold text-[var(--canvas)]"
+                ? "bg-[var(--ink)] !font-semibold !text-[var(--canvas)]"
                 : locked
-                  ? "cursor-not-allowed text-[var(--muted)] opacity-50"
-                  : "cursor-pointer text-[var(--muted)] hover:bg-[var(--panel)] hover:text-[var(--ink)] disabled:cursor-not-allowed"
+                  ? "cursor-not-allowed !text-[var(--muted)] opacity-40"
+                  : "cursor-pointer !text-[var(--ink-soft)] hover:bg-[var(--panel-2)] hover:!text-[var(--ink)]"
             }`}
           >
             {option.label}
