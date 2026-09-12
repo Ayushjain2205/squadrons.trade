@@ -1,73 +1,82 @@
 "use client";
 
 import {
-  splitDeskSkillTokens,
+  splitComposerTokens,
   type DeskSkillTextSegment,
 } from "@squadrons/shared";
 
-function SkillTokenSegments({
+function ComposerTokenSegments({
   segments,
-  skillClassName,
 }: {
   segments: DeskSkillTextSegment[];
-  skillClassName: string;
 }) {
   return (
     <>
-      {segments.map((segment, index) =>
-        segment.kind === "skill" ? (
-          <span key={`${segment.name}-${index}`} className={skillClassName}>
-            {segment.value}
-          </span>
-        ) : (
-          <span key={`t-${index}`}>{segment.value}</span>
-        ),
-      )}
+      {segments.map((segment, index) => {
+        if (segment.kind === "skill") {
+          return (
+            <span
+              key={`skill-${segment.name}-${index}`}
+              className="font-medium text-[var(--accent)]"
+            >
+              {segment.value}
+            </span>
+          );
+        }
+        if (segment.kind === "plugin") {
+          return (
+            <span
+              key={`plugin-${segment.name}-${index}`}
+              className="font-medium text-[var(--link)]"
+            >
+              {segment.value}
+            </span>
+          );
+        }
+        return <span key={`t-${index}`}>{segment.value}</span>;
+      })}
     </>
   );
 }
 
-/** Render message / prompt text with recognized `/skill` tokens accented. */
+/** Render message / prompt text with `/skill` and `@plugin` tokens accented. */
 export function SkillHighlightedText({
   text,
+  pluginServerNames = [],
   className = "",
 }: {
   text: string;
+  pluginServerNames?: Iterable<string>;
   className?: string;
 }) {
-  const segments = splitDeskSkillTokens(text);
+  const segments = splitComposerTokens(text, pluginServerNames);
   return (
     <span className={className}>
-      <SkillTokenSegments
-        segments={segments}
-        skillClassName="font-medium text-[var(--accent)]"
-      />
+      <ComposerTokenSegments segments={segments} />
     </span>
   );
 }
 
 /**
- * Mirror layer for a transparent textarea — paints `/skill` tokens in accent
+ * Mirror layer for a transparent textarea — paints `/skill` + `@plugin` tokens
  * while caret/selection stay on the real input (Cursor-style).
  */
 export function SkillComposerBackdrop({
   value,
+  pluginServerNames = [],
   className = "",
 }: {
   value: string;
+  pluginServerNames?: Iterable<string>;
   className?: string;
 }) {
-  const segments = splitDeskSkillTokens(value);
+  const segments = splitComposerTokens(value, pluginServerNames);
   return (
     <div
       aria-hidden
       className={`pointer-events-none whitespace-pre-wrap break-words text-[var(--ink)] ${className}`}
     >
-      <SkillTokenSegments
-        segments={segments}
-        skillClassName="font-medium text-[var(--accent)]"
-      />
-      {/* Trailing newline keeps height in sync when value ends with \n */}
+      <ComposerTokenSegments segments={segments} />
       {value.endsWith("\n") ? "\n" : null}
     </div>
   );

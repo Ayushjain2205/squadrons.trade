@@ -62,32 +62,43 @@ export function filterDeskSkills(query: string): DeskSkill[] {
 
 export type DeskSkillTextSegment =
   | { kind: "text"; value: string }
-  | { kind: "skill"; value: string; name: string };
+  | { kind: "skill"; value: string; name: string }
+  | { kind: "plugin"; value: string; name: string };
 
 const DESK_SKILL_NAME_SET = new Set(
   DESK_SKILLS.map((skill) => skill.name.toLowerCase()),
 );
 
 /**
- * Split text into plain + recognized `/skill-name` runs (whitespace-bounded).
- * Used to style composer / bubble tokens like Cursor slash commands.
+ * Split text into plain, `/skill`, and `@plugin` runs (whitespace-bounded).
+ * Plugin names are the MCP `serverName` values (case-insensitive).
  */
-export function splitDeskSkillTokens(text: string): DeskSkillTextSegment[] {
+export function splitComposerTokens(
+  text: string,
+  pluginServerNames: Iterable<string> = [],
+): DeskSkillTextSegment[] {
   if (!text) return [{ kind: "text", value: "" }];
+  const pluginSet = new Set(
+    [...pluginServerNames].map((name) => name.toLowerCase()),
+  );
   const segments: DeskSkillTextSegment[] = [];
-  const re = /(^|[\s])(\/([a-z0-9-]+))\b/gi;
+  const re = /(^|[\s])([/@])([A-Za-z0-9_-]+)\b/g;
   let last = 0;
   let match: RegExpExecArray | null;
   while ((match = re.exec(text)) !== null) {
     const lead = match[1] ?? "";
-    const token = match[2] ?? "";
+    const sigil = match[2] ?? "";
     const name = (match[3] ?? "").toLowerCase();
+    const token = `${sigil}${match[3] ?? ""}`;
     const tokenStart = match.index + lead.length;
-    if (!DESK_SKILL_NAME_SET.has(name)) continue;
+    let kind: "skill" | "plugin" | null = null;
+    if (sigil === "/" && DESK_SKILL_NAME_SET.has(name)) kind = "skill";
+    if (sigil === "@" && pluginSet.has(name)) kind = "plugin";
+    if (!kind) continue;
     if (tokenStart > last) {
       segments.push({ kind: "text", value: text.slice(last, tokenStart) });
     }
-    segments.push({ kind: "skill", value: token, name });
+    segments.push({ kind, value: token, name });
     last = tokenStart + token.length;
   }
   if (last < text.length) {
@@ -97,4 +108,9 @@ export function splitDeskSkillTokens(text: string): DeskSkillTextSegment[] {
     return [{ kind: "text", value: text }];
   }
   return segments;
+}
+
+/** @deprecated Prefer {@link splitComposerTokens}. */
+export function splitDeskSkillTokens(text: string): DeskSkillTextSegment[] {
+  return splitComposerTokens(text);
 }

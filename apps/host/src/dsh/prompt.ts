@@ -82,7 +82,7 @@ export function buildAgentIdentityBlock(
   ].join(", ");
   const pluginNote =
     enabledPlugins && enabledPlugins.length > 0
-      ? ` MCP plugins enabled: ${enabledPlugins.join(", ")} — tools appear as mcp__<server>__<tool>; use them when relevant.`
+      ? ` MCP plugins enabled: ${enabledPlugins.join(", ")} — tools appear as mcp__<server>__<tool>; use them when relevant. When the user @mentions a plugin (e.g. @${enabledPlugins[0]}), prefer that plugin's tools for the turn.`
       : "";
   const toolRule =
     readTools.length > 0

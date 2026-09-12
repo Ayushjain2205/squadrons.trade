@@ -167,3 +167,44 @@ const SERVER_NAME_RE = /^[A-Za-z0-9_-]{1,32}$/;
 export function isValidMcpServerName(name: unknown): name is string {
   return typeof name === "string" && SERVER_NAME_RE.test(name);
 }
+
+/** Plugins the composer may @-mention (enabled + configured). */
+export function mentionablePlugins(
+  plugins: readonly AgentPluginView[],
+): AgentPluginView[] {
+  return plugins.filter((plugin) => plugin.enabled && plugin.configured);
+}
+
+/**
+ * Match an in-progress `@token` at the cursor (start of text or after whitespace).
+ * Closes once the user types a space after the name.
+ */
+export function matchAtPluginQuery(
+  text: string,
+  cursor = text.length,
+): { start: number; end: number; query: string } | null {
+  const before = text.slice(0, cursor);
+  const match = before.match(/(^|\s)@([A-Za-z0-9_-]*)$/);
+  if (!match || match.index === undefined) return null;
+  const at = match.index + match[1]!.length;
+  return {
+    start: at,
+    end: cursor,
+    query: match[2]!.toLowerCase(),
+  };
+}
+
+export function filterMentionablePlugins(
+  plugins: readonly AgentPluginView[],
+  query: string,
+): AgentPluginView[] {
+  const rows = mentionablePlugins(plugins);
+  const q = query.trim().toLowerCase();
+  if (!q) return rows;
+  return rows.filter(
+    (plugin) =>
+      plugin.serverName.toLowerCase().includes(q) ||
+      plugin.name.toLowerCase().includes(q) ||
+      plugin.description.toLowerCase().includes(q),
+  );
+}

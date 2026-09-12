@@ -5,16 +5,21 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   displayActivityLabel,
   filterDeskSkills,
+  filterMentionablePlugins,
+  matchAtPluginQuery,
   matchSlashSkillQuery,
+  mentionablePlugins,
   parseAllowanceApprovalMarker,
   parseTradeOutcomeMarker,
   stripAllowanceApprovalMarker,
   stripTradeOutcomeMarker,
+  type AgentPluginView,
   type AvatarId,
   type DeskSkill,
   type OrbColorId,
 } from "@squadrons/shared";
 import { AgentOrb } from "@/components/AgentOrb";
+import { PluginAtMenu } from "@/components/desk/PluginAtMenu";
 import { SkillSlashMenu } from "@/components/desk/SkillSlashMenu";
 import {
   SkillComposerBackdrop,
@@ -24,6 +29,7 @@ import {
   approveTradeAllowance,
   dismissTradeAllowance,
   getAgent,
+  listAgentPlugins,
   listMessages,
   listTradeIntents,
   pauseAgent,
@@ -82,6 +88,13 @@ export function AgentChat({
     null,
   );
   const [slashIndex, setSlashIndex] = useState(0);
+  const [atOpen, setAtOpen] = useState(false);
+  const [atQuery, setAtQuery] = useState("");
+  const [atRange, setAtRange] = useState<{ start: number; end: number } | null>(
+    null,
+  );
+  const [atIndex, setAtIndex] = useState(0);
+  const [plugins, setPlugins] = useState<AgentPluginView[]>([]);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const liveStepsRef = useRef<ChatToolStep[]>([]);
@@ -91,7 +104,16 @@ export function AgentChat({
     () => filterDeskSkills(slashQuery),
     [slashQuery],
   );
+  const atPlugins = useMemo(
+    () => filterMentionablePlugins(plugins, atQuery),
+    [plugins, atQuery],
+  );
+  const pluginServerNames = useMemo(
+    () => mentionablePlugins(plugins).map((plugin) => plugin.serverName),
+    [plugins],
+  );
   const showSlashMenu = slashOpen && !pending;
+  const showAtMenu = atOpen && !pending;
 
   function refreshAllowanceRequests() {
     void listTradeIntents(agent.id, 20)
@@ -110,13 +132,47 @@ export function AgentChat({
     setActiveUserMessageId(null);
     setDraft("");
     closeSlashMenu();
+    closeAtMenu();
     refreshAllowanceRequests();
   }, [initialAgent.id]); // eslint-disable-line react-hooks/exhaustive-deps -- only reset transcript when switching agents
+
+  useEffect(() => {
+    let cancelled = false;
+    void listAgentPlugins(agent.id)
+      .then((list) => {
+        if (!cancelled) setPlugins(list);
+      })
+      .catch(() => {
+        if (!cancelled) setPlugins([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [agent.id]);
+
+  // Refresh when the @ menu opens so newly enabled plugins appear immediately.
+  useEffect(() => {
+    if (!atOpen) return;
+    let cancelled = false;
+    void listAgentPlugins(agent.id)
+      .then((list) => {
+        if (!cancelled) setPlugins(list);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [atOpen, agent.id]);
 
   useEffect(() => {
     if (slashIndex < slashSkills.length) return;
     setSlashIndex(0);
   }, [slashSkills.length, slashIndex]);
+
+  useEffect(() => {
+    if (atIndex < atPlugins.length) return;
+    setAtIndex(0);
+  }, [atPlugins.length, atIndex]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -261,20 +317,38 @@ export function AgentChat({
     setSlashIndex(0);
   }
 
-  function syncSlashFromDraft(nextDraft: string, cursor?: number) {
+  function closeAtMenu() {
+    setAtOpen(false);
+    setAtQuery("");
+    setAtRange(null);
+    setAtIndex(0);
+  }
+
+  function syncComposerTriggers(nextDraft: string, cursor?: number) {
     const pos =
       cursor ??
       inputRef.current?.selectionStart ??
       nextDraft.length;
-    const match = matchSlashSkillQuery(nextDraft, pos);
-    if (!match) {
-      closeSlashMenu();
+    const slash = matchSlashSkillQuery(nextDraft, pos);
+    if (slash) {
+      closeAtMenu();
+      setSlashOpen(true);
+      setSlashQuery(slash.query);
+      setSlashRange({ start: slash.start, end: slash.end });
+      setSlashIndex(0);
       return;
     }
-    setSlashOpen(true);
-    setSlashQuery(match.query);
-    setSlashRange({ start: match.start, end: match.end });
-    setSlashIndex(0);
+    const at = matchAtPluginQuery(nextDraft, pos);
+    if (at) {
+      closeSlashMenu();
+      setAtOpen(true);
+      setAtQuery(at.query);
+      setAtRange({ start: at.start, end: at.end });
+      setAtIndex(0);
+      return;
+    }
+    closeSlashMenu();
+    closeAtMenu();
   }
 
   function insertSkill(skill: DeskSkill) {
@@ -301,13 +375,37 @@ export function AgentChat({
     });
   }
 
+  function insertPlugin(plugin: AgentPluginView) {
+    const el = inputRef.current;
+    const cursor = el?.selectionStart ?? draft.length;
+    const match =
+      atRange ??
+      (() => {
+        const found = matchAtPluginQuery(draft, cursor);
+        return found
+          ? { start: found.start, end: found.end }
+          : { start: cursor, end: cursor };
+      })();
+    const token = `@${plugin.serverName} `;
+    const next = draft.slice(0, match.start) + token + draft.slice(match.end);
+    const nextCursor = match.start + token.length;
+    setDraft(next);
+    closeAtMenu();
+    requestAnimationFrame(() => {
+      const input = inputRef.current;
+      if (!input) return;
+      input.focus();
+      input.setSelectionRange(nextCursor, nextCursor);
+    });
+  }
+
   function openSlashPicker() {
     if (pending) return;
+    closeAtMenu();
     const el = inputRef.current;
     const cursor = el?.selectionStart ?? draft.length;
     const before = draft.slice(0, cursor);
     const needsSlash = !/(^|\s)$/.test(before) && before.length > 0;
-    // Insert `/` at cursor when opening from the + control.
     const insertAt = cursor;
     const prefix = needsSlash ? " /" : before.endsWith("/") ? "" : "/";
     if (prefix) {
@@ -329,15 +427,17 @@ export function AgentChat({
       });
       return;
     }
-    syncSlashFromDraft(draft, cursor);
+    syncComposerTriggers(draft, cursor);
     el?.focus();
   }
 
   function onDraftChange(value: string) {
     setDraft(value);
-    // selectionStart is still pre-change in some browsers; use end of value for typing.
     requestAnimationFrame(() => {
-      syncSlashFromDraft(value, inputRef.current?.selectionStart ?? value.length);
+      syncComposerTriggers(
+        value,
+        inputRef.current?.selectionStart ?? value.length,
+      );
     });
   }
 
@@ -346,6 +446,7 @@ export function AgentChat({
     const content = draft.trim();
     if (!content || pending) return;
     closeSlashMenu();
+    closeAtMenu();
 
     setDraft("");
     const optimisticId = `local-${Date.now()}`;
@@ -450,6 +551,32 @@ export function AgentChat({
       }
     }
 
+    if (showAtMenu) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeAtMenu();
+        return;
+      }
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        if (atPlugins.length === 0) return;
+        setAtIndex((i) => (i + 1) % atPlugins.length);
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        if (atPlugins.length === 0) return;
+        setAtIndex((i) => (i - 1 + atPlugins.length) % atPlugins.length);
+        return;
+      }
+      if (event.key === "Enter" || event.key === "Tab") {
+        event.preventDefault();
+        const plugin = atPlugins[atIndex];
+        if (plugin) insertPlugin(plugin);
+        return;
+      }
+    }
+
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       onSend();
@@ -538,7 +665,10 @@ export function AgentChat({
                   : null;
               return (
                 <div key={message.id} className="flex flex-col gap-2">
-                  <MessageBubble message={message} />
+                  <MessageBubble
+                    message={message}
+                    pluginServerNames={pluginServerNames}
+                  />
                   {pendingAllowance ? (
                     <AllowanceApprovalCard
                       intent={pendingAllowance}
@@ -592,6 +722,15 @@ export function AgentChat({
               onClose={closeSlashMenu}
             />
           ) : null}
+          {showAtMenu ? (
+            <PluginAtMenu
+              plugins={atPlugins}
+              activeIndex={Math.min(atIndex, Math.max(atPlugins.length - 1, 0))}
+              onActiveIndexChange={setAtIndex}
+              onSelect={insertPlugin}
+              onClose={closeAtMenu}
+            />
+          ) : null}
           <button
             type="button"
             onClick={openSlashPicker}
@@ -609,6 +748,7 @@ export function AgentChat({
           >
             <SkillComposerBackdrop
               value={draft}
+              pluginServerNames={pluginServerNames}
               className="chat-input type-body absolute inset-0 max-h-32 overflow-hidden py-2.5"
             />
             <textarea
@@ -623,7 +763,7 @@ export function AgentChat({
                 }
               }}
               rows={1}
-              placeholder={`${placeholder}  ·  / for skills`}
+              placeholder={`${placeholder}  ·  @ plugins  ·  / skills`}
               disabled={pending}
               className="chat-input type-body relative z-[1] max-h-32 min-h-10 w-full resize-none overflow-y-auto bg-transparent py-2.5 text-transparent caret-[var(--ink)] outline-none ring-0 [-webkit-text-fill-color:transparent] placeholder:text-[var(--muted)] placeholder:[-webkit-text-fill-color:var(--muted)] disabled:cursor-not-allowed"
             />
@@ -777,7 +917,13 @@ function Caret({ open }: { open: boolean }) {
   );
 }
 
-function MessageBubble({ message }: { message: AgentMessage }) {
+function MessageBubble({
+  message,
+  pluginServerNames = [],
+}: {
+  message: AgentMessage;
+  pluginServerNames?: Iterable<string>;
+}) {
   const isUser = message.role === "user";
   if (message.role === "system") {
     const outcomeMeta = parseTradeOutcomeMarker(message.content);
@@ -810,7 +956,10 @@ function MessageBubble({ message }: { message: AgentMessage }) {
       >
         {isUser ? (
           <p className="whitespace-pre-wrap">
-            <SkillHighlightedText text={content} />
+            <SkillHighlightedText
+              text={content}
+              pluginServerNames={pluginServerNames}
+            />
           </p>
         ) : (
           <MarkdownContent content={sanitizeAssistantContent(content)} />
