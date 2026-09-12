@@ -64,13 +64,13 @@ console.log(q.chain, q.quoteStable, q.buy);
 
 Restart the host after linking plugins so Cordis reloads `squadrons-defi`.
 
-### 4. Live spend (optional, separate gate)
+### 4. Live spend
 
-Quoting ≠ broadcasting. Live executor may still allow only Base until you unlock:
-
-- [`apps/host/src/strategy/executor.ts`](../../apps/host/src/strategy/executor.ts) (chain check for live mode)
-
-Turn that on only after quote smoke + approve/broadcast paths are verified on the new chain.
+Live broadcast uses the same `DEX_QUOTE_CHAIN_IDS` allowlist as quotes
+(`supportsDexQuote` in the executor). Adding a chain to the quote allowlists
+enables live once host `SQUADRONS_EXECUTION_MODE=live` and Privy broadcast
+keys are configured. Smoke quote + approve/broadcast on the new chain before
+shipping real size.
 
 ## Related intel
 

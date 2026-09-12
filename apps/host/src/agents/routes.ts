@@ -8,6 +8,7 @@ import {
   isRunMode,
   isSupportedChainId,
   buildDraftFromTemplate,
+  chainLabel,
   getStrategyTemplate,
   listStrategyTemplates,
   parseStrategyDraftInput,
@@ -308,7 +309,7 @@ export function registerAgentRoutes(
           label: `Run mode set to ${label}`,
           detail:
             agent.runMode === "live"
-              ? "Ticks may broadcast capped trades on Base"
+              ? `Ticks may broadcast capped trades on ${chainLabel(agent.chainId)}`
               : agent.runMode === "paper"
                 ? "Ticks quote and record paper fills — no broadcast"
                 : "Ticks are alert-only",
@@ -1310,6 +1311,7 @@ export function registerAgentRoutes(
                 kind: "submitted",
                 txHash: executed.txHash,
                 detail: executed.detail,
+                chainName: chainLabel(executed.plan.chainId),
                 ...("approveTxHash" in executed &&
                 typeof executed.approveTxHash === "string"
                   ? { approveTxHash: executed.approveTxHash }

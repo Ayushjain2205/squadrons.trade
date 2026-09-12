@@ -5,6 +5,7 @@ import {
   AGENT_COLORS,
   AGENT_FACES,
   SUPPORTED_CHAINS,
+  chainLabel,
   type AvatarId,
   type OrbColorId,
   type RunMode,
@@ -290,7 +291,7 @@ function AgentContextSummary({
             );
           }
         });
-      }),
+      }, chainLabel(agent.chainId)),
     );
   }
 
@@ -381,11 +382,12 @@ type ConfirmRequest = {
 function runModeConfirmRequest(
   next: RunMode,
   onConfirm: () => void,
+  homeChainName: string,
 ): ConfirmRequest {
   if (next === "live") {
     return {
       title: "Go live?",
-      body: "This agent can broadcast capped trades on Base. You’ll grant Squadrons permission to sign from your embedded wallet. Token allowances still need chat approval before first spend.",
+      body: `This agent can broadcast capped trades on ${homeChainName}. You’ll grant Squadrons permission to sign from your embedded wallet. Token allowances still need chat approval before first spend.`,
       confirmLabel: "Go live",
       onConfirm,
     };
@@ -611,7 +613,7 @@ function AgentSettingsForm({
         runModeConfirmRequest("live", () => {
           setConfirm(null);
           save();
-        }),
+        }, chainLabel(chainId)),
       );
       return;
     }
@@ -754,7 +756,7 @@ function AgentSettingsForm({
                       runModeConfirmRequest(option.id, () => {
                         setConfirm(null);
                         setRunMode(option.id);
-                      }),
+                      }, chainLabel(chainId)),
                     );
                   }}
                   aria-pressed={selected}

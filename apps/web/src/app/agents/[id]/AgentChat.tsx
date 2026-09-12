@@ -13,6 +13,7 @@ import {
   parseTradeOutcomeMarker,
   stripAllowanceApprovalMarker,
   stripTradeOutcomeMarker,
+  chainLabel,
   type AgentPluginView,
   type AvatarId,
   type DeskSkill,
@@ -672,6 +673,7 @@ export function AgentChat({
                   {pendingAllowance ? (
                     <AllowanceApprovalCard
                       intent={pendingAllowance}
+                      chainName={chainLabel(agent.chainId)}
                       busy={allowanceBusyId === pendingAllowance.id}
                       phase={
                         allowanceBusyId === pendingAllowance.id
@@ -1011,12 +1013,14 @@ function TradeOutcomeCard({
 
 function AllowanceApprovalCard({
   intent,
+  chainName,
   busy,
   phase,
   onApprove,
   onDismiss,
 }: {
   intent: TradeIntentRecord;
+  chainName: string;
   busy: boolean;
   phase: "signer" | "broadcast" | null;
   onApprove: () => void;
@@ -1028,7 +1032,7 @@ function AllowanceApprovalCard({
     phase === "signer"
       ? "Granting wallet access…"
       : phase === "broadcast"
-        ? "Sending on Base…"
+        ? `Sending on ${chainName}…`
         : "Working…";
   return (
     <div className="max-w-[min(100%,var(--measure-chat))] space-y-3 rounded-2xl border border-[var(--line-soft)] bg-[var(--panel)] px-4 py-3">
@@ -1036,8 +1040,8 @@ function AllowanceApprovalCard({
         <p className="type-ui text-[var(--ink)]">Approve token spend?</p>
         <p className="type-meta mt-1 text-[var(--ink-soft)]">
           Allow ERC-20 allowance for {side} ${intent.amountUsd}
-          {symbol} on Base. Needs a little ETH in this wallet for gas. Still
-          capped — no spend beyond this trade’s quote.
+          {symbol} on {chainName}. Needs a little ETH in this wallet for gas.
+          Still capped — no spend beyond this trade’s quote.
         </p>
       </div>
       <div className="flex gap-2">

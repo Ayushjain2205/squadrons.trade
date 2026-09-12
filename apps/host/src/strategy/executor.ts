@@ -2,6 +2,7 @@ import {
   DEFAULT_POLICY,
   canBroadcastTrades,
   canProposeTrades,
+  chainLabel,
   type Agent,
   type Strategy,
   type StrategyTradeIntent,
@@ -14,6 +15,7 @@ import {
 import {
   buildSwapFromPlan,
   isZeroExConfigured,
+  supportsDexQuote,
   type BuiltSwap,
   type BuiltSwapTx,
   type TradePlan,
@@ -206,10 +208,10 @@ export async function executeGatedTrade(input: {
     };
   }
 
-  if (plan.chainId !== DEFAULT_POLICY.defaultChainId) {
+  if (!supportsDexQuote(plan.chainId)) {
     return {
       status: "failed",
-      reason: `Live execution only on chain ${DEFAULT_POLICY.defaultChainId} (Base)`,
+      reason: `Live execution needs 0x on this home chain (unsupported: ${chainLabel(plan.chainId)} / ${plan.chainId})`,
       detail: `Live blocked: ${summary}`,
       plan,
     };

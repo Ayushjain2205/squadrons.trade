@@ -148,15 +148,18 @@ export function formatTradeOutcomeMessage(input: {
   detail?: string | null;
   txHash?: string | null;
   approveTxHash?: string | null;
+  /** Home chain label for submitted copy (e.g. "Arbitrum"). */
+  chainName?: string | null;
 }): { marker: string; content: string; outcome: HumanTradeOutcome } {
   if (input.kind === "submitted") {
+    const chain = input.chainName?.trim() || "home chain";
     const outcome: HumanTradeOutcome = {
       kind: "submitted",
       code: "unknown",
       title: "Trade submitted",
       body: input.txHash
-        ? `Broadcast on Base. Tx ${input.txHash}`
-        : "Broadcast on Base.",
+        ? `Broadcast on ${chain}. Tx ${input.txHash}`
+        : `Broadcast on ${chain}.`,
       ...(input.txHash ? { txHash: input.txHash } : {}),
     };
     return {
