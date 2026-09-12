@@ -4,7 +4,10 @@ import type {
 } from "@squadrons/shared";
 import { executeBalanceThresholdAlert } from "./balance-threshold.js";
 import { executePriceBandAlert } from "./price-band.js";
-import { executePriceCrossAlert } from "./price-cross.js";
+import {
+  executePriceCrossAlert,
+  executePriceCrossSwap,
+} from "./price-cross.js";
 import type { RecipeContext } from "./types.js";
 
 export type { RecipeContext } from "./types.js";
@@ -17,6 +20,7 @@ const EXECUTORS: Record<RecipeId, RecipeExecutor> = {
   balance_threshold_alert: executeBalanceThresholdAlert,
   price_band_alert: executePriceBandAlert,
   price_cross_alert: executePriceCrossAlert,
+  price_cross_swap: executePriceCrossSwap,
 };
 
 export function hasRecipeExecutor(recipeId: RecipeId | null): boolean {

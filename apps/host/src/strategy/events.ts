@@ -52,7 +52,11 @@ export async function evaluateEventEdge(
     return { kind: "skip", reason: "missing event kind" };
   }
 
-  if (event === "price_cross" || strategy.recipeId === "price_cross_alert") {
+  if (
+    event === "price_cross" ||
+    strategy.recipeId === "price_cross_alert" ||
+    strategy.recipeId === "price_cross_swap"
+  ) {
     return evaluatePriceCrossEdge(strategy);
   }
 
