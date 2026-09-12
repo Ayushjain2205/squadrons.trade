@@ -6,12 +6,12 @@ import { SUPPORTED_CHAINS, getSupportedChain } from "@squadrons/shared";
 import { ChainLogo } from "@/components/ChainLogo";
 import { WalletIcon } from "@/components/WalletIcon";
 import { useHostSigner } from "@/hooks/useHostSigner";
+import {
+  fundingFallbackNote,
+  resolveFundingDestination,
+} from "@/lib/funding";
 import { getWalletSummary, type WalletChainBalance } from "@/lib/host";
 import { useToast } from "@/components/Toast";
-
-/** Base mainnet USDC — destination for Privy add-funds. */
-const BASE_USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-const BASE_CAIP2 = "eip155:8453" as const;
 
 function fundingEnvironment(): "sandbox" | "production" {
   return process.env.NEXT_PUBLIC_PRIVY_FUNDING_ENV === "sandbox"
@@ -78,11 +78,14 @@ export function WalletSheet({
   open,
   onClose,
   address,
+  preferredChainId = null,
   onLogout,
 }: {
   open: boolean;
   onClose: () => void;
   address: string | null;
+  /** Selected agent home chain — used as the default Add funds destination. */
+  preferredChainId?: number | null;
   onLogout: () => void;
 }) {
   const titleId = useId();
@@ -94,6 +97,9 @@ export function WalletSheet({
   const [loading, setLoading] = useState(false);
   const [signerBusy, setSignerBusy] = useState(false);
   const [fundingBusy, setFundingBusy] = useState(false);
+
+  const destination = resolveFundingDestination(preferredChainId);
+  const fallbackNote = fundingFallbackNote(preferredChainId);
 
   const refresh = useCallback(async () => {
     if (!address) {
@@ -169,8 +175,8 @@ export function WalletSheet({
       const result = await addFunds({
         destination: {
           address,
-          chain: BASE_CAIP2,
-          asset: BASE_USDC_ADDRESS,
+          chain: destination.caip2,
+          asset: destination.asset,
         },
         fiat: {
           source: {
@@ -188,8 +194,8 @@ export function WalletSheet({
       if (result.method === "fiat") {
         toast.info(
           result.status === "confirmed"
-            ? "Funds confirmed — USDC on Base may take a moment to arrive"
-            : "Payment submitted — USDC on Base may take a moment to arrive",
+            ? `Funds confirmed — ${destination.label} may take a moment to arrive`
+            : `Payment submitted — ${destination.label} may take a moment to arrive`,
         );
       } else {
         toast.info("Deposit complete — refreshing balances");
@@ -273,40 +279,51 @@ export function WalletSheet({
             >
               {fundingBusy ? "Opening…" : "Add funds"}
             </button>
-            <p className="type-meta mt-1.5 text-center text-[var(--muted)]">
-              Buys or deposits land as USDC on Base
-            </p>
+            {fallbackNote ? (
+              <p className="type-meta mt-1.5 text-center !text-[var(--warn)]">
+                {fallbackNote}
+              </p>
+            ) : null}
           </div>
         ) : null}
 
-        <section className="mt-4">
-          <h3 className="type-ui text-[var(--ink)]">Host signing</h3>
-          <p className="type-meta mt-1 text-[var(--ink-soft)]">
-            {status.delegated
-              ? "Squadrons can sign when an agent has spend enabled."
-              : "Grant once so the host can broadcast after you approve in chat."}
-          </p>
-          <div className="mt-2.5 flex items-center justify-between gap-3">
-            <p
-              className={`type-meta ${
+        <section className="relative mt-4 flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h3 className="type-ui text-[var(--ink)]">Host signing</h3>
+            <span
+              tabIndex={0}
+              className="group/host-tip inline-flex size-4 shrink-0 cursor-help items-center justify-center rounded-full border border-[var(--line)] text-[10px] leading-none text-[var(--muted)] outline-none"
+              aria-label={
                 status.delegated
-                  ? "!text-[var(--accent)]"
-                  : "!text-[var(--muted)]"
-              }`}
+                  ? "Squadrons can sign when an agent has spend enabled."
+                  : "Grant once so the host can broadcast after you approve in chat."
+              }
             >
-              {status.delegated ? "Granted" : "Not granted"}
-            </p>
-            {!status.delegated && status.configured ? (
-              <button
-                type="button"
-                disabled={signerBusy || !address}
-                onClick={() => void onGrantSigner()}
-                className="type-ui cursor-pointer rounded-full bg-[var(--ink)] px-3 py-1.5 font-semibold text-[var(--canvas)] disabled:opacity-40"
+              i
+              <span
+                role="tooltip"
+                className="pointer-events-none absolute left-0 right-0 top-full z-50 mt-1.5 hidden whitespace-normal rounded-lg border border-[var(--line)] bg-[var(--panel-2)] px-2.5 py-2 text-left type-meta leading-snug !text-[var(--ink)] shadow-[0_8px_24px_rgb(0_0_0_/_0.45)] group-hover/host-tip:block group-focus-within/host-tip:block"
               >
-                {signerBusy ? "Granting…" : "Grant access"}
-              </button>
-            ) : null}
+                {status.delegated
+                  ? "Squadrons can sign when an agent has spend enabled."
+                  : "Grant once so the host can broadcast after you approve in chat."}
+              </span>
+            </span>
           </div>
+          {status.delegated ? (
+            <p className="type-meta shrink-0 !text-[var(--accent)]">Granted</p>
+          ) : status.configured ? (
+            <button
+              type="button"
+              disabled={signerBusy || !address}
+              onClick={() => void onGrantSigner()}
+              className="type-ui shrink-0 cursor-pointer rounded-full bg-[var(--ink)] px-3 py-1.5 font-semibold text-[var(--canvas)] disabled:opacity-40"
+            >
+              {signerBusy ? "Granting…" : "Grant access"}
+            </button>
+          ) : (
+            <p className="type-meta shrink-0 !text-[var(--muted)]">Not granted</p>
+          )}
         </section>
 
         <section className="mt-4">

@@ -63,6 +63,11 @@ export function AgentRail({
     );
   }, [agents, query]);
 
+  const preferredChainId = useMemo(() => {
+    if (!selectedId) return null;
+    return agents.find((a) => a.id === selectedId)?.chainId ?? null;
+  }, [agents, selectedId]);
+
   function onLogout() {
     setWalletOpen(false);
     clearSquadronsSession();
@@ -188,6 +193,7 @@ export function AgentRail({
               open={walletOpen}
               onClose={() => setWalletOpen(false)}
               address={walletAddress}
+              preferredChainId={preferredChainId}
               onLogout={onLogout}
             />
           </div>
