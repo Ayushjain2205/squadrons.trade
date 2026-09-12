@@ -120,6 +120,7 @@ export function humanizeTradeFailure(reason: string): {
 
   if (
     lower.includes("observe-only") ||
+    lower.includes("observe mode") ||
     lower.includes("outside") && lower.includes("policy") ||
     lower.includes("alert-only")
   ) {
@@ -169,10 +170,10 @@ export function formatTradeOutcomeMessage(input: {
     const outcome: HumanTradeOutcome = {
       kind: "dry_run",
       code: "unknown",
-      title: "Dry-run only — nothing broadcast",
+      title: "Paper fill — nothing broadcast",
       body:
         input.detail?.trim() ||
-        "Execution mode is dry-run. Flip the host to live to send on-chain.",
+        "Run mode is Paper (or host ceiling blocks Live). No on-chain transaction was sent.",
     };
     return {
       marker: tradeOutcomeMarker("dry_run"),

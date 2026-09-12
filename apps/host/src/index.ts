@@ -34,7 +34,7 @@ import { startStrategyScheduler } from "./strategy/scheduler.js";
 import { startImprovementScheduler } from "./strategy/improvement.js";
 import { ImprovementProposalStore } from "./strategy/improvement-store.js";
 import { TradeIntentStore } from "./strategy/trade-intents.js";
-import { getExecutionMode } from "./strategy/executor.js";
+import { getExecutionMode, hostAllowsLive } from "./strategy/executor.js";
 import { isPrivyBroadcastConfigured } from "./strategy/broadcast.js";
 import { isZeroExConfigured } from "./strategy/swap-build.js";
 import { isTenderlyConfigured } from "./strategy/tenderly.js";
@@ -107,6 +107,7 @@ app.get("/health", (_req, res) => {
     chains: SUPPORTED_CHAINS,
     policy: DEFAULT_POLICY,
     executionMode: getExecutionMode(),
+    hostAllowsLive: hostAllowsLive(),
     openrouter: Boolean(process.env.OPENROUTER_API_KEY),
     privy: Boolean(process.env.PRIVY_APP_ID && process.env.PRIVY_APP_SECRET),
     zeroex: isZeroExConfigured(),
@@ -130,6 +131,8 @@ app.get("/v1/meta", (_req, res) => {
     colors: AGENT_COLORS,
     chains: SUPPORTED_CHAINS,
     policy: DEFAULT_POLICY,
+    executionMode: getExecutionMode(),
+    hostAllowsLive: hostAllowsLive(),
   });
 });
 

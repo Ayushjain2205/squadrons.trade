@@ -4,14 +4,16 @@ import {
   DEFAULT_POLICY,
   isAvatarId,
   isOrbColorId,
+  isRunMode,
   isSupportedChainId,
   legacyColorForFace,
+  runModeFromLegacySpend,
   type Agent,
   type AgentStatus,
   type AvatarId,
   type CreateAgentInput,
   type OrbColorId,
-  type SpendMode,
+  type RunMode,
   type Strategy,
   type SupportedChainId,
   type UpdateAgentInput,
@@ -27,7 +29,8 @@ type AgentRow = {
   description: string;
   chain_id: number;
   status: string;
-  spend_mode: string;
+  run_mode: string | null;
+  spend_mode?: string | null;
   current_goal: string | null;
   last_dsh_session_id: string | null;
   created_at: number;
@@ -39,6 +42,16 @@ function normalizeStatus(raw: string): AgentStatus {
   if (raw === "paused") return "paused";
   // Legacy needs_input / anything else → idle
   return "idle";
+}
+
+function rowRunMode(row: AgentRow): RunMode {
+  if (isRunMode(row.run_mode)) return row.run_mode;
+  return runModeFromLegacySpend(row.spend_mode);
+}
+
+/** Keep legacy spend_mode column in sync for older DB rows. */
+function legacySpendMirror(runMode: RunMode): "observe" | "spend_enabled" {
+  return runMode === "observe" ? "observe" : "spend_enabled";
 }
 
 function rowToAgent(row: AgentRow, strategy: Strategy | null): Agent {
@@ -63,7 +76,7 @@ function rowToAgent(row: AgentRow, strategy: Strategy | null): Agent {
     description: row.description,
     chainId: row.chain_id,
     status: normalizeStatus(row.status),
-    spendMode: row.spend_mode as SpendMode,
+    runMode: rowRunMode(row),
     strategy,
     lastDshSessionId: row.last_dsh_session_id,
     createdAt: row.created_at,
@@ -102,7 +115,7 @@ export class AgentStore {
       description,
       chainId,
       status: "idle",
-      spendMode: "observe",
+      runMode: "observe",
       strategy: null,
       lastDshSessionId: null,
       createdAt: now,
@@ -113,11 +126,11 @@ export class AgentStore {
       .prepare(
         `INSERT INTO agents (
           id, user_id, name, avatar_id, color_id, description, chain_id,
-          status, spend_mode, mode, current_goal, last_dsh_session_id,
+          status, spend_mode, run_mode, mode, current_goal, last_dsh_session_id,
           created_at, updated_at
         ) VALUES (
           @id, @userId, @name, @avatarId, @colorId, @description, @chainId,
-          @status, @spendMode, 'scout', NULL, @lastDshSessionId,
+          @status, @spendMode, @runMode, 'scout', NULL, @lastDshSessionId,
           @createdAt, @updatedAt
         )`,
       )
@@ -130,7 +143,8 @@ export class AgentStore {
         description: agent.description,
         chainId: agent.chainId,
         status: agent.status,
-        spendMode: agent.spendMode,
+        spendMode: legacySpendMirror(agent.runMode),
+        runMode: agent.runMode,
         lastDshSessionId: agent.lastDshSessionId,
         createdAt: agent.createdAt,
         updatedAt: agent.updatedAt,
@@ -241,7 +255,7 @@ export class AgentStore {
     if (!isOrbColorId(colorId)) throw new Error("invalid colorId");
 
     let chainId = existing.chainId;
-    let spendMode = existing.spendMode;
+    let runMode = existing.runMode;
 
     if (input.chainId !== undefined && input.chainId !== existing.chainId) {
       if (!isSupportedChainId(input.chainId)) {
@@ -253,11 +267,11 @@ export class AgentStore {
       chainId = input.chainId;
     }
 
-    if (input.spendMode !== undefined && input.spendMode !== existing.spendMode) {
-      if (input.spendMode !== "observe" && input.spendMode !== "spend_enabled") {
-        throw new Error("invalid spendMode");
+    if (input.runMode !== undefined && input.runMode !== existing.runMode) {
+      if (!isRunMode(input.runMode)) {
+        throw new Error("invalid runMode");
       }
-      spendMode = input.spendMode;
+      runMode = input.runMode;
     }
 
     const updatedAt = Date.now();
@@ -270,6 +284,7 @@ export class AgentStore {
              color_id = @colorId,
              chain_id = @chainId,
              spend_mode = @spendMode,
+             run_mode = @runMode,
              current_goal = NULL,
              updated_at = @updatedAt
          WHERE id = @id AND user_id = @userId`,
@@ -282,7 +297,8 @@ export class AgentStore {
         avatarId,
         colorId,
         chainId,
-        spendMode,
+        spendMode: legacySpendMirror(runMode),
+        runMode,
         updatedAt,
       });
 

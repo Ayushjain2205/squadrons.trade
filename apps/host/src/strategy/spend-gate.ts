@@ -1,5 +1,6 @@
 import {
   DEFAULT_POLICY,
+  canProposeTrades,
   type Agent,
   type Strategy,
   type StrategyTickDecision,
@@ -20,13 +21,13 @@ export type SpendGateResult =
       kind: "proposed";
       decision: StrategyTickDecision;
       intent: StrategyTradeIntent;
-      /** Never broadcast in v1 — intents are recorded only. */
+      /** Never broadcast here — host executor owns paper vs live. */
       execution: "propose_only";
     };
 
 /**
  * Fail-closed spend gate for strategy ticks.
- * Passing intents are handed to the host executor (dry_run by default).
+ * Passing intents are handed to the host executor (paper by default).
  */
 export function gateStrategyTickSpend(input: {
   agent: Agent;
@@ -45,15 +46,15 @@ export function gateStrategyTickSpend(input: {
     detail: decision.detail,
   };
 
-  if (agent.spendMode !== "spend_enabled") {
+  if (!canProposeTrades(agent.runMode)) {
     return {
       kind: "blocked",
-      reason: "Agent is observe-only; enable spend to propose trades",
+      reason: "Agent is observe-only; switch to Paper or Live to propose trades",
       decision: {
         ...fallbackAlert,
         detail: [
           decision.detail,
-          "Blocked: observe mode (no spend)",
+          "Blocked: observe mode (no trades)",
         ]
           .filter(Boolean)
           .join(" · "),

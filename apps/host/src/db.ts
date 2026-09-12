@@ -34,7 +34,8 @@ function migrate(db: Database.Database): void {
       description TEXT NOT NULL,
       chain_id INTEGER NOT NULL,
       status TEXT NOT NULL,
-      spend_mode TEXT NOT NULL,
+      spend_mode TEXT NOT NULL DEFAULT 'observe',
+      run_mode TEXT NOT NULL DEFAULT 'observe',
       mode TEXT NOT NULL DEFAULT 'scout',
       current_goal TEXT,
       last_dsh_session_id TEXT,
@@ -109,6 +110,27 @@ function migrate(db: Database.Database): void {
   if (!columns.some((column) => column.name === "mode")) {
     db.exec(
       `ALTER TABLE agents ADD COLUMN mode TEXT NOT NULL DEFAULT 'scout'`,
+    );
+  }
+
+  // spend_mode → run_mode (observe | paper | live). Legacy spend_enabled → paper.
+  const agentColumnsAfter = db
+    .prepare(`PRAGMA table_info(agents)`)
+    .all() as Array<{ name: string }>;
+  if (!agentColumnsAfter.some((column) => column.name === "run_mode")) {
+    db.exec(`ALTER TABLE agents ADD COLUMN run_mode TEXT`);
+    if (agentColumnsAfter.some((column) => column.name === "spend_mode")) {
+      db.exec(`
+        UPDATE agents SET run_mode = CASE
+          WHEN spend_mode IN ('paper', 'live') THEN spend_mode
+          WHEN spend_mode = 'spend_enabled' THEN 'paper'
+          ELSE 'observe'
+        END
+        WHERE run_mode IS NULL
+      `);
+    }
+    db.exec(
+      `UPDATE agents SET run_mode = 'observe' WHERE run_mode IS NULL OR run_mode = ''`,
     );
   }
 

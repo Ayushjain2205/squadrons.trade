@@ -5,12 +5,14 @@ import {
   isAvatarId,
   isImprovementCadence,
   isOrbColorId,
+  isRunMode,
   isSupportedChainId,
   buildDraftFromTemplate,
   getStrategyTemplate,
   listStrategyTemplates,
   parseStrategyDraftInput,
   formatTradeOutcomeMessage,
+  runModeLabel,
   templateMatchesChain,
 } from "@squadrons/shared";
 import {
@@ -32,7 +34,7 @@ import type { StrategyStore } from "./strategy-store.js";
 import { clearEventEdgeState } from "../strategy/events.js";
 import type { ImprovementProposalStore } from "../strategy/improvement-store.js";
 import type { TradeIntentStore } from "../strategy/trade-intents.js";
-import { executeGatedTrade } from "../strategy/executor.js";
+import { executeGatedTrade, hostAllowsLive } from "../strategy/executor.js";
 import { applyImprovementProposalFromWorkspace } from "../strategy/improvement.js";
 import {
   readPendingParamsPatch,
@@ -209,6 +211,8 @@ export function registerAgentRoutes(
         avatarId?: string;
         colorId?: string;
         mode?: string;
+        runMode?: string;
+        /** @deprecated use runMode */
         spendMode?: string;
       };
       const patch: UpdateAgentInput = {};
@@ -233,13 +237,26 @@ export function registerAgentRoutes(
         }
         patch.colorId = color;
       }
-      if (body.spendMode !== undefined) {
-        const spendMode = String(body.spendMode);
-        if (spendMode !== "observe" && spendMode !== "spend_enabled") {
-          res.status(400).json({ ok: false, error: "invalid spendMode" });
+      if (body.runMode !== undefined || body.spendMode !== undefined) {
+        const raw =
+          body.runMode !== undefined
+            ? String(body.runMode)
+            : String(body.spendMode) === "spend_enabled"
+              ? "paper"
+              : String(body.spendMode);
+        if (!isRunMode(raw)) {
+          res.status(400).json({ ok: false, error: "invalid runMode" });
           return;
         }
-        patch.spendMode = spendMode;
+        if (raw === "live" && !hostAllowsLive()) {
+          res.status(400).json({
+            ok: false,
+            error:
+              "Live mode is disabled on this host (SQUADRONS_EXECUTION_MODE must be live)",
+          });
+          return;
+        }
+        patch.runMode = raw;
       }
       if (
         body.chainId !== undefined &&
@@ -260,7 +277,7 @@ export function registerAgentRoutes(
         patch.avatarId === undefined &&
         patch.colorId === undefined &&
         patch.chainId === undefined &&
-        patch.spendMode === undefined
+        patch.runMode === undefined
       ) {
         res.status(400).json({ ok: false, error: "no settings to update" });
         return;
@@ -268,9 +285,8 @@ export function registerAgentRoutes(
 
       const chainChanged =
         patch.chainId !== undefined && patch.chainId !== existing.chainId;
-      const spendChanged =
-        patch.spendMode !== undefined &&
-        patch.spendMode !== existing.spendMode;
+      const runModeChanged =
+        patch.runMode !== undefined && patch.runMode !== existing.runMode;
 
       const agent = agents.updateSettings(user.id, agentId, patch);
       if (!agent) {
@@ -278,23 +294,23 @@ export function registerAgentRoutes(
         return;
       }
 
-      if (chainChanged || spendChanged) {
+      if (chainChanged || runModeChanged) {
         await invalidateAgentRuntime(agent.id);
       }
 
-      if (spendChanged) {
+      if (runModeChanged) {
+        const label = runModeLabel(agent.runMode);
         activity.publish({
           agentId: agent.id,
           kind: "info",
           source: "system",
-          label:
-            agent.spendMode === "spend_enabled"
-              ? "Spend enabled"
-              : "Spend set to observe",
+          label: `Run mode set to ${label}`,
           detail:
-            agent.spendMode === "spend_enabled"
-              ? "Ticks may propose trades within caps (executor dry-runs by default)"
-              : "Ticks are alert-only",
+            agent.runMode === "live"
+              ? "Ticks may broadcast capped trades on Base"
+              : agent.runMode === "paper"
+                ? "Ticks quote and record paper fills — no broadcast"
+                : "Ticks are alert-only",
         });
         await writeStrategyStateFile(
           agentWorkspacePath(user.id, agent.id),

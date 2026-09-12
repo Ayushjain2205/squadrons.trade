@@ -1,5 +1,7 @@
 import {
   DEFAULT_POLICY,
+  canBroadcastTrades,
+  canProposeTrades,
   type Agent,
   type Strategy,
   type StrategyTradeIntent,
@@ -19,7 +21,7 @@ import {
 import { isTenderlyConfigured, simulateSwapTx } from "./tenderly.js";
 import { waitForTxReceipt } from "./tx-wait.js";
 
-/** Host execution posture for gated trade intents. */
+/** Host execution ceiling — ops kill switch over desk runMode. */
 export type ExecutionMode = "off" | "dry_run" | "live";
 
 /**
@@ -71,6 +73,24 @@ export function getExecutionMode(): ExecutionMode {
   return "dry_run";
 }
 
+/** True when the host ceiling allows desk Live mode. */
+export function hostAllowsLive(): boolean {
+  return getExecutionMode() === "live";
+}
+
+/**
+ * Resolve paper vs live for an agent under the host ceiling.
+ * - paper → dry_run (quote, no broadcast)
+ * - live only when agent is live AND host ceiling is live
+ * - host off → queue only (no quote)
+ */
+export function resolveTradeExecutionMode(agent: Agent): ExecutionMode {
+  const host = getExecutionMode();
+  if (host === "off") return "off";
+  if (canBroadcastTrades(agent.runMode) && host === "live") return "live";
+  return "dry_run";
+}
+
 function buildPlan(input: {
   agent: Agent;
   intent: StrategyTradeIntent;
@@ -106,7 +126,7 @@ async function maybeSimulate(input: {
 }
 
 /**
- * Run a spend-gated trade intent through the host executor.
+ * Execute a gated trade intent under agent runMode + host ceiling.
  * Live ticks that need ERC-20 allowance pause for chat approval by default.
  */
 export async function executeGatedTrade(input: {
@@ -118,11 +138,11 @@ export async function executeGatedTrade(input: {
   allowanceDecision?: AllowanceDecision;
 }): Promise<ExecuteTradeResult> {
   const plan = buildPlan(input);
-  const mode = getExecutionMode();
+  const mode = resolveTradeExecutionMode(input.agent);
   const summary = describePlan(plan);
   const allowanceDecision = input.allowanceDecision ?? "prompt";
 
-  if (input.agent.spendMode !== "spend_enabled") {
+  if (!canProposeTrades(input.agent.runMode)) {
     return {
       status: "failed",
       reason: "Agent is observe-only",
@@ -156,10 +176,14 @@ export async function executeGatedTrade(input: {
   }
 
   if (mode === "dry_run") {
+    const paperNote =
+      input.agent.runMode === "live" && getExecutionMode() !== "live"
+        ? " · host ceiling is paper-only"
+        : "";
     if (!isZeroExConfigured()) {
       return {
         status: "dry_run",
-        detail: `Dry-run: would ${summary} (no broadcast; set ZEROEX_API_KEY to quote)`,
+        detail: `Paper: would ${summary} (no broadcast; set ZEROEX_API_KEY to quote)${paperNote}`,
         plan,
       };
     }
@@ -167,7 +191,7 @@ export async function executeGatedTrade(input: {
     if (!quoted.ok) {
       return {
         status: "dry_run",
-        detail: `Dry-run: would ${summary} — quote skipped (${quoted.reason})`,
+        detail: `Paper: would ${summary} — quote skipped (${quoted.reason})${paperNote}`,
         plan,
       };
     }
@@ -176,7 +200,7 @@ export async function executeGatedTrade(input: {
       : "";
     return {
       status: "dry_run",
-      detail: `Dry-run: quoted ${summary} via 0x (no broadcast)${approveNote}`,
+      detail: `Paper fill: quoted ${summary} via 0x (no broadcast)${approveNote}${paperNote}`,
       plan,
       swap: quoted.swap,
     };

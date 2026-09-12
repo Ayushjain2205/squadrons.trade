@@ -62,10 +62,12 @@ export function buildAgentIdentityBlock(
   walletAddress?: string | null,
   enabledPlugins?: string[],
 ): string {
-  const spendLabel =
-    agent.spendMode === "observe"
-      ? "observe-only (no spending, no transactions)"
-      : "spend enabled (still wait for platform gates — do not invent txs)";
+  const runLabel =
+    agent.runMode === "live"
+      ? "live (real txs under caps — still wait for platform gates)"
+      : agent.runMode === "paper"
+        ? "paper (quotes + records fills — never broadcasts)"
+        : "observe-only (alerts / research — no trade intents)";
 
   const chain = getSupportedChain(agent.chainId);
   const homeChain = chain
@@ -101,7 +103,7 @@ export function buildAgentIdentityBlock(
     `Description: ${agent.description}`,
     `Home chain: ${homeChain}`,
     `Posture: ${postureLine}`,
-    `Spend mode: ${spendLabel}`,
+    `Run mode: ${runLabel}`,
   ];
   if (walletAddress) {
     lines.push(`Shared user wallet: ${walletAddress}`);
@@ -140,7 +142,7 @@ export function buildAgentIdentityBlock(
     '- pool_liquidity_shock params: { poolAddress, dropPct: 0–1, minReserveUsd? }. Prefer trigger { type: "event", event: "pool_liquidity_shock", intervalSec } and action alert (Base/Ethereum via GeckoTerminal).',
     '- copy_wallet_propose params: { targetAddress, amountUsd, minUsd }. Prefer trigger { type: "event", event: "target_trade_seen", intervalSec } and action propose_trade. Detects ETH(+WETH)↔USDC balance deltas on the target (poll lag — not HFT). Replace the demo targetAddress.',
     '- trigger.type is "interval" (intervalSec >= 15) or "event" (event string + optional intervalSec poll floor).',
-    '- action.type is "alert" or "propose_trade" (observe agents should prefer alert; use propose_trade with price_cross_swap / take_profit_stop / inventory_rebalance / copy_wallet_propose).',
+    '- action.type is "alert" or "propose_trade" (observe agents should prefer alert; paper/live may use propose_trade with price_cross_swap / take_profit_stop / inventory_rebalance / copy_wallet_propose).',
     "- Optional improvement: { enabled, cadence: hourly|daily|weekly, allowedKeys }. Self-improvement proposes param patches for desk approve.",
     "- While a strategy is running, use update_strategy_params to change knobs live (does not disarm).",
     "- Use get_strategy to inspect the current draft or armed plan.",
