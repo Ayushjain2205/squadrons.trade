@@ -4,6 +4,7 @@ export * from "./avatars";
 export * from "./plugins";
 export * from "./policy";
 export * from "./recipes";
+export * from "./skills";
 export * from "./strategy";
 export * from "./templates";
 export * from "./trade-outcome";
