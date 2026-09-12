@@ -1,6 +1,7 @@
 import {
   activityStepLabel,
   isBacktestToolName,
+  isChainSearchPublishToolName,
   type ActivityKind,
 } from "@squadrons/shared";
 import type { NewActivityEvent } from "../agents/activity.js";
@@ -89,6 +90,14 @@ export function isSuccessfulRunBacktestResult(
   return backtestToolNameFromNotification(agentId, notification) != null;
 }
 
+/** True when dsh reports a successful publish_chain_search tool result. */
+export function isSuccessfulPublishChainSearchResult(
+  agentId: string,
+  notification: HarnessNotification,
+): boolean {
+  return chainSearchPublishToolNameFromNotification(agentId, notification) != null;
+}
+
 /**
  * Resolve backtest tool name from a notification (for per-agent last-call fallback).
  */
@@ -104,10 +113,22 @@ export function backtestToolNameFromNotification(
   return isBacktestToolName(name) ? name : null;
 }
 
+export function chainSearchPublishToolNameFromNotification(
+  agentId: string,
+  notification: HarnessNotification,
+): string | null {
+  const event = sessionEvent(notification);
+  if (!event || event.type !== "tool/result") return null;
+  if (event.data.error) return null;
+  const name =
+    toolNameFromData(event.data) ?? lastToolCallName.get(agentId) ?? null;
+  return isChainSearchPublishToolName(name) ? name : null;
+}
+
 /**
  * Map a dsh notification into at most one highly abstracted activity step.
  * Grok Bot–style: human verbs only — no turn markers, no args, no result dumps.
- * Exception: selected UI artifacts (backtest chart) forward as tool_result.
+ * Exception: selected UI artifacts (backtest chart / chain search) forward as tool_result.
  */
 export function mapNotificationToActivity(
   agentId: string,
@@ -143,7 +164,7 @@ export function mapNotificationToActivity(
         };
       }
 
-      // Backtest charts are published from workspace file sync in routes.ts
+      // Backtest / chain-search cards are published from workspace file sync in routes.ts
       // (dsh tool/result payloads don't reliably include the structured artifact).
       return null;
     }

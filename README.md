@@ -59,6 +59,16 @@ pnpm --filter @squadrons/host dsh:link   # ensure plugins are bundled
 
 Host runs `dsh:check` on startup and refuses to listen if the tree is broken (override with `SQUADRONS_DSH_SKIP_PREFLIGHT=1`). `/health` includes a `dsh` block. Scripts live under `apps/host/scripts/dsh/`.
 
+### Chain Search (The Graph)
+
+Onchain search is **included for every agent** when the host has a Gateway API key — users do not paste keys in Plugins.
+
+1. Create a free key in [Subgraph Studio](https://thegraph.com/studio/) (API Keys; **100k queries/month** free — set a spending limit).
+2. Set `THE_GRAPH_GATEWAY_API_KEY=` in `apps/host/.env` and restart the host.
+3. In chat: `@search Uniswap V3 pools on Ethereum` (or `@graph …`). The agent queries Subgraph MCP live, then shows a **Chain Search** results card.
+
+All tenants share that one quota — fine for demos; add rate limits or BYO keys later for production.
+
 ## Step 1 — dsh smoke
 
 Requires a working `sdk` profile (`dsh --profile sdk --help`).

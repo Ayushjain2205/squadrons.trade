@@ -3,6 +3,7 @@ import path from "node:path";
 import { resolveDshHome } from "../dsh/preflight.js";
 import type { AgentPluginStore } from "./store.js";
 import { buildAgentMcpPatch } from "./mcp-patch.js";
+import { isChainSearchAvailable } from "./graph-gateway.js";
 
 export type PreparedAgentPlugins = {
   patches: string[];
@@ -20,8 +21,12 @@ function mcpBridgeRevision(): string {
   const backtest = existsSync(
     path.join(dshHome, "profiles/sdk/node_modules/squadrons-backtest"),
   );
+  const chainSearch = existsSync(
+    path.join(dshHome, "profiles/sdk/node_modules/squadrons-chain-search"),
+  );
+  const graph = isChainSearchAvailable() ? "g1" : "g0";
   // Bump when first-party plugin loading changes so pooled harnesses rebuild.
-  return `plugins-${mcpClient ? "mcp1" : "mcp0"}-${backtest ? "bt2" : "bt0"}`;
+  return `plugins-${mcpClient ? "mcp1" : "mcp0"}-${backtest ? "bt2" : "bt0"}-${chainSearch ? "cs1" : "cs0"}-${graph}`;
 }
 
 /** Resolve enabled MCP plugins into Cordis patch + env for a dsh turn. */
@@ -32,10 +37,14 @@ export async function prepareAgentPlugins(
 ): Promise<PreparedAgentPlugins> {
   const runtime = plugins.listEnabledRuntime(agentId);
   const { patchPath, env } = await buildAgentMcpPatch(workspace, runtime);
+  const enabledNames = runtime.map((p) => p.name);
+  if (isChainSearchAvailable() && !enabledNames.includes("Chain Search")) {
+    enabledNames.push("Chain Search");
+  }
   return {
     patches: patchPath ? [patchPath] : [],
     pluginEnv: env,
     pluginsHash: `${plugins.configHash(agentId)}:${mcpBridgeRevision()}`,
-    enabledNames: runtime.map((p) => p.name),
+    enabledNames,
   };
 }

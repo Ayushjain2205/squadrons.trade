@@ -36,7 +36,8 @@ cat > "$DEST/profiles/sdk/package.json" <<EOF
     "squadrons-strategy": "link:$ROOT/packages/squadrons-strategy",
     "squadrons-social": "link:$ROOT/packages/squadrons-social",
     "squadrons-intel": "link:$ROOT/packages/squadrons-intel",
-    "squadrons-backtest": "link:$ROOT/packages/squadrons-backtest"
+    "squadrons-backtest": "link:$ROOT/packages/squadrons-backtest",
+    "squadrons-chain-search": "link:$ROOT/packages/squadrons-chain-search"
   },
   "dsh": {
     "profile": {
@@ -47,7 +48,8 @@ cat > "$DEST/profiles/sdk/package.json" <<EOF
         "squadrons-strategy",
         "squadrons-social",
         "squadrons-intel",
-        "squadrons-backtest"
+        "squadrons-backtest",
+        "squadrons-chain-search"
       ],
       "patchReload": "startup"
     }

@@ -16,7 +16,8 @@ Produce a short operator brief the user can act on (watch, ignore, or draft a st
 
 1. Confirm the agent's **home chain** from identity. Stay on that chain unless the user named another.
 2. Pull live context with tools (use what is available; skip missing tools without inventing numbers):
-   - `get_trending_pools` — what is moving now
+   - **Prefer The Graph** when Chain Search is available: `mcp__subgraph__*` to find/query indexed subgraphs for the home chain, then `publish_chain_search` so the desk shows a results card
+   - `get_trending_pools` — what is moving now (GeckoTerminal fallback)
    - `get_recent_trades` or `get_token_pools` — when a specific token/pool matters
    - `get_spot_prices` — USD reference for majors (ETH, etc.)
    - `get_dex_volumes` / `get_stablecoin_market` — only if breadth helps the brief

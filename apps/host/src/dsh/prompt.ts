@@ -53,7 +53,7 @@ export function buildContinuingTurnPrompt(
   const directive = pluginTurnDirective(userText, options?.enabledPlugins);
   const pluginLine =
     options?.enabledPlugins && options.enabledPlugins.length > 0
-      ? `Enabled desk plugins this turn: ${options.enabledPlugins.join(", ")}. If Backtest is enabled, call run_backtest (not a skill, not web_fetch).`
+      ? `Enabled desk plugins this turn: ${options.enabledPlugins.join(", ")}. If Backtest is enabled, call run_backtest. If Chain Search is enabled, use Subgraph MCP (mcp__subgraph__*) then publish_chain_search for a results card.`
       : null;
   if (options?.hasStrategy) {
     return [
@@ -86,6 +86,15 @@ export function pluginTurnDirective(
   if (backtestOn && /(^|[\s])@backtest\b/i.test(userText)) {
     return "DIRECTIVE: The user @mentioned Backtest. Your FIRST tool call this turn must be run_backtest with strategy/days from their request. Do not use skill, todo_write, web_fetch, or web_search first. Do not claim the tool is missing.";
   }
+  const chainSearchOn = enabledPlugins.some((name) =>
+    /chain\s*search/i.test(name),
+  );
+  if (
+    chainSearchOn &&
+    /(^|[\s])@(search|graph)\b/i.test(userText)
+  ) {
+    return "DIRECTIVE: The user @mentioned Chain Search (@search/@graph). Use The Graph Subgraph MCP tools (mcp__subgraph__*) for live indexed data on the home chain, THEN call publish_chain_search with query/title/summary and hitsJson (JSON array of hits) for the chat card. Do not invent numbers. Do not use web_search or skill first. If Subgraph MCP tools are missing, say Chain Search is unavailable on this host.";
+  }
   return null;
 }
 
@@ -114,15 +123,19 @@ export function buildAgentIdentityBlock(
   ].join(", ");
   const pluginNote =
     enabledPlugins && enabledPlugins.length > 0
-      ? ` Enabled desk plugins: ${enabledPlugins.join(", ")}. First-party Backtest exposes run_backtest — call it when @backtest is mentioned. Remote MCP plugins expose mcp__<server>__<tool>.`
+      ? ` Enabled desk plugins: ${enabledPlugins.join(", ")}. First-party Backtest exposes run_backtest — call it when @backtest is mentioned. Chain Search (when listed) uses mcp__subgraph__* then publish_chain_search for @search/@graph. Remote MCP plugins expose mcp__<server>__<tool>.`
       : "";
   const backtestTool =
     enabledPlugins?.some((name) => /backtest/i.test(name)) === true
       ? ", run_backtest"
       : "";
+  const chainSearchTools =
+    enabledPlugins?.some((name) => /chain\s*search/i.test(name)) === true
+      ? ", mcp__subgraph__* (The Graph), publish_chain_search"
+      : "";
   const toolRule =
     readTools.length > 0
-      ? `- You may call: ${toolList}${backtestTool}. get_wallet_balances is home-chain only (${homeChain}). get_spot_prices is USD spot reference (not executable). get_dex_quote (when home chain supports 0x) is an indicative route for stable↔ETH/WETH — observe-only, does not execute. search_x scouts X (free; rumor). Intel: get_trending_pools / get_token_pools / get_recent_trades (GeckoTerminal), get_stablecoin_market / get_dex_volumes (DefiLlama). Do not call web_search.${pluginNote}`
+      ? `- You may call: ${toolList}${backtestTool}${chainSearchTools}. get_wallet_balances is home-chain only (${homeChain}). get_spot_prices is USD spot reference (not executable). get_dex_quote (when home chain supports 0x) is an indicative route for stable↔ETH/WETH — observe-only, does not execute. search_x scouts X (free; rumor). Intel: get_trending_pools / get_token_pools / get_recent_trades (GeckoTerminal), get_stablecoin_market / get_dex_volumes (DefiLlama). Prefer The Graph (mcp__subgraph__*) for indexed onchain discovery when Chain Search is available. Do not call web_search.${pluginNote}`
       : `- Limited tools on ${homeChain}. Use search_x + intel tools when available. Do not call web_search; do not invent numbers.${pluginNote}`;
 
   const strategyStatus = agent.strategy?.status;

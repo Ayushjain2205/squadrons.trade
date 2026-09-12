@@ -17,6 +17,7 @@ import {
   encryptSecrets,
   mergeSecrets,
 } from "./secrets.js";
+import { isChainSearchAvailable } from "./graph-gateway.js";
 
 type PluginRow = {
   id: string;
@@ -66,6 +67,29 @@ function toCatalogView(
 ): AgentPluginView | null {
   const entry = getMcpCatalogEntry(catalogId);
   if (!entry) return null;
+
+  // Host-provisioned builtins (Chain Search) — no per-agent install/key.
+  if (entry.builtin) {
+    const available =
+      catalogId === "chain-search" ? isChainSearchAvailable() : true;
+    return {
+      id: `catalog:${catalogId}`,
+      kind: "catalog",
+      catalogId,
+      name: entry.name,
+      description: entry.description,
+      serverName: entry.serverName,
+      enabled: available,
+      configured: available,
+      builtin: true,
+      secretSpecs: [],
+      secretsSet: [],
+      docsUrl: entry.docsUrl,
+      createdAt: null,
+      updatedAt: null,
+    };
+  }
+
   const secrets = row ? rowSecrets(row) : {};
   const secretsSet = Object.keys(secrets);
   return {
@@ -225,6 +249,11 @@ export class AgentPluginStore {
       throw new Error(`Unknown catalog plugin: ${catalogId}`);
     }
     const entry = getMcpCatalogEntry(catalogId)!;
+    if (entry.builtin) {
+      throw new Error(
+        `${entry.name} is included by the host — no per-agent install`,
+      );
+    }
     const now = Date.now();
     const existing = this.db
       .prepare(

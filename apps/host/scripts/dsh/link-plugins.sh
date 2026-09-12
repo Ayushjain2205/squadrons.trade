@@ -13,13 +13,6 @@ if [[ ! -d "$PROFILE" ]]; then
   exit 1
 fi
 
-# Fail closed before linking — broken peers crash the Cordis tree and surface as
-# a fake "no adapter registered for provider openrouter" error.
-(cd "$HOST_ROOT" && pnpm exec tsx src/dsh/preflight-cli.ts) || {
-  echo "Preflight failed — fix plugin deps (pnpm install at repo root) before linking." >&2
-  exit 1
-}
-
 node <<EOF
 const fs = require("fs");
 const path = require("path");
@@ -32,6 +25,7 @@ const plugins = {
   "squadrons-social": "link:$ROOT/packages/squadrons-social",
   "squadrons-intel": "link:$ROOT/packages/squadrons-intel",
   "squadrons-backtest": "link:$ROOT/packages/squadrons-backtest",
+  "squadrons-chain-search": "link:$ROOT/packages/squadrons-chain-search",
 };
 // MCP bridge for remote catalog/custom plugins (Dune, Nansen, custom HTTP).
 data.dependencies["@deepseek-ai/dsh-mcp-client"] = "0.1.2-rc.1";
@@ -48,6 +42,7 @@ const bundled = [
   "squadrons-social",
   "squadrons-intel",
   "squadrons-backtest",
+  "squadrons-chain-search",
 ];
 for (const name of bundled) {
   if (!data.dsh.profile.bundles.includes(name)) {
@@ -57,6 +52,12 @@ for (const name of bundled) {
 fs.writeFileSync(file, JSON.stringify(data, null, 2) + "\n");
 console.log("Updated", file);
 EOF
+
+# Fail closed after bundle list is updated — broken peers crash the Cordis tree.
+(cd "$HOST_ROOT" && pnpm exec tsx src/dsh/preflight-cli.ts) || {
+  echo "Preflight failed — fix plugin deps (pnpm install at repo root) before linking." >&2
+  exit 1
+}
 
 (cd "$PROFILE" && CI=true pnpm install --no-frozen-lockfile)
 echo "Squadrons Cordis plugins linked into $PROFILE"

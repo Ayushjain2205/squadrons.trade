@@ -3,6 +3,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getMcpCatalogEntry } from "@squadrons/shared";
 import type { EnabledPluginRuntime } from "./store.js";
+import {
+  CHAIN_SEARCH_AUTH_ENV,
+  isChainSearchAvailable,
+  SUBGRAPH_MCP_SERVER_NAME,
+  SUBGRAPH_MCP_URL,
+  theGraphAuthHeader,
+} from "./graph-gateway.js";
 
 const HOST_DIR = path.dirname(fileURLToPath(import.meta.url));
 /** Monorepo packages/squadrons-backtest/mcp-server.mjs */
@@ -29,8 +36,9 @@ export type McpPatchResult = {
 
 /**
  * Build a Cordis overlay for per-agent plugins.
- * - First-party Backtest is always bundled in the sdk profile; we disable it
- *   per-agent when Plugins → Backtest is off.
+ * - First-party Backtest is always bundled; disable when Plugins → Backtest is off.
+ * - Chain Search GenUI (squadrons-chain-search) is always bundled when present.
+ * - Subgraph MCP is always injected when THE_GRAPH_GATEWAY_API_KEY is set.
  * - Remote catalog/custom plugins use dsh-mcp-client rows.
  */
 export async function buildAgentMcpPatch(
@@ -47,10 +55,14 @@ export async function buildAgentMcpPatch(
     rows.push(["- id: squadrons-backtest", "  disabled: true"].join("\n"));
   }
 
+  const graphRow = buildSubgraphMcpRow(env);
+  if (graphRow) rows.push(graphRow);
+
   for (const plugin of plugins) {
     if (plugin.catalogId === "backtest") continue;
+    if (plugin.catalogId === "chain-search") continue;
     const built = buildPluginRow(plugin, env);
-    if (built) rows.push(built);
+    if (built) rows.push(asInsert(built));
   }
 
   if (rows.length === 0) {
@@ -69,6 +81,46 @@ export async function buildAgentMcpPatch(
   return { patchPath, env };
 }
 
+/** Always-on Subgraph MCP when the host Gateway key is configured. */
+function buildSubgraphMcpRow(env: Record<string, string>): string | null {
+  const auth = theGraphAuthHeader();
+  if (!auth) return null;
+  env[CHAIN_SEARCH_AUTH_ENV] = auth;
+  return asInsert(
+    [
+      `- id: mcp-${SUBGRAPH_MCP_SERVER_NAME}`,
+      `  name: ${yamlString(MCP_CLIENT)}`,
+      `  config:`,
+      `    serverName: ${yamlString(SUBGRAPH_MCP_SERVER_NAME)}`,
+      `    transport: stdio`,
+      `    command: ${yamlString("npx")}`,
+      `    args: ${JSON.stringify([
+        "-y",
+        "mcp-remote",
+        "--header",
+        "Authorization:${AUTH_HEADER}",
+        SUBGRAPH_MCP_URL,
+      ])}`,
+      `    env:`,
+      `      AUTH_HEADER: !!js process.env.${CHAIN_SEARCH_AUTH_ENV}`,
+      `    failOnStartupError: false`,
+    ].join("\n"),
+  );
+}
+
+/**
+ * Cordis agent patches treat bare `- id:` as updates to existing entries.
+ * New MCP client rows must use `- insert:` or dump-config/start fails with
+ * `entry "mcp-…" not found` and surfaces as a fake openrouter NO_ADAPTER error.
+ */
+function asInsert(entryBlock: string): string {
+  const indented = entryBlock
+    .split("\n")
+    .map((line) => (line.length > 0 ? `    ${line}` : line))
+    .join("\n");
+  return `- insert:\n${indented}`;
+}
+
 function buildPluginRow(
   plugin: EnabledPluginRuntime,
   env: Record<string, string>,
@@ -78,6 +130,7 @@ function buildPluginRow(
   if (plugin.kind === "catalog" && plugin.catalogId) {
     const entry = getMcpCatalogEntry(plugin.catalogId);
     if (!entry) return null;
+    if (entry.builtin) return null;
 
     if (entry.transport === "streamable-http" && entry.url) {
       const headerLines: string[] = [];
@@ -231,3 +284,5 @@ function yamlKey(key: string): string {
   if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) return key;
   return JSON.stringify(key);
 }
+
+export { isChainSearchAvailable };

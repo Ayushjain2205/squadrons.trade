@@ -27,7 +27,7 @@ import {
   invalidateAgentRuntime,
   runDshTurn,
 } from "../dsh/runner.js";
-import { isSuccessfulProposeStrategyResult, isSuccessfulUpdateStrategyParamsResult, isSuccessfulProposeImprovementResult, isSuccessfulRunBacktestResult } from "../dsh/activity-map.js";
+import { isSuccessfulProposeStrategyResult, isSuccessfulUpdateStrategyParamsResult, isSuccessfulProposeImprovementResult, isSuccessfulRunBacktestResult, isSuccessfulPublishChainSearchResult } from "../dsh/activity-map.js";
 import type { ActivityHub } from "./activity-hub.js";
 import type { MessageStore } from "./messages.js";
 import { agentWorkspacePath } from "./paths.js";
@@ -51,6 +51,10 @@ import {
   clearPendingBacktest,
   readPendingBacktest,
 } from "../plugins/backtest-sync.js";
+import {
+  clearPendingChainSearch,
+  readPendingChainSearch,
+} from "../plugins/chain-search-sync.js";
 import {
   isMcpCatalogId,
   type CreateCustomPluginInput,
@@ -1716,6 +1720,23 @@ export function registerAgentRoutes(
                 console.error("[backtest-mid-turn]", agent.id, error);
               });
             }
+            if (isSuccessfulPublishChainSearchResult(agent.id, notification)) {
+              void (async () => {
+                const artifact = await readPendingChainSearch(workspace);
+                if (!artifact) return;
+                activity.publish({
+                  agentId: agent.id,
+                  kind: "tool_result",
+                  source: "chat",
+                  label: "Published search results",
+                  detail: JSON.stringify(artifact),
+                  toolName: "publish_chain_search",
+                });
+                await clearPendingChainSearch(workspace);
+              })().catch((error) => {
+                console.error("[chain-search-mid-turn]", agent.id, error);
+              });
+            }
           },
         });
       } catch (error) {
@@ -1771,6 +1792,22 @@ export function registerAgentRoutes(
         }
       } catch (error) {
         console.error("[backtest-sync]", agent.id, error);
+      }
+      try {
+        const artifact = await readPendingChainSearch(workspace);
+        if (artifact) {
+          activity.publish({
+            agentId: agent.id,
+            kind: "tool_result",
+            source: "chat",
+            label: "Published search results",
+            detail: JSON.stringify(artifact),
+            toolName: "publish_chain_search",
+          });
+          await clearPendingChainSearch(workspace);
+        }
+      } catch (error) {
+        console.error("[chain-search-sync]", agent.id, error);
       }
 
       const assistantMessage = messages.append(
