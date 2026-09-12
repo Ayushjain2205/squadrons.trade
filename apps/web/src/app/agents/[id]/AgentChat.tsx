@@ -11,6 +11,7 @@ import {
   mentionablePlugins,
   parseAllowanceApprovalMarker,
   parseBacktestArtifact,
+  parseChainSearchArtifact,
   parseTradeOutcomeMarker,
   stripAllowanceApprovalMarker,
   stripTradeOutcomeMarker,
@@ -18,11 +19,13 @@ import {
   type AgentPluginView,
   type AvatarId,
   type BacktestArtifact,
+  type ChainSearchArtifact,
   type DeskSkill,
   type OrbColorId,
 } from "@squadrons/shared";
 import { AgentOrb } from "@/components/AgentOrb";
 import { BacktestChartCard } from "@/components/desk/BacktestChartCard";
+import { ChainSearchCard } from "@/components/desk/ChainSearchCard";
 import { PluginAtMenu } from "@/components/desk/PluginAtMenu";
 import { SkillSlashMenu } from "@/components/desk/SkillSlashMenu";
 import {
@@ -80,10 +83,14 @@ export function AgentChat({
   const [chartsByUserMessageId, setChartsByUserMessageId] = useState<
     Record<string, BacktestArtifact[]>
   >({});
+  const [searchesByUserMessageId, setSearchesByUserMessageId] = useState<
+    Record<string, ChainSearchArtifact[]>
+  >({});
   const [activeUserMessageId, setActiveUserMessageId] = useState<string | null>(
     null,
   );
   const pendingChartsRef = useRef<BacktestArtifact[]>([]);
+  const pendingSearchesRef = useRef<ChainSearchArtifact[]>([]);
   const activeUserMessageIdRef = useRef<string | null>(null);
   activeUserMessageIdRef.current = activeUserMessageId;
   const [awaitingAllowance, setAwaitingAllowance] = useState<
@@ -140,9 +147,11 @@ export function AgentChat({
     setMessages(initialMessages);
     setStepsByUserMessageId({});
     setChartsByUserMessageId({});
+    setSearchesByUserMessageId({});
     setLiveSteps([]);
     setActiveUserMessageId(null);
     pendingChartsRef.current = [];
+    pendingSearchesRef.current = [];
     setDraft("");
     closeSlashMenu();
     closeAtMenu();
@@ -224,21 +233,74 @@ export function AgentChat({
     return unsubscribe;
   }, [agent.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Backtest chart artifacts — always listen (tool_result can arrive as the HTTP
-  // turn completes and the pending-only tool-step subscription is already gone).
+  // GenUI artifacts (backtest chart / chain search) — always listen.
   useEffect(() => {
     const unsubscribe = subscribeActivity(agent.id, (event) => {
       if (event.source === "strategy") return;
       if (event.kind !== "tool_result") return;
-      const artifact = parseBacktestArtifact(event.detail);
-      if (!artifact) return;
 
-      pendingChartsRef.current = [...pendingChartsRef.current, artifact];
+      const backtest = parseBacktestArtifact(event.detail);
+      if (backtest) {
+        pendingChartsRef.current = [...pendingChartsRef.current, backtest];
+        const anchorId = activeUserMessageIdRef.current;
+        if (anchorId) {
+          setChartsByUserMessageId((prev) => ({
+            ...prev,
+            [anchorId]: [...(prev[anchorId] ?? []), backtest],
+          }));
+        }
+
+        setLiveSteps((prev) => {
+          const label =
+            displayActivityLabel(
+              { ...event, kind: "tool_call" },
+              { done: true },
+            ) ?? event.label;
+          const idx = [...prev]
+            .reverse()
+            .findIndex(
+              (step) =>
+                step.status === "running" ||
+                (event.toolName != null && step.toolName === event.toolName),
+            );
+          if (idx === -1) {
+            return [
+              ...prev,
+              {
+                id: event.id,
+                label,
+                toolName: event.toolName,
+                status: "done" as const,
+                detail: event.detail,
+                artifact: backtest,
+              },
+            ];
+          }
+          const realIndex = prev.length - 1 - idx;
+          return prev.map((step, i) =>
+            i === realIndex
+              ? {
+                  ...step,
+                  status: "done" as const,
+                  label,
+                  detail: event.detail,
+                  artifact: backtest ?? step.artifact,
+                }
+              : step,
+          );
+        });
+        return;
+      }
+
+      const search = parseChainSearchArtifact(event.detail);
+      if (!search) return;
+
+      pendingSearchesRef.current = [...pendingSearchesRef.current, search];
       const anchorId = activeUserMessageIdRef.current;
       if (anchorId) {
-        setChartsByUserMessageId((prev) => ({
+        setSearchesByUserMessageId((prev) => ({
           ...prev,
-          [anchorId]: [...(prev[anchorId] ?? []), artifact],
+          [anchorId]: [...(prev[anchorId] ?? []), search],
         }));
       }
 
@@ -264,7 +326,6 @@ export function AgentChat({
               toolName: event.toolName,
               status: "done" as const,
               detail: event.detail,
-              artifact,
             },
           ];
         }
@@ -276,7 +337,6 @@ export function AgentChat({
                 status: "done" as const,
                 label,
                 detail: event.detail,
-                artifact: artifact ?? step.artifact,
               }
             : step,
         );
@@ -536,7 +596,13 @@ export function AgentChat({
     setActiveUserMessageId(optimisticId);
     setLiveSteps([]);
     pendingChartsRef.current = [];
+    pendingSearchesRef.current = [];
     setChartsByUserMessageId((prev) => {
+      const next = { ...prev };
+      delete next[optimisticId];
+      return next;
+    });
+    setSearchesByUserMessageId((prev) => {
       const next = { ...prev };
       delete next[optimisticId];
       return next;
@@ -594,8 +660,26 @@ export function AgentChat({
             return next;
           });
         }
+        const searches = [...pendingSearchesRef.current].filter(
+          (artifact, index, all) =>
+            all.findIndex(
+              (row) =>
+                row.query === artifact.query &&
+                row.title === artifact.title &&
+                row.hits.length === artifact.hits.length,
+            ) === index,
+        );
+        if (userMsg && searches.length > 0) {
+          setSearchesByUserMessageId((prev) => {
+            const next = { ...prev };
+            delete next[optimisticId];
+            next[userMsg.id] = searches;
+            return next;
+          });
+        }
         setLiveSteps([]);
         pendingChartsRef.current = [];
+        pendingSearchesRef.current = [];
         setActiveUserMessageId(userMsg?.id ?? null);
       } catch (err) {
         try {
@@ -776,6 +860,10 @@ export function AgentChat({
                       .filter((a): a is BacktestArtifact => a != null) ??
                     []
                   : [];
+              const searchesForMessage =
+                message.role === "user"
+                  ? searchesByUserMessageId[message.id] ?? []
+                  : [];
               const allowanceIntentId =
                 message.role === "system"
                   ? parseAllowanceApprovalMarker(message.content)
@@ -818,6 +906,12 @@ export function AgentChat({
                   {chartsForMessage.map((artifact, index) => (
                     <BacktestChartCard
                       key={`${message.id}-${artifact.title}-${artifact.stats.endEquity}-${index}`}
+                      artifact={artifact}
+                    />
+                  ))}
+                  {searchesForMessage.map((artifact, index) => (
+                    <ChainSearchCard
+                      key={`${message.id}-search-${artifact.title}-${artifact.query}-${index}`}
                       artifact={artifact}
                     />
                   ))}

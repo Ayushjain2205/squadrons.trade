@@ -15,6 +15,7 @@ import { PluginBrandIcon } from "./PluginBrandIcon";
 type Sheet =
   | { kind: "install-catalog"; plugin: AgentPluginView }
   | { kind: "manage-catalog"; plugin: AgentPluginView }
+  | { kind: "builtin-info"; plugin: AgentPluginView }
   | { kind: "manage-custom"; plugin: AgentPluginView }
   | { kind: "add-custom" }
   | null;
@@ -106,6 +107,15 @@ export function AgentPluginsPanel({
     );
   }
 
+  if (sheet?.kind === "builtin-info") {
+    return (
+      <BuiltinInfoSheet
+        plugin={sheet.plugin}
+        onBack={() => setSheet(null)}
+      />
+    );
+  }
+
   if (sheet?.kind === "manage-catalog") {
     return (
       <ManageCatalogSheet
@@ -187,9 +197,11 @@ export function AgentPluginsPanel({
                     aria-label={`Manage ${plugin.name}`}
                     onClick={() =>
                       setSheet(
-                        plugin.kind === "custom"
-                          ? { kind: "manage-custom", plugin }
-                          : { kind: "manage-catalog", plugin },
+                        plugin.builtin
+                          ? { kind: "builtin-info", plugin }
+                          : plugin.kind === "custom"
+                            ? { kind: "manage-custom", plugin }
+                            : { kind: "manage-catalog", plugin },
                       )
                     }
                     className="cursor-pointer rounded-2xl bg-[var(--panel-2)] p-1.5 transition hover:bg-[var(--panel)]"
@@ -213,6 +225,7 @@ export function AgentPluginsPanel({
             <h3 className="type-label mb-2 text-[var(--ink-soft)]">Available</h3>
             {catalog.map((plugin) => {
               const live = plugin.enabled && plugin.configured;
+              const builtin = Boolean(plugin.builtin);
               return (
                 <PluginRow
                   key={plugin.catalogId ?? plugin.id}
@@ -221,13 +234,19 @@ export function AgentPluginsPanel({
                   catalogId={plugin.catalogId}
                   onClick={() =>
                     setSheet(
-                      live
-                        ? { kind: "manage-catalog", plugin }
-                        : { kind: "install-catalog", plugin },
+                      builtin
+                        ? { kind: "builtin-info", plugin }
+                        : live
+                          ? { kind: "manage-catalog", plugin }
+                          : { kind: "install-catalog", plugin },
                     )
                   }
                   action={
-                    live ? (
+                    builtin ? (
+                      <span className="type-meta rounded-full bg-[var(--panel-2)] px-2 py-1 text-[var(--ink-soft)]">
+                        {live ? "Included" : "Host key"}
+                      </span>
+                    ) : live ? (
                       <MoreButton
                         label={`Manage ${plugin.name}`}
                         onClick={() =>
@@ -451,6 +470,55 @@ function InstallCatalogSheet({
           </button>
         </div>
       </form>
+    </SheetFrame>
+  );
+}
+
+function BuiltinInfoSheet({
+  plugin,
+  onBack,
+}: {
+  plugin: AgentPluginView;
+  onBack: () => void;
+}) {
+  const entry = getMcpCatalogEntry(plugin.catalogId ?? "");
+  const live = plugin.enabled && plugin.configured;
+  return (
+    <SheetFrame
+      title={plugin.name}
+      subtitle={
+        live
+          ? "Included for every agent — powered by The Graph."
+          : "Waiting for host THE_GRAPH_GATEWAY_API_KEY."
+      }
+      catalogId={plugin.catalogId}
+      onBack={onBack}
+    >
+      <div className="space-y-4">
+        <p className="type-meta text-[var(--ink-soft)]">{plugin.description}</p>
+        <p className="type-meta text-[var(--muted)]">
+          Mention <span className="text-[var(--ink)]">@search</span> in chat.
+          Operators set one Gateway API key on the host (100k free queries/mo) —
+          users never paste a key here.
+        </p>
+        {entry?.docsUrl ? (
+          <a
+            href={entry.docsUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="type-meta text-[var(--link)] hover:underline"
+          >
+            The Graph AI docs →
+          </a>
+        ) : null}
+        <button
+          type="button"
+          onClick={onBack}
+          className="type-ui cursor-pointer rounded-full bg-[var(--ink)] px-4 py-2 font-semibold text-[var(--canvas)] transition hover:opacity-90"
+        >
+          Done
+        </button>
+      </div>
     </SheetFrame>
   );
 }

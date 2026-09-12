@@ -89,6 +89,22 @@ function BrandGlyph({
       </svg>
     );
   }
+  if (iconId === "graph") {
+    return (
+      <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+        <circle cx="6" cy="12" r="2.25" fill="white" />
+        <circle cx="12" cy="6" r="2.25" fill="white" />
+        <circle cx="12" cy="18" r="2.25" fill="white" />
+        <circle cx="18" cy="12" r="2.25" fill="white" />
+        <path
+          d="M8 11.2 10.2 7.8M8 12.8l2.2 3.4M14 7.8 16 11.2M14 16.2 16 12.8"
+          stroke="white"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
   if (iconId === "custom") {
     return (
       <svg
