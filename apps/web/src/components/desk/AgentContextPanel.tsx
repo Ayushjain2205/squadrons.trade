@@ -337,6 +337,7 @@ function AgentContextSummary({
         agentId={agent.id}
         agentName={agent.name}
         live={agent.strategy?.status === "running"}
+        showTradeScoreboard={agent.strategy?.action.type === "propose_trade"}
         onLiveEvent={(event) => {
           const shouldRefresh =
             event.label === "Saved strategy draft" ||

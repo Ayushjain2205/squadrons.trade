@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { displayActivityLabel } from "@squadrons/shared";
 import {
+  getTradeSummary,
   listActivity,
   subscribeActivity,
   type ActivityEvent,
+  type TradeIntentSummary,
 } from "@/lib/host";
 import { useToast } from "@/components/Toast";
 
@@ -19,6 +21,14 @@ type DisplayStep = ActivityEvent & {
 const PREVIEW_COUNT = 4;
 /** Raw rows per host fetch (includes quiet checks). */
 const PAGE_SIZE = 40;
+
+const EMPTY_SUMMARY: TradeIntentSummary = {
+  paperFills: 0,
+  paperUsd: 0,
+  liveFills: 0,
+  liveUsd: 0,
+  failed: 0,
+};
 
 function isQuietCheck(event: ActivityEvent): boolean {
   if (event.source !== "strategy") return false;
@@ -101,19 +111,65 @@ function buildSteps(events: ActivityEvent[]): {
   };
 }
 
+function formatCompactUsd(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "$0";
+  if (n >= 1000) return `$${Math.round(n).toLocaleString("en-US")}`;
+  const rounded = Math.round(n);
+  if (Math.abs(n - rounded) < 0.005) return `$${rounded}`;
+  return `$${n.toFixed(2)}`;
+}
+
+/** One tight line — omit empty segments. */
+function formatScoreboard(summary: TradeIntentSummary): string | null {
+  const bits: string[] = [];
+  if (summary.paperFills > 0) {
+    bits.push(
+      `${summary.paperFills} paper · ${formatCompactUsd(summary.paperUsd)}`,
+    );
+  }
+  if (summary.liveFills > 0) {
+    bits.push(
+      `${summary.liveFills} live · ${formatCompactUsd(summary.liveUsd)}`,
+    );
+  }
+  if (summary.failed > 0) {
+    bits.push(`${summary.failed} failed`);
+  }
+  return bits.length > 0 ? bits.join(" · ") : null;
+}
+
+function shouldRefreshTradeSummary(event: ActivityEvent): boolean {
+  if (event.source !== "strategy" && event.source !== "system") return false;
+  const label = event.label;
+  return (
+    label.startsWith("Paper:") ||
+    label.startsWith("Dry-run:") ||
+    label.startsWith("Submitted:") ||
+    label.startsWith("Execution failed") ||
+    label.includes("trade failed") ||
+    label.includes("Allowance") ||
+    label === "Armed strategy" ||
+    label === "Disarmed strategy"
+  );
+}
+
 export function ActivityTrail({
   agentId,
   agentName,
   live = false,
+  /** When true, show compact paper/live fill totals above the timeline. */
+  showTradeScoreboard = false,
   onLiveEvent,
 }: {
   agentId: string;
   agentName: string;
   /** True only while the strategy is armed/running. */
   live?: boolean;
+  showTradeScoreboard?: boolean;
   onLiveEvent?: (event: ActivityEvent) => void;
 }) {
   const [events, setEvents] = useState<ActivityEvent[]>([]);
+  const [summary, setSummary] = useState<TradeIntentSummary>(EMPTY_SUMMARY);
   const [hasMore, setHasMore] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PREVIEW_COUNT);
   const [loadingMore, startLoadMore] = useTransition();
@@ -126,6 +182,7 @@ export function ActivityTrail({
     setEvents([]);
     setHasMore(false);
     setVisibleCount(PREVIEW_COUNT);
+    setSummary(EMPTY_SUMMARY);
 
     void listActivity(agentId, {
       limit: PAGE_SIZE,
@@ -142,6 +199,16 @@ export function ActivityTrail({
         }
       });
 
+    if (showTradeScoreboard) {
+      void getTradeSummary(agentId)
+        .then((data) => {
+          if (!cancelled) setSummary(data);
+        })
+        .catch(() => {
+          if (!cancelled) setSummary(EMPTY_SUMMARY);
+        });
+    }
+
     const unsubscribe = subscribeActivity(agentId, (event) => {
       if (event.source === "chat") return;
       if (!displayActivityLabel(event, { done: false })) return;
@@ -150,18 +217,30 @@ export function ActivityTrail({
         if (prev.some((row) => row.id === event.id)) return prev;
         return [...prev, event];
       });
+      if (showTradeScoreboard && shouldRefreshTradeSummary(event)) {
+        void getTradeSummary(agentId)
+          .then((data) => {
+            if (!cancelled) setSummary(data);
+          })
+          .catch(() => {
+            /* keep prior summary */
+          });
+      }
     });
 
     return () => {
       cancelled = true;
       unsubscribe();
     };
-  }, [agentId, toast]);
+  }, [agentId, showTradeScoreboard, toast]);
 
   const { lastCheck, steps } = useMemo(() => buildSteps(events), [events]);
   const visible = steps.slice(0, visibleCount);
   const canRevealMore = visibleCount < steps.length;
   const canLoadOlder = !canRevealMore && hasMore;
+  const scoreboardLine = showTradeScoreboard
+    ? formatScoreboard(summary)
+    : null;
 
   function onShowMore() {
     if (canRevealMore) {
@@ -194,6 +273,11 @@ export function ActivityTrail({
     });
   }
 
+  const metaBits = [
+    scoreboardLine,
+    lastCheck ? `checked ${formatRelative(lastCheck.createdAt)}` : null,
+  ].filter(Boolean) as string[];
+
   return (
     <section className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 items-baseline justify-between gap-2">
@@ -206,9 +290,9 @@ export function ActivityTrail({
         ) : null}
       </div>
 
-      {lastCheck ? (
-        <p className="type-meta mt-2 truncate text-[var(--muted)]">
-          Last check {formatRelative(lastCheck.createdAt)}
+      {metaBits.length > 0 ? (
+        <p className="type-meta mt-1.5 truncate text-[var(--muted)]">
+          {metaBits.join(" · ")}
         </p>
       ) : null}
 
@@ -223,7 +307,8 @@ export function ActivityTrail({
           <ol className="mt-3 space-y-0">
             {visible.map((event, index) => {
               const newest = index === 0;
-              const moreBelow = index < visible.length - 1 || canRevealMore || canLoadOlder;
+              const moreBelow =
+                index < visible.length - 1 || canRevealMore || canLoadOlder;
               const countSuffix =
                 event.count > 1 ? ` · ×${event.count}` : "";
               return (

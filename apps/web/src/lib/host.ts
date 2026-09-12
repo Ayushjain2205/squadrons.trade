@@ -336,12 +336,36 @@ export type TradeIntentRecord = {
   updatedAt?: number;
 };
 
+export type TradeIntentSummary = {
+  paperFills: number;
+  paperUsd: number;
+  liveFills: number;
+  liveUsd: number;
+  failed: number;
+};
+
 export async function listTradeIntents(agentId: string, limit = 10) {
   const data = await hostFetch<{
     intents: TradeIntentRecord[];
     awaitingAllowance?: TradeIntentRecord[];
+    summary?: TradeIntentSummary;
   }>(`/v1/agents/${agentId}/strategy/trade-intents?limit=${limit}`);
   return data;
+}
+
+export async function getTradeSummary(
+  agentId: string,
+): Promise<TradeIntentSummary> {
+  const data = await listTradeIntents(agentId, 1);
+  return (
+    data.summary ?? {
+      paperFills: 0,
+      paperUsd: 0,
+      liveFills: 0,
+      liveUsd: 0,
+      failed: 0,
+    }
+  );
 }
 
 export async function approveTradeAllowance(

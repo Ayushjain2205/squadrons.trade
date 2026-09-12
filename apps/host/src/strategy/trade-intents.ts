@@ -11,6 +11,14 @@ export type TradeIntentStatus =
   | "failed"
   | "submitted";
 
+export type TradeIntentSummary = {
+  paperFills: number;
+  paperUsd: number;
+  liveFills: number;
+  liveUsd: number;
+  failed: number;
+};
+
 export type TradeIntentRecord = {
   id: string;
   agentId: string;
@@ -178,6 +186,44 @@ export class TradeIntentStore {
     return rows.map(rowToRecord);
   }
 
+  /** Compact desk scoreboard totals for an agent. */
+  summarizeByAgent(agentId: string): TradeIntentSummary {
+    const rows = this.db
+      .prepare(
+        `SELECT status, COUNT(*) AS n, COALESCE(SUM(amount_usd), 0) AS usd
+         FROM trade_intents
+         WHERE agent_id = ?
+         GROUP BY status`,
+      )
+      .all(agentId) as Array<{ status: string; n: number; usd: number }>;
+
+    const summary: TradeIntentSummary = {
+      paperFills: 0,
+      paperUsd: 0,
+      liveFills: 0,
+      liveUsd: 0,
+      failed: 0,
+    };
+
+    for (const row of rows) {
+      const n = Number(row.n) || 0;
+      const usd = Number(row.usd) || 0;
+      if (row.status === "dry_run") {
+        summary.paperFills += n;
+        summary.paperUsd += usd;
+      } else if (row.status === "submitted") {
+        summary.liveFills += n;
+        summary.liveUsd += usd;
+      } else if (row.status === "failed" || row.status === "blocked") {
+        summary.failed += n;
+      }
+    }
+
+    summary.paperUsd = roundUsd(summary.paperUsd);
+    summary.liveUsd = roundUsd(summary.liveUsd);
+    return summary;
+  }
+
   get(id: string): TradeIntentRecord | null {
     const row = this.db
       .prepare(`SELECT * FROM trade_intents WHERE id = ?`)
@@ -195,4 +241,8 @@ export class TradeIntentStore {
       .all(agentId) as TradeIntentRow[];
     return rows.map(rowToRecord);
   }
+}
+
+function roundUsd(value: number): number {
+  return Math.round(value * 100) / 100;
 }

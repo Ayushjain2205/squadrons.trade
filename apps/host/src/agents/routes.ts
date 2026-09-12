@@ -1189,6 +1189,7 @@ export function registerAgentRoutes(
         ok: true,
         intents: tradeIntents.listByAgent(existing.id, limit),
         awaitingAllowance: tradeIntents.listAwaitingAllowance(existing.id),
+        summary: tradeIntents.summarizeByAgent(existing.id),
       });
     } catch (error) {
       next(error);
