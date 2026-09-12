@@ -15,6 +15,7 @@ export const ACTIVITY_STEP_LABELS: Record<string, string> = {
   get_dex_volumes: "Checking DEX volumes",
   run_backtest: "Running backtest",
   mcp__backtest__run_backtest: "Running backtest",
+  publish_chain_search: "Publishing search results",
   web_search: "Searching the web",
   WebSearch: "Searching the web",
   web_fetch: "Reading a page",
@@ -41,6 +42,7 @@ export const ACTIVITY_STEP_LABELS_DONE: Record<string, string> = {
   get_dex_volumes: "Checked DEX volumes",
   run_backtest: "Ran backtest",
   mcp__backtest__run_backtest: "Ran backtest",
+  publish_chain_search: "Published search results",
   web_search: "Searched the web",
   WebSearch: "Searched the web",
   web_fetch: "Read a page",
@@ -50,12 +52,27 @@ export const ACTIVITY_STEP_LABELS_DONE: Record<string, string> = {
   skill: "Used a playbook",
 };
 
+function graphMcpLabel(toolName: string, done: boolean): string | null {
+  if (!toolName.includes("subgraph") && !/^mcp__subgraph__/i.test(toolName)) {
+    return null;
+  }
+  return done ? "Queried The Graph" : "Querying The Graph";
+}
+
 export function activityStepLabel(toolName: string): string {
-  return ACTIVITY_STEP_LABELS[toolName] ?? "Working on it";
+  return (
+    ACTIVITY_STEP_LABELS[toolName] ??
+    graphMcpLabel(toolName, false) ??
+    "Working on it"
+  );
 }
 
 export function activityStepLabelDone(toolName: string): string {
-  return ACTIVITY_STEP_LABELS_DONE[toolName] ?? "Finished a step";
+  return (
+    ACTIVITY_STEP_LABELS_DONE[toolName] ??
+    graphMcpLabel(toolName, true) ??
+    "Finished a step"
+  );
 }
 
 /**

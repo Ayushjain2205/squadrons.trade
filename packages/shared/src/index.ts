@@ -2,6 +2,7 @@ export * from "./activity";
 export * from "./allowance-approval";
 export * from "./avatars";
 export * from "./backtest";
+export * from "./chain-search";
 export * from "./plugins";
 export * from "./policy";
 export * from "./recipes";

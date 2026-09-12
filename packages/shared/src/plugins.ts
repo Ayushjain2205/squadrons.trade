@@ -41,13 +41,34 @@ export type McpCatalogEntry = {
   args?: string[];
   secrets: PluginSecretSpec[];
   docsUrl?: string;
+  /**
+   * Platform-included capability (host-provisioned). No per-user install/key.
+   * Desk shows as Included; host injects tools when configured.
+   */
+  builtin?: boolean;
 };
 
 /**
  * Curated crypto MCP servers. Enable per agent + paste API key.
- * Add new OOTB entries here — no migration required.
+ * Builtin entries are host-provisioned (no user secrets).
  */
 export const MCP_CATALOG: readonly McpCatalogEntry[] = [
+  {
+    id: "chain-search",
+    name: "Chain Search",
+    description:
+      "Onchain search via The Graph — find subgraphs, pools, and indexed data",
+    icon: "graph",
+    accent: "#6747FF",
+    // @search mention token; live tools are mcp__subgraph__* from host MCP.
+    serverName: "search",
+    transport: "stdio",
+    command: "chain-search",
+    args: [],
+    secrets: [],
+    builtin: true,
+    docsUrl: "https://thegraph.com/docs/en/ai-overview/",
+  },
   {
     id: "backtest",
     name: "Backtest",
@@ -115,6 +136,11 @@ export function isMcpCatalogId(id: unknown): id is McpCatalogId {
   return typeof id === "string" && MCP_CATALOG.some((e) => e.id === id);
 }
 
+export function isBuiltinCatalogPlugin(id: string | null | undefined): boolean {
+  if (!id) return false;
+  return Boolean(getMcpCatalogEntry(id)?.builtin);
+}
+
 /** Custom MCP connection config (no secrets — those are stored separately). */
 export type CustomMcpConfig = {
   transport: McpTransport;
@@ -143,6 +169,8 @@ export type AgentPluginView = {
   enabled: boolean;
   /** True when every required catalog secret is present (custom: any saved secrets). */
   configured: boolean;
+  /** Host-provisioned; no per-user install/key. */
+  builtin?: boolean;
   secretSpecs: PluginSecretSpec[];
   /** Which secret keys are set (values never returned). */
   secretsSet: string[];
