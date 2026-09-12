@@ -154,6 +154,23 @@ export const STRATEGY_TEMPLATES: readonly StrategyTemplate[] = [
       caps: { maxTradeUsd: 10 },
     },
   },
+  {
+    id: "usdc-depeg-watch",
+    name: "USDC depeg watch",
+    blurb: "Alert when USDC leaves a $0.99–$1.01 peg band.",
+    description:
+      "Event-style peg watch. The host polls quietly and alerts when USDC USD moves outside your band — useful before USDC-centric strategies. Alert-only by default.",
+    chainIds: [8453, 1],
+    tags: ["alert", "stable"],
+    editableKeys: ["low", "high"],
+    draft: {
+      summary: "Alert when USDC leaves $0.99–$1.01",
+      recipeId: "stable_depeg_alert",
+      params: { symbol: "USDC", low: 0.99, high: 1.01 },
+      trigger: { type: "event", event: "stable_depeg", intervalSec: 60 },
+      action: { type: "alert" },
+    },
+  },
 ] as const;
 
 export type StrategyTemplateId = (typeof STRATEGY_TEMPLATES)[number]["id"];
@@ -272,6 +289,12 @@ export function buildDraftFromTemplate(
           ? ` (~$${Math.round(amountUsd).toLocaleString()} max)`
           : "";
       summary = `Propose ETH/USDC rebalance when ETH share leaves ${low}–${high}%${size}`;
+    }
+  } else if (template.id === "usdc-depeg-watch") {
+    const low = Number(params.low);
+    const high = Number(params.high);
+    if (Number.isFinite(low) && Number.isFinite(high)) {
+      summary = `Alert when USDC leaves $${low.toFixed(2)}–$${high.toFixed(2)}`;
     }
   }
 

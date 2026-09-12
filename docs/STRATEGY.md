@@ -44,12 +44,13 @@ One strategy per agent:
 | `price_cross_swap` | Same cross edge → propose capped USDC↔ETH/WETH swap (`side`, `amountUsd`) |
 | `take_profit_stop` | TP above / stop below → propose exit swap (pair with `event: price_tp_stop`) |
 | `inventory_rebalance` | ETH share of ETH+USDC leaves target±band → propose corrective swap |
+| `stable_depeg_alert` | Stablecoin USD leaves peg band (pair with `event: stable_depeg`) |
 
 Recipes live in `apps/host/src/strategy/recipes/`. Catalog / param schemas live in `@squadrons/shared` (`recipes.ts`).
 
 ### Event wakes
 
-`trigger: { type: "event", event: "price_cross", intervalSec }` polls on `intervalSec` but stays quiet until an edge fires, then runs the recipe once. `price_tp_stop` does the same for take-profit / stop-loss levels. Edge state is in-memory (resets on host restart / disarm).
+`trigger: { type: "event", event: "price_cross", intervalSec }` polls on `intervalSec` but stays quiet until an edge fires, then runs the recipe once. `price_tp_stop` and `stable_depeg` do the same for take-profit / stop-loss and peg bands. Edge state is in-memory (resets on host restart / disarm).
 
 ## Flow
 

@@ -67,6 +67,13 @@ export async function evaluateEventEdge(
     return evaluateTakeProfitStopEdge(strategy);
   }
 
+  if (
+    event === "stable_depeg" ||
+    strategy.recipeId === "stable_depeg_alert"
+  ) {
+    return evaluateStableDepegEdge(strategy);
+  }
+
   // Unknown events: treat like interval (always fire when due).
   return {
     kind: "fire",
@@ -167,6 +174,45 @@ async function evaluateTakeProfitStopEdge(
       kind: "fire",
       detail: hitTp ? `${detail} · TP` : `${detail} · stop`,
     };
+  }
+  return { kind: "quiet", detail };
+}
+
+async function evaluateStableDepegEdge(
+  strategy: Strategy,
+): Promise<EventEdgeResult> {
+  const symbol =
+    typeof strategy.params.symbol === "string"
+      ? strategy.params.symbol.toUpperCase()
+      : "USDC";
+  const low = Number(strategy.params.low);
+  const high = Number(strategy.params.high);
+
+  if (!Number.isFinite(low) || !Number.isFinite(high) || high <= low) {
+    return { kind: "skip", reason: "invalid stable peg band" };
+  }
+
+  const price = await fetchSpotUsd(symbol);
+  if (price == null) {
+    return { kind: "skip", reason: `no spot price for ${symbol}` };
+  }
+
+  const key = strategy.agentId;
+  const prev = lastPrices.get(key);
+  lastPrices.set(key, price);
+
+  const inside = (p: number) => p >= low && p <= high;
+
+  if (prev == null) {
+    return {
+      kind: "armed",
+      detail: `${symbol} $${price.toFixed(4)} — watching peg ${low}–${high}`,
+    };
+  }
+
+  const detail = `${symbol} $${prev.toFixed(4)} → $${price.toFixed(4)} (peg ${low}–${high})`;
+  if (inside(prev) && !inside(price)) {
+    return { kind: "fire", detail: `${detail} · depeg` };
   }
   return { kind: "quiet", detail };
 }

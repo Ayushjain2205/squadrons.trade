@@ -9,6 +9,7 @@ import {
   executePriceCrossAlert,
   executePriceCrossSwap,
 } from "./price-cross.js";
+import { executeStableDepegAlert } from "./stable-depeg.js";
 import { executeTakeProfitStop } from "./take-profit-stop.js";
 import type { RecipeContext } from "./types.js";
 
@@ -25,6 +26,7 @@ const EXECUTORS: Record<RecipeId, RecipeExecutor> = {
   price_cross_swap: executePriceCrossSwap,
   take_profit_stop: executeTakeProfitStop,
   inventory_rebalance: executeInventoryRebalance,
+  stable_depeg_alert: executeStableDepegAlert,
 };
 
 export function hasRecipeExecutor(recipeId: RecipeId | null): boolean {
