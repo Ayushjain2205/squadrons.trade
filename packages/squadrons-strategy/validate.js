@@ -6,6 +6,7 @@ const RECIPE_IDS = [
   "balance_threshold_alert",
   "price_band_alert",
   "price_cross_alert",
+  "price_cross_swap",
 ];
 
 function isRecipeId(value) {
@@ -18,7 +19,15 @@ function parseRecipeParams(recipeId, value) {
       ? { asset: "native", op: "below", threshold: 0.1 }
       : recipeId === "price_cross_alert"
         ? { symbol: "ETH", level: 3000, direction: "below" }
-        : { symbol: "ETH", low: 1000, high: 10000 };
+        : recipeId === "price_cross_swap"
+          ? {
+              symbol: "ETH",
+              level: 2800,
+              direction: "below",
+              side: "buy",
+              amountUsd: 10,
+            }
+          : { symbol: "ETH", low: 1000, high: 10000 };
   const raw = value === undefined || value === null ? {} : value;
   if (!isRecord(raw)) return null;
 
@@ -66,6 +75,35 @@ function parseRecipeParams(recipeId, value) {
         : defaults.direction;
     if (!Number.isFinite(level) || level < 0) return null;
     return { symbol, level, direction };
+  }
+
+  if (recipeId === "price_cross_swap") {
+    const symbol =
+      typeof raw.symbol === "string" && raw.symbol.trim()
+        ? raw.symbol.trim().toUpperCase()
+        : defaults.symbol;
+    const level = Number(raw.level ?? defaults.level);
+    const direction =
+      raw.direction === "above" ||
+      raw.direction === "below" ||
+      raw.direction === "either"
+        ? raw.direction
+        : defaults.direction;
+    if (!Number.isFinite(level) || level < 0) return null;
+
+    const inferredSide =
+      direction === "above" ? "sell" : direction === "below" ? "buy" : "buy";
+    const side =
+      raw.side === "buy" || raw.side === "sell"
+        ? raw.side
+        : defaults.side === "buy" || defaults.side === "sell"
+          ? defaults.side
+          : inferredSide;
+
+    const amountUsd = Number(raw.amountUsd ?? defaults.amountUsd);
+    if (!Number.isFinite(amountUsd) || amountUsd <= 0) return null;
+
+    return { symbol, level, direction, side, amountUsd };
   }
 
   return null;

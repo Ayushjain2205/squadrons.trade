@@ -4,6 +4,7 @@ export const RECIPE_IDS = [
   "balance_threshold_alert",
   "price_band_alert",
   "price_cross_alert",
+  "price_cross_swap",
 ] as const;
 
 export type RecipeId = (typeof RECIPE_IDS)[number];
@@ -54,6 +55,19 @@ export const RECIPE_CATALOG: Record<RecipeId, RecipeParamSchema> = {
       symbol: "ETH",
       level: 3000,
       direction: "below",
+    },
+  },
+  price_cross_swap: {
+    label: "Price cross swap",
+    description:
+      "Event-style: when spot USD crosses a level, propose a capped USDC↔ETH/WETH swap (spend still fail-closed).",
+    paramKeys: ["symbol", "level", "direction", "side", "amountUsd"],
+    defaultParams: {
+      symbol: "ETH",
+      level: 2800,
+      direction: "below",
+      side: "buy",
+      amountUsd: 10,
     },
   },
 };
@@ -115,7 +129,7 @@ export function describeRecipePlan(
     return `${verb} ${symbol} leaves ${formatUsd(low)}–${formatUsd(high)}`;
   }
 
-  if (recipeId === "price_cross_alert") {
+  if (recipeId === "price_cross_alert" || recipeId === "price_cross_swap") {
     const symbol =
       typeof params.symbol === "string" ? params.symbol.toUpperCase() : "asset";
     const level = Number(params.level);
@@ -126,6 +140,22 @@ export function describeRecipePlan(
         : params.direction === "either"
           ? "crosses"
           : "crosses below";
+    if (recipeId === "price_cross_swap") {
+      const side =
+        params.side === "sell"
+          ? "sell"
+          : params.side === "buy"
+            ? "buy"
+            : params.direction === "above"
+              ? "sell"
+              : "buy";
+      const amount = Number(params.amountUsd);
+      const size =
+        Number.isFinite(amount) && amount > 0
+          ? ` (~${formatUsd(amount)})`
+          : "";
+      return `Propose ${side} ${symbol} when price ${direction} ${formatUsd(level)}${size}`;
+    }
     return `${verb} ${symbol} ${direction} ${formatUsd(level)}`;
   }
 
@@ -215,6 +245,35 @@ export function parseRecipeParams(
         : base.direction;
     if (!Number.isFinite(level) || level < 0) return null;
     return { symbol, level, direction };
+  }
+
+  if (recipeId === "price_cross_swap") {
+    const symbol =
+      typeof raw.symbol === "string" && raw.symbol.trim()
+        ? raw.symbol.trim().toUpperCase()
+        : String(base.symbol);
+    const level = Number(raw.level ?? base.level);
+    const direction =
+      raw.direction === "above" ||
+      raw.direction === "below" ||
+      raw.direction === "either"
+        ? raw.direction
+        : base.direction;
+    if (!Number.isFinite(level) || level < 0) return null;
+
+    const inferredSide =
+      direction === "above" ? "sell" : direction === "below" ? "buy" : "buy";
+    const side =
+      raw.side === "buy" || raw.side === "sell"
+        ? raw.side
+        : base.side === "buy" || base.side === "sell"
+          ? base.side
+          : inferredSide;
+
+    const amountUsd = Number(raw.amountUsd ?? base.amountUsd);
+    if (!Number.isFinite(amountUsd) || amountUsd <= 0) return null;
+
+    return { symbol, level, direction, side, amountUsd };
   }
 
   return null;
