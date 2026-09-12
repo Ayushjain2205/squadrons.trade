@@ -44,19 +44,20 @@ export function apply(ctx) {
         recipeId: {
           type: "string",
           description:
-            'Built-in recipe: "balance_threshold_alert", "price_band_alert", "price_cross_alert", "price_cross_swap", or "take_profit_stop".',
+            'Built-in recipe: "balance_threshold_alert", "price_band_alert", "price_cross_alert", "price_cross_swap", "take_profit_stop", or "inventory_rebalance".',
           enum: [
             "balance_threshold_alert",
             "price_band_alert",
             "price_cross_alert",
             "price_cross_swap",
             "take_profit_stop",
+            "inventory_rebalance",
           ],
         },
         params: {
           type: "object",
           description:
-            "Recipe params. balance_threshold_alert: { walletAddress?, asset: native|ETH|USDC|WETH, op, threshold }. price_band_alert: { symbol, low, high }. price_cross_alert: { symbol, level, direction: above|below|either } — pair with trigger event price_cross. price_cross_swap: { symbol, level, direction, side: buy|sell, amountUsd }. take_profit_stop: { symbol, takeProfit, stopLoss, side, amountUsd } — pair with event price_tp_stop; prefer propose_trade.",
+            "Recipe params. balance_threshold_alert: { walletAddress?, asset: native|ETH|USDC|WETH, op, threshold }. price_band_alert: { symbol, low, high }. price_cross_alert / price_cross_swap: level cross (swap adds side, amountUsd). take_profit_stop: { symbol, takeProfit, stopLoss, side, amountUsd } + event price_tp_stop. inventory_rebalance: { targetEthPct, bandPct, amountUsd, minPortfolioUsd } on interval.",
           additionalProperties: true,
         },
         trigger: {

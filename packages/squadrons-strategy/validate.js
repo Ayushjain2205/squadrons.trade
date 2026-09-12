@@ -8,6 +8,7 @@ const RECIPE_IDS = [
   "price_cross_alert",
   "price_cross_swap",
   "take_profit_stop",
+  "inventory_rebalance",
 ];
 
 const RECIPE_DEFAULTS = {
@@ -27,6 +28,12 @@ const RECIPE_DEFAULTS = {
     stopLoss: 2500,
     side: "sell",
     amountUsd: 10,
+  },
+  inventory_rebalance: {
+    targetEthPct: 0.5,
+    bandPct: 0.1,
+    amountUsd: 10,
+    minPortfolioUsd: 5,
   },
 };
 
@@ -139,6 +146,30 @@ function parseRecipeParams(recipeId, value) {
     const amountUsd = Number(raw.amountUsd ?? defaults.amountUsd);
     if (!Number.isFinite(amountUsd) || amountUsd <= 0) return null;
     return { symbol, takeProfit, stopLoss, side, amountUsd };
+  }
+
+  if (recipeId === "inventory_rebalance") {
+    const targetEthPct = Number(raw.targetEthPct ?? defaults.targetEthPct);
+    const bandPct = Number(raw.bandPct ?? defaults.bandPct);
+    const amountUsd = Number(raw.amountUsd ?? defaults.amountUsd);
+    const minPortfolioUsd = Number(
+      raw.minPortfolioUsd ?? defaults.minPortfolioUsd,
+    );
+    if (
+      !Number.isFinite(targetEthPct) ||
+      !Number.isFinite(bandPct) ||
+      !Number.isFinite(amountUsd) ||
+      !Number.isFinite(minPortfolioUsd) ||
+      targetEthPct < 0 ||
+      targetEthPct > 1 ||
+      bandPct <= 0 ||
+      bandPct > 0.5 ||
+      amountUsd <= 0 ||
+      minPortfolioUsd < 0
+    ) {
+      return null;
+    }
+    return { targetEthPct, bandPct, amountUsd, minPortfolioUsd };
   }
 
   return null;

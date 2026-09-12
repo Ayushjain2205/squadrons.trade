@@ -6,6 +6,7 @@ export const RECIPE_IDS = [
   "price_cross_alert",
   "price_cross_swap",
   "take_profit_stop",
+  "inventory_rebalance",
 ] as const;
 
 export type RecipeId = (typeof RECIPE_IDS)[number];
@@ -82,6 +83,18 @@ export const RECIPE_CATALOG: Record<RecipeId, RecipeParamSchema> = {
       stopLoss: 2500,
       side: "sell",
       amountUsd: 10,
+    },
+  },
+  inventory_rebalance: {
+    label: "Inventory rebalance",
+    description:
+      "Interval: when ETH share of ETH+USDC leaves a target band, propose a capped corrective swap.",
+    paramKeys: ["targetEthPct", "bandPct", "amountUsd", "minPortfolioUsd"],
+    defaultParams: {
+      targetEthPct: 0.5,
+      bandPct: 0.1,
+      amountUsd: 10,
+      minPortfolioUsd: 5,
     },
   },
 };
@@ -184,6 +197,18 @@ export function describeRecipePlan(
     const size =
       Number.isFinite(amount) && amount > 0 ? ` (~${formatUsd(amount)})` : "";
     return `Propose ${side} ${symbol} at TP ${formatUsd(takeProfit)} or stop ${formatUsd(stopLoss)}${size}`;
+  }
+
+  if (recipeId === "inventory_rebalance") {
+    const target = Number(params.targetEthPct);
+    const band = Number(params.bandPct);
+    if (!Number.isFinite(target) || !Number.isFinite(band)) return null;
+    const low = Math.max(0, target - band);
+    const high = Math.min(1, target + band);
+    const amount = Number(params.amountUsd);
+    const size =
+      Number.isFinite(amount) && amount > 0 ? ` (~${formatUsd(amount)} max)` : "";
+    return `Propose ETH/USDC rebalance when ETH share leaves ${(low * 100).toFixed(0)}–${(high * 100).toFixed(0)}%${size}`;
   }
 
   return null;
@@ -331,6 +356,30 @@ export function parseRecipeParams(
     const amountUsd = Number(raw.amountUsd ?? base.amountUsd);
     if (!Number.isFinite(amountUsd) || amountUsd <= 0) return null;
     return { symbol, takeProfit, stopLoss, side, amountUsd };
+  }
+
+  if (recipeId === "inventory_rebalance") {
+    const targetEthPct = Number(raw.targetEthPct ?? base.targetEthPct);
+    const bandPct = Number(raw.bandPct ?? base.bandPct);
+    const amountUsd = Number(raw.amountUsd ?? base.amountUsd);
+    const minPortfolioUsd = Number(
+      raw.minPortfolioUsd ?? base.minPortfolioUsd,
+    );
+    if (
+      !Number.isFinite(targetEthPct) ||
+      !Number.isFinite(bandPct) ||
+      !Number.isFinite(amountUsd) ||
+      !Number.isFinite(minPortfolioUsd) ||
+      targetEthPct < 0 ||
+      targetEthPct > 1 ||
+      bandPct <= 0 ||
+      bandPct > 0.5 ||
+      amountUsd <= 0 ||
+      minPortfolioUsd < 0
+    ) {
+      return null;
+    }
+    return { targetEthPct, bandPct, amountUsd, minPortfolioUsd };
   }
 
   return null;
