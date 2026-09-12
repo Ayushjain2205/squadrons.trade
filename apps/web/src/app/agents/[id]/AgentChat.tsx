@@ -179,6 +179,13 @@ export function AgentChat({
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages, pending, liveSteps, awaitingAllowance]);
 
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [draft]);
+
   // One Approve card per pending intent — attach to the latest marker message only.
   const allowanceCardMessageIds = useMemo(() => {
     const awaitingIds = new Set(awaitingAllowance.map((row) => row.id));
@@ -713,7 +720,7 @@ export function AgentChat({
         ) : null}
         <form
           onSubmit={onSend}
-          className="chat-composer relative flex w-full items-end gap-1.5 rounded-full border border-[var(--line)] bg-[var(--msg-bot)] px-2 py-2 shadow-[0_8px_30px_rgba(0,0,0,0.35)]"
+          className="chat-composer relative flex w-full flex-col rounded-3xl border border-[var(--line)] bg-[var(--msg-bot)] px-3 pb-2 pt-3 shadow-[0_8px_30px_rgba(0,0,0,0.35)]"
         >
           {showSlashMenu ? (
             <SkillSlashMenu
@@ -733,25 +740,13 @@ export function AgentChat({
               onClose={closeAtMenu}
             />
           ) : null}
-          <button
-            type="button"
-            onClick={openSlashPicker}
-            disabled={pending}
-            className="mb-0.5 flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--muted)] transition hover:bg-[var(--panel)] hover:text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-40"
-            aria-label="Insert skill"
-            title="Skills"
-          >
-            +
-          </button>
           <div
-            className={`relative min-h-10 min-w-0 flex-1 ${
-              pending ? "opacity-60" : ""
-            }`}
+            className={`relative min-w-0 ${pending ? "opacity-60" : ""}`}
           >
             <SkillComposerBackdrop
               value={draft}
               pluginServerNames={pluginServerNames}
-              className="chat-input type-body absolute inset-0 max-h-32 overflow-hidden py-2.5"
+              className="chat-input type-body absolute inset-0 max-h-40 overflow-hidden px-1 leading-5"
             />
             <textarea
               ref={inputRef}
@@ -767,32 +762,46 @@ export function AgentChat({
               rows={1}
               placeholder={`${placeholder}  ·  @ plugins  ·  / skills`}
               disabled={pending}
-              className="chat-input type-body relative z-[1] max-h-32 min-h-10 w-full resize-none overflow-y-auto bg-transparent py-2.5 text-transparent caret-[var(--ink)] outline-none ring-0 [-webkit-text-fill-color:transparent] placeholder:text-[var(--muted)] placeholder:[-webkit-text-fill-color:var(--muted)] disabled:cursor-not-allowed"
+              className="chat-input type-body relative z-[1] max-h-40 min-h-5 w-full resize-none overflow-y-auto bg-transparent px-1 leading-5 text-transparent caret-[var(--ink)] outline-none ring-0 [-webkit-text-fill-color:transparent] placeholder:text-[var(--muted)] placeholder:[-webkit-text-fill-color:var(--muted)] disabled:cursor-not-allowed"
             />
           </div>
-          {isWorking ? (
+          <div className="mt-2 flex items-center justify-between gap-2">
             <button
               type="button"
-              onClick={() => void onPause()}
-              disabled={pausing}
-              className="mb-0.5 flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--ink)] text-[var(--canvas)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label={pausing ? "Stopping" : "Stop"}
-              title="Stop"
+              onClick={openSlashPicker}
+              disabled={pending}
+              className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-[var(--muted)] transition hover:bg-[var(--panel)] hover:text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-40"
+              aria-label="Insert skill"
+              title="Skills"
             >
-              <span className="block size-3 rounded-[2px] bg-current" aria-hidden />
+              <span className="block text-lg leading-none" aria-hidden>
+                +
+              </span>
             </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={!draft.trim()}
-              className="mb-0.5 flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--ink)] text-[var(--canvas)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
-              aria-label="Send"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M3.4 20.6L20.9 12 3.4 3.4l-.1 6.7L14 12 3.3 13.9l.1 6.7z" />
-              </svg>
-            </button>
-          )}
+            {isWorking ? (
+              <button
+                type="button"
+                onClick={() => void onPause()}
+                disabled={pausing}
+                className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--ink)] text-[var(--canvas)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label={pausing ? "Stopping" : "Stop"}
+                title="Stop"
+              >
+                <span className="block size-2.5 rounded-[2px] bg-current" aria-hidden />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!draft.trim()}
+                className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[var(--ink)] text-[var(--canvas)] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
+                aria-label="Send"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3.4 20.6L20.9 12 3.4 3.4l-.1 6.7L14 12 3.3 13.9l.1 6.7z" />
+                </svg>
+              </button>
+            )}
+          </div>
         </form>
       </div>
     </div>
