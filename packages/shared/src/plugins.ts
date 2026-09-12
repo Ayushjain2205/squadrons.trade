@@ -49,6 +49,20 @@ export type McpCatalogEntry = {
  */
 export const MCP_CATALOG: readonly McpCatalogEntry[] = [
   {
+    id: "backtest",
+    name: "Backtest",
+    description: "Simulated equity curves for strategy ideas (chart in chat)",
+    icon: "backtest",
+    accent: "#5dcea0",
+    serverName: "backtest",
+    // Desk still treats this as a catalog plugin; host loads it as Cordis tools
+    // (not remote MCP) when enabled — see mcp-patch.ts.
+    transport: "stdio",
+    command: "squadrons-backtest",
+    args: [],
+    secrets: [],
+  },
+  {
     id: "dune",
     name: "Dune",
     description: "SQL, datasets, and onchain dashboards",
