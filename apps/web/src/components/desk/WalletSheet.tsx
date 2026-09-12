@@ -57,6 +57,33 @@ function CopyIcon({ size = 12 }: { size?: number }) {
   );
 }
 
+function ExternalLinkIcon({ size = 12 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+    >
+      <path
+        d="M14 4h6v6M20 4l-9 9"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M10 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-4"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function explorerFor(
   chainId: number,
   address: string,
@@ -236,6 +263,15 @@ export function WalletSheet({
   }
 
   const balanceByChain = new Map(chains.map((row) => [row.chainId, row]));
+  const orderedChains = [...SUPPORTED_CHAINS].sort((a, b) => {
+    if (preferredChainId == null) return 0;
+    if (a.chainId === preferredChainId) return -1;
+    if (b.chainId === preferredChainId) return 1;
+    return 0;
+  });
+  const needsGasNames = orderedChains
+    .filter((chain) => balanceByChain.get(chain.chainId)?.needsGas)
+    .map((chain) => getSupportedChain(chain.chainId)?.shortName ?? chain.shortName);
 
   return (
     <>
@@ -352,7 +388,7 @@ export function WalletSheet({
 
         <section className="mt-4">
           <div className="flex items-baseline justify-between gap-2">
-            <h3 className="type-ui text-[var(--ink)]">Gas by chain</h3>
+            <h3 className="type-ui text-[var(--ink)]">Gas</h3>
             <button
               type="button"
               disabled={loading || !address}
@@ -362,45 +398,63 @@ export function WalletSheet({
               {loading ? "Refreshing…" : "Refresh"}
             </button>
           </div>
-          <ul className="mt-1.5 space-y-0.5">
-            {SUPPORTED_CHAINS.map((chain) => {
+          {needsGasNames.length > 0 && address ? (
+            <p className="type-meta mt-1 !text-[var(--warn)]">
+              {needsGasNames.length === 1
+                ? `Needs ETH on ${needsGasNames[0]}`
+                : needsGasNames.length <= 3
+                  ? `Needs ETH on ${needsGasNames.join(", ")}`
+                  : `Needs ETH on ${needsGasNames.length} chains`}
+            </p>
+          ) : null}
+          <ul className="mt-1.5 max-h-44 overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:thin]">
+            {orderedChains.map((chain) => {
               const row = balanceByChain.get(chain.chainId);
               const balance = row?.balance ?? (loading ? "…" : "—");
               const needsGas = row?.needsGas ?? false;
               const meta = getSupportedChain(chain.chainId);
+              const name = meta?.shortName ?? chain.shortName;
+              const isHome = preferredChainId === chain.chainId;
               const explorer =
                 address != null ? explorerFor(chain.chainId, address) : null;
               return (
                 <li
                   key={chain.chainId}
-                  className="flex items-center gap-2.5 rounded-xl px-1.5 py-2"
+                  className="flex items-center gap-2 rounded-lg px-1 py-1.5"
                 >
-                  <ChainLogo chainId={chain.chainId} size={20} />
-                  <div className="min-w-0 flex-1">
-                    <p className="type-ui text-[var(--ink)]">
-                      {meta?.shortName ?? chain.shortName}
-                    </p>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                      {needsGas && address ? (
-                        <p className="type-meta !text-[var(--warn)]">
-                          Needs ETH for gas
-                        </p>
-                      ) : null}
-                      {explorer ? (
-                        <a
-                          href={explorer.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="type-meta !text-[var(--link)] transition hover:opacity-80"
-                        >
-                          {explorer.label}
-                        </a>
-                      ) : null}
-                    </div>
-                  </div>
-                  <p className="type-data shrink-0 !text-[length:var(--text-ui)] !text-[var(--ink-soft)]">
+                  <ChainLogo chainId={chain.chainId} size={16} />
+                  <p className="type-ui min-w-0 flex-1 truncate text-[var(--ink)]">
+                    {name}
+                    {isHome ? (
+                      <span className="type-meta !text-[var(--muted)]">
+                        {" "}
+                        · home
+                      </span>
+                    ) : null}
+                  </p>
+                  <p
+                    className={`type-data shrink-0 !text-[length:var(--text-ui)] ${
+                      needsGas && address
+                        ? "!text-[var(--warn)]"
+                        : "!text-[var(--ink-soft)]"
+                    }`}
+                  >
                     {balance} {row?.symbol ?? "ETH"}
                   </p>
+                  {explorer ? (
+                    <a
+                      href={explorer.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex size-5 shrink-0 items-center justify-center rounded text-[var(--muted)] transition hover:bg-[var(--panel-2)] hover:text-[var(--link)]"
+                      aria-label={`Open on ${explorer.label}`}
+                      title={explorer.label}
+                    >
+                      <ExternalLinkIcon />
+                    </a>
+                  ) : (
+                    <span className="size-5 shrink-0" aria-hidden />
+                  )}
                 </li>
               );
             })}
