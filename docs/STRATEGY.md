@@ -101,9 +101,9 @@ Legacy strategies without `recipeId` cannot Arm / are paused if somehow running.
 - `strategy` — runtime ticks / recipe outcomes (Strategy activity rail)
 - `system` — arm / pause / params / improvement lifecycle
 
-The Strategy card is a desk control: status + plain-language plan + Arm/Pause, quieter schedule/spend/last-check, Approve/Dismiss when a proposal is pending, and self-improvement / caps under **Details**.
+The Strategy card is a desk **control**: status + one plan line + schedule/last-check + Arm/Pause/Resume, with Approve/Dismiss only when a self-improvement proposal needs a decision. It does **not** list trade history.
 
-The Strategy activity rail collapses quiet checks into a single “last check” line; the list is alerts, errors, and desk changes. It pages from the host (`limit` + `before`/`beforeId`), shows a few rows, then **Show more** / **Load older** — never dumps the full history into the DOM. **Live** only while `strategy.status === "running"`.
+The Strategy activity rail is the **history**: alerts, paper fills, live submits, failures, and desk lifecycle (arm/pause/mode). Quiet checks collapse into a single “last check” line; consecutive identical loud rows collapse to `×N`. It pages from the host (`limit` + `before`/`beforeId`), shows a few rows, then **Show more** / **Load older**. **Live** only while `strategy.status === "running"`.
 
 ## Key paths
 
