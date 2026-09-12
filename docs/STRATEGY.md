@@ -41,6 +41,7 @@ One strategy per agent:
 | `balance_threshold_alert` | Native/ETH or known ERC-20 (USDC/WETH) threshold |
 | `price_band_alert` | Spot USD outside `[low, high]` |
 | `price_cross_alert` | Spot USD crosses a level (pair with `event: price_cross`) |
+| `price_cross_swap` | Same cross edge → propose capped USDC↔ETH/WETH swap (`side`, `amountUsd`) |
 
 Recipes live in `apps/host/src/strategy/recipes/`. Catalog / param schemas live in `@squadrons/shared` (`recipes.ts`).
 

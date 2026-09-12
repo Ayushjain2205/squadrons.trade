@@ -83,6 +83,30 @@ export const STRATEGY_TEMPLATES: readonly StrategyTemplate[] = [
       action: { type: "alert" },
     },
   },
+  {
+    id: "eth-dip-buy",
+    name: "ETH dip buy",
+    blurb: "Propose a capped ETH buy when price crosses below a level.",
+    description:
+      "Event-style dip buy on ETH USD. When price crosses your level, the host proposes a capped USDC→ETH swap (spend still fail-closed / desk confirm). Defaults to $10 — tighten level and size before Arming. Needs spend enabled on the agent.",
+    chainIds: [8453, 1],
+    tags: ["trade", "price", "propose"],
+    editableKeys: ["level", "amountUsd", "direction", "side"],
+    draft: {
+      summary: "Propose buy ETH when price crosses below $2,800 (~$10)",
+      recipeId: "price_cross_swap",
+      params: {
+        symbol: "ETH",
+        level: 2800,
+        direction: "below",
+        side: "buy",
+        amountUsd: 10,
+      },
+      trigger: { type: "event", event: "price_cross", intervalSec: 60 },
+      action: { type: "propose_trade" },
+      caps: { maxTradeUsd: 10 },
+    },
+  },
 ] as const;
 
 export type StrategyTemplateId = (typeof STRATEGY_TEMPLATES)[number]["id"];
@@ -159,6 +183,23 @@ export function buildDraftFromTemplate(
     const threshold = Number(params.threshold);
     if (Number.isFinite(threshold)) {
       summary = `Alert when native balance drops below ${threshold}`;
+    }
+  } else if (template.id === "eth-dip-buy") {
+    const level = Number(params.level);
+    const amountUsd = Number(params.amountUsd);
+    const side = params.side === "sell" ? "sell" : "buy";
+    const direction =
+      params.direction === "above"
+        ? "above"
+        : params.direction === "either"
+          ? "either side of"
+          : "below";
+    if (Number.isFinite(level)) {
+      const size =
+        Number.isFinite(amountUsd) && amountUsd > 0
+          ? ` (~$${Math.round(amountUsd).toLocaleString()})`
+          : "";
+      summary = `Propose ${side} ETH when price crosses ${direction} $${Math.round(level).toLocaleString()}${size}`;
     }
   }
 
