@@ -9,7 +9,11 @@ import {
 } from "@/lib/host";
 import { useToast } from "@/components/Toast";
 
-type DisplayStep = ActivityEvent & { displayLabel: string };
+type DisplayStep = ActivityEvent & {
+  displayLabel: string;
+  /** Consecutive identical loud events collapsed into one row. */
+  count: number;
+};
 
 /** How many rows to show before asking for more. */
 const PREVIEW_COUNT = 4;
@@ -31,10 +35,32 @@ function isQuietCheck(event: ActivityEvent): boolean {
 function toDisplayStep(event: ActivityEvent): DisplayStep | null {
   const displayLabel = displayActivityLabel(event, { done: true });
   if (!displayLabel) return null;
-  return { ...event, displayLabel };
+  return { ...event, displayLabel, count: 1 };
 }
 
-/** Quiet checks → one “last check”; loud events newest-first. */
+function sameActivityRow(a: DisplayStep, b: DisplayStep): boolean {
+  return (
+    a.displayLabel === b.displayLabel &&
+    (a.detail ?? "") === (b.detail ?? "") &&
+    a.kind === b.kind
+  );
+}
+
+/** Newest-first list → collapse back-to-back identical labels. */
+function collapseConsecutive(steps: DisplayStep[]): DisplayStep[] {
+  const out: DisplayStep[] = [];
+  for (const step of steps) {
+    const prev = out[out.length - 1];
+    if (prev && sameActivityRow(prev, step)) {
+      prev.count += 1;
+      continue;
+    }
+    out.push({ ...step, count: 1 });
+  }
+  return out;
+}
+
+/** Quiet checks → one “last check”; loud events newest-first, deduped. */
 function buildSteps(events: ActivityEvent[]): {
   lastCheck: DisplayStep | null;
   steps: DisplayStep[];
@@ -57,7 +83,7 @@ function buildSteps(events: ActivityEvent[]): {
 
   return {
     lastCheck,
-    steps: [...loud].reverse(),
+    steps: collapseConsecutive([...loud].reverse()),
   };
 }
 
@@ -176,8 +202,8 @@ export function ActivityTrail({
       {steps.length === 0 ? (
         <p className="type-ui mt-3 text-[var(--muted)]">
           {live
-            ? `${agentName} is checking — alerts show here.`
-            : `When the strategy fires an alert or you change it, it shows here.`}
+            ? `${agentName} is checking — alerts and fills show here.`
+            : `Alerts, paper fills, and desk changes show here.`}
         </p>
       ) : (
         <>
@@ -185,6 +211,8 @@ export function ActivityTrail({
             {visible.map((event, index) => {
               const newest = index === 0;
               const moreBelow = index < visible.length - 1 || canRevealMore || canLoadOlder;
+              const countSuffix =
+                event.count > 1 ? ` · ×${event.count}` : "";
               return (
                 <li
                   key={event.id}
@@ -219,6 +247,7 @@ export function ActivityTrail({
                       }`}
                     >
                       {event.displayLabel}
+                      {countSuffix}
                     </p>
                     {event.detail ? (
                       <p className="type-meta mt-0.5 truncate text-[var(--muted)]">
