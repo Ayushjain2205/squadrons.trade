@@ -7,27 +7,35 @@ const RECIPE_IDS = [
   "price_band_alert",
   "price_cross_alert",
   "price_cross_swap",
+  "take_profit_stop",
 ];
+
+const RECIPE_DEFAULTS = {
+  balance_threshold_alert: { asset: "native", op: "below", threshold: 0.1 },
+  price_band_alert: { symbol: "ETH", low: 1000, high: 10000 },
+  price_cross_alert: { symbol: "ETH", level: 3000, direction: "below" },
+  price_cross_swap: {
+    symbol: "ETH",
+    level: 2800,
+    direction: "below",
+    side: "buy",
+    amountUsd: 10,
+  },
+  take_profit_stop: {
+    symbol: "ETH",
+    takeProfit: 3500,
+    stopLoss: 2500,
+    side: "sell",
+    amountUsd: 10,
+  },
+};
 
 function isRecipeId(value) {
   return typeof value === "string" && RECIPE_IDS.includes(value);
 }
 
 function parseRecipeParams(recipeId, value) {
-  const defaults =
-    recipeId === "balance_threshold_alert"
-      ? { asset: "native", op: "below", threshold: 0.1 }
-      : recipeId === "price_cross_alert"
-        ? { symbol: "ETH", level: 3000, direction: "below" }
-        : recipeId === "price_cross_swap"
-          ? {
-              symbol: "ETH",
-              level: 2800,
-              direction: "below",
-              side: "buy",
-              amountUsd: 10,
-            }
-          : { symbol: "ETH", low: 1000, high: 10000 };
+  const defaults = RECIPE_DEFAULTS[recipeId] ?? {};
   const raw = value === undefined || value === null ? {} : value;
   if (!isRecord(raw)) return null;
 
@@ -104,6 +112,33 @@ function parseRecipeParams(recipeId, value) {
     if (!Number.isFinite(amountUsd) || amountUsd <= 0) return null;
 
     return { symbol, level, direction, side, amountUsd };
+  }
+
+  if (recipeId === "take_profit_stop") {
+    const symbol =
+      typeof raw.symbol === "string" && raw.symbol.trim()
+        ? raw.symbol.trim().toUpperCase()
+        : defaults.symbol;
+    const takeProfit = Number(raw.takeProfit ?? defaults.takeProfit);
+    const stopLoss = Number(raw.stopLoss ?? defaults.stopLoss);
+    if (
+      !Number.isFinite(takeProfit) ||
+      !Number.isFinite(stopLoss) ||
+      takeProfit < 0 ||
+      stopLoss < 0 ||
+      takeProfit <= stopLoss
+    ) {
+      return null;
+    }
+    const side =
+      raw.side === "buy" || raw.side === "sell"
+        ? raw.side
+        : defaults.side === "buy" || defaults.side === "sell"
+          ? defaults.side
+          : "sell";
+    const amountUsd = Number(raw.amountUsd ?? defaults.amountUsd);
+    if (!Number.isFinite(amountUsd) || amountUsd <= 0) return null;
+    return { symbol, takeProfit, stopLoss, side, amountUsd };
   }
 
   return null;

@@ -5,6 +5,7 @@ export const RECIPE_IDS = [
   "price_band_alert",
   "price_cross_alert",
   "price_cross_swap",
+  "take_profit_stop",
 ] as const;
 
 export type RecipeId = (typeof RECIPE_IDS)[number];
@@ -67,6 +68,19 @@ export const RECIPE_CATALOG: Record<RecipeId, RecipeParamSchema> = {
       level: 2800,
       direction: "below",
       side: "buy",
+      amountUsd: 10,
+    },
+  },
+  take_profit_stop: {
+    label: "Take profit / stop",
+    description:
+      "Event-style: propose an exit swap when spot hits take-profit (above) or stop-loss (below). Long-exit defaults (side sell).",
+    paramKeys: ["symbol", "takeProfit", "stopLoss", "side", "amountUsd"],
+    defaultParams: {
+      symbol: "ETH",
+      takeProfit: 3500,
+      stopLoss: 2500,
+      side: "sell",
       amountUsd: 10,
     },
   },
@@ -159,6 +173,19 @@ export function describeRecipePlan(
     return `${verb} ${symbol} ${direction} ${formatUsd(level)}`;
   }
 
+  if (recipeId === "take_profit_stop") {
+    const symbol =
+      typeof params.symbol === "string" ? params.symbol.toUpperCase() : "asset";
+    const takeProfit = Number(params.takeProfit);
+    const stopLoss = Number(params.stopLoss);
+    if (!Number.isFinite(takeProfit) || !Number.isFinite(stopLoss)) return null;
+    const side = params.side === "buy" ? "buy" : "sell";
+    const amount = Number(params.amountUsd);
+    const size =
+      Number.isFinite(amount) && amount > 0 ? ` (~${formatUsd(amount)})` : "";
+    return `Propose ${side} ${symbol} at TP ${formatUsd(takeProfit)} or stop ${formatUsd(stopLoss)}${size}`;
+  }
+
   return null;
 }
 
@@ -170,6 +197,9 @@ export function describeStrategySchedule(trigger: {
 }): string {
   if (trigger.type === "event") {
     if (trigger.event === "price_cross") return "Watches for a price cross";
+    if (trigger.event === "price_tp_stop") {
+      return "Watches for take-profit or stop";
+    }
     if (trigger.event) return `Watches for ${trigger.event.replace(/_/g, " ")}`;
     return "Watches for an event";
   }
@@ -274,6 +304,33 @@ export function parseRecipeParams(
     if (!Number.isFinite(amountUsd) || amountUsd <= 0) return null;
 
     return { symbol, level, direction, side, amountUsd };
+  }
+
+  if (recipeId === "take_profit_stop") {
+    const symbol =
+      typeof raw.symbol === "string" && raw.symbol.trim()
+        ? raw.symbol.trim().toUpperCase()
+        : String(base.symbol);
+    const takeProfit = Number(raw.takeProfit ?? base.takeProfit);
+    const stopLoss = Number(raw.stopLoss ?? base.stopLoss);
+    if (
+      !Number.isFinite(takeProfit) ||
+      !Number.isFinite(stopLoss) ||
+      takeProfit < 0 ||
+      stopLoss < 0 ||
+      takeProfit <= stopLoss
+    ) {
+      return null;
+    }
+    const side =
+      raw.side === "buy" || raw.side === "sell"
+        ? raw.side
+        : base.side === "buy" || base.side === "sell"
+          ? base.side
+          : "sell";
+    const amountUsd = Number(raw.amountUsd ?? base.amountUsd);
+    if (!Number.isFinite(amountUsd) || amountUsd <= 0) return null;
+    return { symbol, takeProfit, stopLoss, side, amountUsd };
   }
 
   return null;
