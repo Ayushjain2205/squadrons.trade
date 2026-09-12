@@ -1,5 +1,6 @@
 import {
   activityStepLabel,
+  isBacktestToolName,
   type ActivityKind,
 } from "@squadrons/shared";
 import type { NewActivityEvent } from "../agents/activity.js";
@@ -80,9 +81,33 @@ export function isSuccessfulProposeImprovementResult(
   return toolNameFromData(event.data) === "propose_improvement";
 }
 
+/** True when dsh reports a successful run_backtest tool result. */
+export function isSuccessfulRunBacktestResult(
+  agentId: string,
+  notification: HarnessNotification,
+): boolean {
+  return backtestToolNameFromNotification(agentId, notification) != null;
+}
+
+/**
+ * Resolve backtest tool name from a notification (for per-agent last-call fallback).
+ */
+export function backtestToolNameFromNotification(
+  agentId: string,
+  notification: HarnessNotification,
+): string | null {
+  const event = sessionEvent(notification);
+  if (!event || event.type !== "tool/result") return null;
+  if (event.data.error) return null;
+  const name =
+    toolNameFromData(event.data) ?? lastToolCallName.get(agentId) ?? null;
+  return isBacktestToolName(name) ? name : null;
+}
+
 /**
  * Map a dsh notification into at most one highly abstracted activity step.
  * Grok Bot–style: human verbs only — no turn markers, no args, no result dumps.
+ * Exception: selected UI artifacts (backtest chart) forward as tool_result.
  */
 export function mapNotificationToActivity(
   agentId: string,
@@ -105,17 +130,22 @@ export function mapNotificationToActivity(
       };
     }
     case "tool/result": {
-      // Successful results stay silent — the call already told the story.
-      if (!data.error) return null;
       const name =
         toolNameFromData(data) ?? lastToolCallName.get(agentId) ?? "tool";
-      return {
-        agentId,
-        kind: "error" satisfies ActivityKind,
-        label: `${activityStepLabel(name)} failed`,
-        detail: errorDetail(data),
-        toolName: name,
-      };
+
+      if (data.error) {
+        return {
+          agentId,
+          kind: "error" satisfies ActivityKind,
+          label: `${activityStepLabel(name)} failed`,
+          detail: errorDetail(data),
+          toolName: name,
+        };
+      }
+
+      // Backtest charts are published from workspace file sync in routes.ts
+      // (dsh tool/result payloads don't reliably include the structured artifact).
+      return null;
     }
     case "turn/end": {
       const reason = data.reason as {

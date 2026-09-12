@@ -31,10 +31,12 @@ cat > "$DEST/profiles/sdk/package.json" <<EOF
   "dependencies": {
     "@deepseek-ai/dsh-base": "0.1.2-rc.1",
     "@deepseek-ai/dsh-sdk-app": "0.1.2-rc.1",
+    "@deepseek-ai/dsh-mcp-client": "0.1.2-rc.1",
     "squadrons-defi": "link:$ROOT/packages/squadrons-defi",
     "squadrons-strategy": "link:$ROOT/packages/squadrons-strategy",
     "squadrons-social": "link:$ROOT/packages/squadrons-social",
-    "squadrons-intel": "link:$ROOT/packages/squadrons-intel"
+    "squadrons-intel": "link:$ROOT/packages/squadrons-intel",
+    "squadrons-backtest": "link:$ROOT/packages/squadrons-backtest"
   },
   "dsh": {
     "profile": {
@@ -44,7 +46,8 @@ cat > "$DEST/profiles/sdk/package.json" <<EOF
         "squadrons-defi",
         "squadrons-strategy",
         "squadrons-social",
-        "squadrons-intel"
+        "squadrons-intel",
+        "squadrons-backtest"
       ],
       "patchReload": "startup"
     }

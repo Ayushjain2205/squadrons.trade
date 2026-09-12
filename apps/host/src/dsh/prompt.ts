@@ -35,26 +35,58 @@ export function buildAgentTurnPrompt(
   walletAddress?: string | null,
   enabledPlugins?: string[],
 ): string {
-  return `${buildAgentIdentityBlock(agent, walletAddress, enabledPlugins)}\n\nUser message:\n${userText}`;
+  const directive = pluginTurnDirective(userText, enabledPlugins);
+  return [
+    buildAgentIdentityBlock(agent, walletAddress, enabledPlugins),
+    ...(directive ? ["", directive] : []),
+    "",
+    "User message:",
+    userText,
+  ].join("\n");
 }
 
 /** Short user-only prompt once the session already carries conversation. */
 export function buildContinuingTurnPrompt(
   userText: string,
-  options?: { hasStrategy?: boolean },
+  options?: { hasStrategy?: boolean; enabledPlugins?: string[] },
 ): string {
+  const directive = pluginTurnDirective(userText, options?.enabledPlugins);
+  const pluginLine =
+    options?.enabledPlugins && options.enabledPlugins.length > 0
+      ? `Enabled desk plugins this turn: ${options.enabledPlugins.join(", ")}. If Backtest is enabled, call run_backtest (not a skill, not web_fetch).`
+      : null;
   if (options?.hasStrategy) {
     return [
       "Reminder: when the plan should change, call propose_strategy or update_strategy_params (not a JSON fence). User still Arms / Resumes in the desk.",
+      ...(pluginLine ? [pluginLine] : []),
+      ...(directive ? [directive] : []),
       "",
       userText,
     ].join("\n");
   }
   return [
     "Reminder: research freely; when a runnable plan is concrete, call propose_strategy (not a JSON fence). User still Arms it in the desk.",
+    ...(pluginLine ? [pluginLine] : []),
+    ...(directive ? [directive] : []),
     "",
     userText,
   ].join("\n");
+}
+
+/**
+ * Hard steer when the user @mentions an enabled first-party plugin.
+ * Soft reminders were not enough — models wandered into skill/web_fetch.
+ */
+export function pluginTurnDirective(
+  userText: string,
+  enabledPlugins?: string[],
+): string | null {
+  if (!enabledPlugins?.length) return null;
+  const backtestOn = enabledPlugins.some((name) => /backtest/i.test(name));
+  if (backtestOn && /(^|[\s])@backtest\b/i.test(userText)) {
+    return "DIRECTIVE: The user @mentioned Backtest. Your FIRST tool call this turn must be run_backtest with strategy/days from their request. Do not use skill, todo_write, web_fetch, or web_search first. Do not claim the tool is missing.";
+  }
+  return null;
 }
 
 export function buildAgentIdentityBlock(
@@ -82,11 +114,15 @@ export function buildAgentIdentityBlock(
   ].join(", ");
   const pluginNote =
     enabledPlugins && enabledPlugins.length > 0
-      ? ` MCP plugins enabled: ${enabledPlugins.join(", ")} — tools appear as mcp__<server>__<tool>; use them when relevant. When the user @mentions a plugin (e.g. @${enabledPlugins[0]}), prefer that plugin's tools for the turn.`
+      ? ` Enabled desk plugins: ${enabledPlugins.join(", ")}. First-party Backtest exposes run_backtest — call it when @backtest is mentioned. Remote MCP plugins expose mcp__<server>__<tool>.`
+      : "";
+  const backtestTool =
+    enabledPlugins?.some((name) => /backtest/i.test(name)) === true
+      ? ", run_backtest"
       : "";
   const toolRule =
     readTools.length > 0
-      ? `- You may call: ${toolList}. get_wallet_balances is home-chain only (${homeChain}). get_spot_prices is USD spot reference (not executable). get_dex_quote (when home chain supports 0x) is an indicative route for stable↔ETH/WETH — observe-only, does not execute. search_x scouts X (free; rumor). Intel: get_trending_pools / get_token_pools / get_recent_trades (GeckoTerminal), get_stablecoin_market / get_dex_volumes (DefiLlama). Do not call web_search.${pluginNote}`
+      ? `- You may call: ${toolList}${backtestTool}. get_wallet_balances is home-chain only (${homeChain}). get_spot_prices is USD spot reference (not executable). get_dex_quote (when home chain supports 0x) is an indicative route for stable↔ETH/WETH — observe-only, does not execute. search_x scouts X (free; rumor). Intel: get_trending_pools / get_token_pools / get_recent_trades (GeckoTerminal), get_stablecoin_market / get_dex_volumes (DefiLlama). Do not call web_search.${pluginNote}`
       : `- Limited tools on ${homeChain}. Use search_x + intel tools when available. Do not call web_search; do not invent numbers.${pluginNote}`;
 
   const strategyStatus = agent.strategy?.status;

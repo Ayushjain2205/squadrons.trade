@@ -1,7 +1,15 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { getMcpCatalogEntry } from "@squadrons/shared";
 import type { EnabledPluginRuntime } from "./store.js";
+
+const HOST_DIR = path.dirname(fileURLToPath(import.meta.url));
+/** Monorepo packages/squadrons-backtest/mcp-server.mjs */
+const BACKTEST_MCP_SERVER = path.resolve(
+  HOST_DIR,
+  "../../../../packages/squadrons-backtest/mcp-server.mjs",
+);
 
 const MCP_CLIENT = "@deepseek-ai/dsh-mcp-client";
 
@@ -20,21 +28,27 @@ export type McpPatchResult = {
 };
 
 /**
- * Build a Cordis overlay that loads one dsh-mcp-client row per enabled plugin.
- * Secrets are referenced via !!js process.env.… — values live only in child env.
+ * Build a Cordis overlay for per-agent plugins.
+ * - First-party Backtest is always bundled in the sdk profile; we disable it
+ *   per-agent when Plugins → Backtest is off.
+ * - Remote catalog/custom plugins use dsh-mcp-client rows.
  */
 export async function buildAgentMcpPatch(
   workspace: string,
   plugins: EnabledPluginRuntime[],
 ): Promise<McpPatchResult> {
-  if (plugins.length === 0) {
-    return { patchPath: null, env: {} };
-  }
-
   const env: Record<string, string> = {};
   const rows: string[] = [];
 
+  const backtestEnabled = plugins.some(
+    (plugin) => plugin.catalogId === "backtest",
+  );
+  if (!backtestEnabled) {
+    rows.push(["- id: squadrons-backtest", "  disabled: true"].join("\n"));
+  }
+
   for (const plugin of plugins) {
+    if (plugin.catalogId === "backtest") continue;
     const built = buildPluginRow(plugin, env);
     if (built) rows.push(built);
   }
@@ -95,6 +109,9 @@ function buildPluginRow(
     }
 
     if (entry.transport === "stdio" && entry.command) {
+      // First-party Backtest is bundled + disabled above — never MCP stdio.
+      if (entry.id === "backtest") return null;
+
       const envLines: string[] = [];
       for (const spec of entry.secrets) {
         const value = plugin.secrets[spec.key];
@@ -106,15 +123,15 @@ function buildPluginRow(
           `      ${yamlKey(childEnv)}: !!js process.env.${envName}`,
         );
       }
-      const args = entry.args ?? [];
+      const resolved = resolveCatalogStdio(entry.id, entry.command, entry.args);
       return [
         `- id: ${cordisId}`,
         `  name: ${yamlString(MCP_CLIENT)}`,
         `  config:`,
         `    serverName: ${yamlString(entry.serverName)}`,
         `    transport: stdio`,
-        `    command: ${yamlString(entry.command)}`,
-        `    args: ${JSON.stringify(args)}`,
+        `    command: ${yamlString(resolved.command)}`,
+        `    args: ${JSON.stringify(resolved.args)}`,
         ...(envLines.length > 0 ? [`    env:`, ...envLines] : []),
         `    failOnStartupError: false`,
       ].join("\n");
@@ -188,6 +205,21 @@ function buildPluginRow(
   }
 
   return null;
+}
+
+/** First-party stdio plugins resolve to absolute node paths in the monorepo. */
+function resolveCatalogStdio(
+  catalogId: string,
+  command: string,
+  args: string[] | undefined,
+): { command: string; args: string[] } {
+  if (catalogId === "backtest") {
+    return {
+      command: process.execPath,
+      args: [BACKTEST_MCP_SERVER],
+    };
+  }
+  return { command, args: args ?? [] };
 }
 
 function yamlString(value: string): string {

@@ -27,7 +27,7 @@ import {
   invalidateAgentRuntime,
   runDshTurn,
 } from "../dsh/runner.js";
-import { isSuccessfulProposeStrategyResult, isSuccessfulUpdateStrategyParamsResult, isSuccessfulProposeImprovementResult } from "../dsh/activity-map.js";
+import { isSuccessfulProposeStrategyResult, isSuccessfulUpdateStrategyParamsResult, isSuccessfulProposeImprovementResult, isSuccessfulRunBacktestResult } from "../dsh/activity-map.js";
 import type { ActivityHub } from "./activity-hub.js";
 import type { MessageStore } from "./messages.js";
 import { agentWorkspacePath } from "./paths.js";
@@ -47,6 +47,10 @@ import {
 import { loadNativeBalances } from "../wallet/balances.js";
 import type { AgentPluginStore } from "../plugins/store.js";
 import { prepareAgentPlugins } from "../plugins/prepare.js";
+import {
+  clearPendingBacktest,
+  readPendingBacktest,
+} from "../plugins/backtest-sync.js";
 import {
   isMcpCatalogId,
   type CreateCustomPluginInput,
@@ -1695,6 +1699,23 @@ export function registerAgentRoutes(
                 console.error("[strategy-improve-mid-turn]", agent.id, error);
               });
             }
+            if (isSuccessfulRunBacktestResult(agent.id, notification)) {
+              void (async () => {
+                const artifact = await readPendingBacktest(workspace);
+                if (!artifact) return;
+                activity.publish({
+                  agentId: agent.id,
+                  kind: "tool_result",
+                  source: "chat",
+                  label: "Ran backtest",
+                  detail: JSON.stringify(artifact),
+                  toolName: "run_backtest",
+                });
+                await clearPendingBacktest(workspace);
+              })().catch((error) => {
+                console.error("[backtest-mid-turn]", agent.id, error);
+              });
+            }
           },
         });
       } catch (error) {
@@ -1734,6 +1755,22 @@ export function registerAgentRoutes(
         });
       } catch (error) {
         console.error("[strategy-improve]", agent.id, error);
+      }
+      try {
+        const artifact = await readPendingBacktest(workspace);
+        if (artifact) {
+          activity.publish({
+            agentId: agent.id,
+            kind: "tool_result",
+            source: "chat",
+            label: "Ran backtest",
+            detail: JSON.stringify(artifact),
+            toolName: "run_backtest",
+          });
+          await clearPendingBacktest(workspace);
+        }
+      } catch (error) {
+        console.error("[backtest-sync]", agent.id, error);
       }
 
       const assistantMessage = messages.append(

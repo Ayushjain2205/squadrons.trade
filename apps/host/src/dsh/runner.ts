@@ -280,6 +280,7 @@ export async function runDshTurn(
         : continuing
           ? buildContinuingTurnPrompt(options.userText, {
               hasStrategy: Boolean(options.agent.strategy),
+              enabledPlugins: options.enabledPluginNames,
             })
           : buildColdStartPrompt(options);
 

@@ -31,14 +31,25 @@ const plugins = {
   "squadrons-strategy": "link:$ROOT/packages/squadrons-strategy",
   "squadrons-social": "link:$ROOT/packages/squadrons-social",
   "squadrons-intel": "link:$ROOT/packages/squadrons-intel",
+  "squadrons-backtest": "link:$ROOT/packages/squadrons-backtest",
 };
+// MCP bridge for remote catalog/custom plugins (Dune, Nansen, custom HTTP).
+data.dependencies["@deepseek-ai/dsh-mcp-client"] = "0.1.2-rc.1";
 for (const [name, spec] of Object.entries(plugins)) {
   data.dependencies[name] = spec;
 }
 data.dsh = data.dsh || {};
 data.dsh.profile = data.dsh.profile || {};
 data.dsh.profile.bundles = data.dsh.profile.bundles || [];
-for (const name of Object.keys(plugins)) {
+// Always-on Cordis tools (Backtest is disabled per-agent when Plugins toggle is off).
+const bundled = [
+  "squadrons-defi",
+  "squadrons-strategy",
+  "squadrons-social",
+  "squadrons-intel",
+  "squadrons-backtest",
+];
+for (const name of bundled) {
   if (!data.dsh.profile.bundles.includes(name)) {
     data.dsh.profile.bundles.push(name);
   }

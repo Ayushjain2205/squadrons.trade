@@ -7,6 +7,7 @@ export const SQUADRONS_DSH_PLUGINS = [
   "squadrons-strategy",
   "squadrons-social",
   "squadrons-intel",
+  "squadrons-backtest",
 ] as const;
 
 export type SquadronsDshPlugin = (typeof SQUADRONS_DSH_PLUGINS)[number];

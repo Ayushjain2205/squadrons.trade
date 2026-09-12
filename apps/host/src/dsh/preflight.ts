@@ -119,6 +119,37 @@ export async function runDshPreflight(): Promise<DshPreflightResult> {
   }
 
   const bundles = readProfileBundles(dshHome);
+  const profilePkgPath = path.join(dshHome, "profiles/sdk/package.json");
+  if (existsSync(profilePkgPath)) {
+    try {
+      const data = JSON.parse(readFileSync(profilePkgPath, "utf8")) as {
+        dependencies?: Record<string, string>;
+      };
+      if (!data.dependencies?.["@deepseek-ai/dsh-mcp-client"]) {
+        issues.push({
+          code: "missing_mcp_client",
+          message:
+            "sdk profile is missing @deepseek-ai/dsh-mcp-client — catalog/custom MCP plugins will load with zero tools",
+          fix: "pnpm --filter @squadrons/host dsh:link",
+        });
+      }
+    } catch {
+      // ignore parse errors; other checks cover broken profile
+    }
+  }
+  if (
+    !existsSync(
+      path.join(dshHome, "profiles/sdk/node_modules/@deepseek-ai/dsh-mcp-client"),
+    )
+  ) {
+    issues.push({
+      code: "mcp_client_uninstalled",
+      message:
+        "@deepseek-ai/dsh-mcp-client is not installed in the sdk profile node_modules",
+      fix: "pnpm --filter @squadrons/host dsh:link",
+    });
+  }
+
   for (const plugin of SQUADRONS_DSH_PLUGINS) {
     if (bundles.length > 0 && !bundles.includes(plugin)) {
       issues.push({
