@@ -7,6 +7,7 @@ import {
   SUPPORTED_CHAINS,
   type AvatarId,
   type OrbColorId,
+  type RunMode,
   type SupportedChainId,
 } from "@squadrons/shared";
 import { AgentOrb } from "@/components/AgentOrb";
@@ -16,6 +17,7 @@ import {
   armStrategy,
   disarmStrategy,
   getAgent,
+  getHostMeta,
   pauseStrategy,
   resumeStrategy,
   updateAgent,
@@ -204,8 +206,23 @@ function AgentContextSummary({
   onAgentUpdatedRef.current = onAgentUpdated;
   const [posturePending, startPosture] = useTransition();
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
+  const [hostAllowsLive, setHostAllowsLive] = useState(false);
   const toast = useToast();
   const { ensureHostSigner } = useHostSigner();
+
+  useEffect(() => {
+    let cancelled = false;
+    void getHostMeta()
+      .then((meta) => {
+        if (!cancelled) setHostAllowsLive(meta.hostAllowsLive);
+      })
+      .catch(() => {
+        if (!cancelled) setHostAllowsLive(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!strategyRunning) return;
@@ -227,9 +244,7 @@ function AgentContextSummary({
     };
   }, [agent.id, strategyRunning]);
 
-  function patchAgent(input: {
-    spendMode?: "observe" | "spend_enabled";
-  }) {
+  function patchAgent(input: { runMode?: RunMode }) {
     if (posturePending || isWorking) return;
     startPosture(async () => {
       try {
@@ -237,26 +252,32 @@ function AgentContextSummary({
         onAgentUpdatedRef.current?.(updated);
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : "Could not update posture",
+          err instanceof Error ? err.message : "Could not update run mode",
         );
       }
     });
   }
 
-  function requestSpendChange(spendMode: "observe" | "spend_enabled") {
-    if (spendMode === agent.spendMode || posturePending || isWorking) return;
+  function requestRunModeChange(runMode: RunMode) {
+    if (runMode === agent.runMode || posturePending || isWorking) return;
+    if (runMode === "live" && !hostAllowsLive) {
+      toast.error(
+        "Live is disabled on this host — set SQUADRONS_EXECUTION_MODE=live",
+      );
+      return;
+    }
     setConfirm(
-      spendConfirmRequest(spendMode, () => {
+      runModeConfirmRequest(runMode, () => {
         setConfirm(null);
-        if (spendMode !== "spend_enabled") {
-          patchAgent({ spendMode });
+        if (runMode !== "live") {
+          patchAgent({ runMode });
           return;
         }
         if (posturePending || isWorking) return;
         startPosture(async () => {
           try {
             const signer = await ensureHostSigner();
-            const updated = await updateAgent(agent.id, { spendMode });
+            const updated = await updateAgent(agent.id, { runMode });
             onAgentUpdatedRef.current?.(updated);
             if (!signer.alreadyDelegated) {
               toast.info("Host can now sign for this wallet");
@@ -265,7 +286,7 @@ function AgentContextSummary({
             toast.error(
               err instanceof Error
                 ? err.message
-                : "Could not enable spend — host wallet access failed",
+                : "Could not enable Live — host wallet access failed",
             );
           }
         });
@@ -281,21 +302,18 @@ function AgentContextSummary({
         <div className="flex items-center gap-2.5">
           <ChainName chainId={agent.chainId} size={18} tipPlacement="right" />
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <HoverFlipToggle
-              value={agent.spendMode}
+            <RunModeToggle
+              value={agent.runMode}
               disabled={postureDisabled}
-              options={[
-                { id: "observe", label: "Observe" },
-                { id: "spend_enabled", label: "Spend" },
-              ]}
-              onChange={requestSpendChange}
+              hostAllowsLive={hostAllowsLive}
+              onChange={requestRunModeChange}
             />
           </div>
         </div>
       </section>
 
       <StrategyCard
-        spendMode={agent.spendMode}
+        runMode={agent.runMode}
         strategy={agent.strategy}
         agentId={agent.id}
         chainId={agent.chainId}
@@ -335,7 +353,7 @@ function AgentContextSummary({
             event.label === "Self-improvement failed" ||
             event.label === "Self-improvement skipped" ||
             event.label === "Spend enabled" ||
-            event.label === "Spend set to observe";
+            event.label.startsWith("Run mode set to");
           if (!shouldRefresh) return;
           void getAgent(agent.id)
             .then((latest) => onAgentUpdatedRef.current?.(latest))
@@ -359,21 +377,29 @@ type ConfirmRequest = {
   onConfirm: () => void;
 };
 
-function spendConfirmRequest(
-  next: "observe" | "spend_enabled",
+function runModeConfirmRequest(
+  next: RunMode,
   onConfirm: () => void,
 ): ConfirmRequest {
-  if (next === "spend_enabled") {
+  if (next === "live") {
     return {
-      title: "Enable spend?",
-      body: "This agent can propose capped trades. You’ll grant Squadrons permission to sign from your embedded wallet (Privy). You still approve token allowances in chat before first spend.",
-      confirmLabel: "Enable spend",
+      title: "Go live?",
+      body: "This agent can broadcast capped trades on Base. You’ll grant Squadrons permission to sign from your embedded wallet. Token allowances still need chat approval before first spend.",
+      confirmLabel: "Go live",
+      onConfirm,
+    };
+  }
+  if (next === "paper") {
+    return {
+      title: "Switch to paper?",
+      body: "Strategies will quote and record paper fills. Nothing is broadcast on-chain.",
+      confirmLabel: "Paper trading",
       onConfirm,
     };
   }
   return {
-    title: "Switch to observe-only?",
-    body: "This agent will stop proposing spends until you enable spend again.",
+    title: "Switch to observe?",
+    body: "This agent will stop proposing trades until you move to Paper or Live.",
     confirmLabel: "Observe only",
     onConfirm,
   };
@@ -432,50 +458,67 @@ function ConfirmDialog({
   );
 }
 
-/** Idle: current value. Hover/focus: both options to flip. */
-function HoverFlipToggle<T extends string>({
+/** Always-visible Observe | Paper | Live control. */
+function RunModeToggle({
   value,
-  options,
   disabled,
+  hostAllowsLive,
   onChange,
 }: {
-  value: T;
-  options: Array<{ id: T; label: string }>;
+  value: RunMode;
   disabled?: boolean;
-  onChange: (next: T) => void;
+  hostAllowsLive: boolean;
+  onChange: (next: RunMode) => void;
 }) {
-  const current = options.find((o) => o.id === value) ?? options[0];
+  const options: Array<{
+    id: RunMode;
+    label: string;
+    locked?: boolean;
+  }> = [
+    { id: "observe", label: "Observe" },
+    { id: "paper", label: "Paper" },
+    {
+      id: "live",
+      label: "Live",
+      locked: !hostAllowsLive,
+    },
+  ];
 
   return (
     <div
-      className={`group/flip relative inline-flex min-h-7 items-center rounded-full bg-[var(--panel-2)] px-0.5 py-0.5 ring-1 ring-[var(--line-soft)] ${
+      className={`inline-flex min-h-7 items-center gap-0.5 rounded-full bg-[var(--panel-2)] px-0.5 py-0.5 ring-1 ring-[var(--line-soft)] ${
         disabled ? "opacity-50" : ""
       }`}
+      role="group"
+      aria-label="Run mode"
     >
-      <span className="type-meta px-2.5 py-0.5 font-medium text-[var(--ink)] group-hover/flip:hidden group-focus-within/flip:hidden">
-        {current.label}
-      </span>
-      <div className="hidden items-center gap-0.5 group-hover/flip:flex group-focus-within/flip:flex">
-        {options.map((option) => {
-          const selected = option.id === value;
-          return (
-            <button
-              key={option.id}
-              type="button"
-              disabled={disabled || selected}
-              aria-pressed={selected}
-              onClick={() => onChange(option.id)}
-              className={`type-meta rounded-full px-2.5 py-0.5 transition ${
-                selected
-                  ? "bg-[var(--ink)] font-semibold text-[var(--canvas)]"
+      {options.map((option) => {
+        const selected = option.id === value;
+        const locked = Boolean(option.locked);
+        return (
+          <button
+            key={option.id}
+            type="button"
+            disabled={disabled || selected || locked}
+            title={
+              locked
+                ? "Host ceiling is paper-only (SQUADRONS_EXECUTION_MODE)"
+                : undefined
+            }
+            aria-pressed={selected}
+            onClick={() => onChange(option.id)}
+            className={`type-meta rounded-full px-2.5 py-0.5 transition ${
+              selected
+                ? "bg-[var(--ink)] font-semibold text-[var(--canvas)]"
+                : locked
+                  ? "cursor-not-allowed text-[var(--muted)] opacity-50"
                   : "cursor-pointer text-[var(--muted)] hover:bg-[var(--panel)] hover:text-[var(--ink)] disabled:cursor-not-allowed"
-              }`}
-            >
-              {option.label}
-            </button>
-          );
-        })}
-      </div>
+            }`}
+          >
+            {option.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -494,9 +537,8 @@ function AgentSettingsForm({
   const [avatarId, setAvatarId] = useState<AvatarId>(agent.avatarId);
   const [colorId, setColorId] = useState<OrbColorId>(agent.colorId);
   const [chainId, setChainId] = useState<SupportedChainId>(agent.chainId);
-  const [spendMode, setSpendMode] = useState<"observe" | "spend_enabled">(
-    agent.spendMode,
-  );
+  const [runMode, setRunMode] = useState<RunMode>(agent.runMode);
+  const [hostAllowsLive, setHostAllowsLive] = useState(false);
   const [pending, startTransition] = useTransition();
   const [confirm, setConfirm] = useState<ConfirmRequest | null>(null);
   const toast = useToast();
@@ -505,24 +547,38 @@ function AgentSettingsForm({
   const chainLocked = agent.status === "working";
 
   useEffect(() => {
+    let cancelled = false;
+    void getHostMeta()
+      .then((meta) => {
+        if (!cancelled) setHostAllowsLive(meta.hostAllowsLive);
+      })
+      .catch(() => {
+        if (!cancelled) setHostAllowsLive(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     setName(agent.name);
     setDescription(agent.description);
     setAvatarId(agent.avatarId);
     setColorId(agent.colorId);
     setChainId(agent.chainId);
-    setSpendMode(agent.spendMode);
+    setRunMode(agent.runMode);
     setConfirm(null);
   }, [agent]);
 
   function onSubmit(event: React.FormEvent) {
     event.preventDefault();
-    const enablingSpend =
-      spendMode === "spend_enabled" && agent.spendMode !== "spend_enabled";
+    const enablingLive =
+      runMode === "live" && agent.runMode !== "live";
 
     const save = () => {
       startTransition(async () => {
         try {
-          if (enablingSpend) {
+          if (enablingLive) {
             await ensureHostSigner();
           }
           const updated = await updateAgent(agent.id, {
@@ -531,7 +587,7 @@ function AgentSettingsForm({
             avatarId,
             colorId,
             chainId: chainLocked ? undefined : chainId,
-            spendMode,
+            runMode,
           });
           onSaved(updated);
         } catch (err) {
@@ -540,9 +596,15 @@ function AgentSettingsForm({
       });
     };
 
-    if (enablingSpend) {
+    if (enablingLive) {
+      if (!hostAllowsLive) {
+        toast.error(
+          "Live is disabled on this host — set SQUADRONS_EXECUTION_MODE=live",
+        );
+        return;
+      }
       setConfirm(
-        spendConfirmRequest("spend_enabled", () => {
+        runModeConfirmRequest("live", () => {
           setConfirm(null);
           save();
         }),
@@ -652,38 +714,47 @@ function AgentSettingsForm({
         </fieldset>
 
         <fieldset className="space-y-2">
-          <legend className="type-label">Spend</legend>
+          <legend className="type-label">Run mode</legend>
           <div className="flex gap-1.5">
             {(
               [
                 {
                   id: "observe" as const,
                   label: "Observe",
-                  hint: "Ticks alert only",
+                  hint: "Alerts only",
                 },
                 {
-                  id: "spend_enabled" as const,
-                  label: "Enabled",
-                  hint: "Propose trades (dry-run executor by default)",
+                  id: "paper" as const,
+                  label: "Paper",
+                  hint: "Quote fills, no broadcast",
+                },
+                {
+                  id: "live" as const,
+                  label: "Live",
+                  hint: hostAllowsLive
+                    ? "Real txs under caps"
+                    : "Disabled on this host",
                 },
               ] as const
             ).map((option) => {
-              const selected = spendMode === option.id;
+              const selected = runMode === option.id;
+              const locked = option.id === "live" && !hostAllowsLive;
               return (
                 <button
                   key={option.id}
                   type="button"
+                  disabled={locked}
                   onClick={() => {
-                    if (option.id === spendMode) return;
+                    if (option.id === runMode || locked) return;
                     setConfirm(
-                      spendConfirmRequest(option.id, () => {
+                      runModeConfirmRequest(option.id, () => {
                         setConfirm(null);
-                        setSpendMode(option.id);
+                        setRunMode(option.id);
                       }),
                     );
                   }}
                   aria-pressed={selected}
-                  className={`flex flex-1 cursor-pointer flex-col items-start rounded-xl border px-3 py-2.5 text-left transition ${
+                  className={`flex flex-1 cursor-pointer flex-col items-start rounded-xl border px-3 py-2.5 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
                     selected
                       ? "border-[var(--accent)] bg-[var(--panel)]"
                       : "border-[var(--line)] hover:border-[var(--line)] hover:bg-[var(--panel)]"

@@ -25,7 +25,7 @@ const mono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "Squadrons",
   description:
-    "Persistent crypto agents with memory and observe-first spend.",
+    "Persistent crypto agents with memory — Observe, Paper, then Live.",
 };
 
 export default function RootLayout({

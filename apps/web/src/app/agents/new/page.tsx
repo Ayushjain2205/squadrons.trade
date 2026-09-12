@@ -167,7 +167,7 @@ export default function NewAgentPage() {
             />
           </label>
 
-          <p className="type-data text-[var(--muted)]">Spend starts as observe</p>
+          <p className="type-data text-[var(--muted)]">Starts in Observe</p>
 
           <button
             type="submit"

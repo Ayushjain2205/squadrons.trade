@@ -671,7 +671,7 @@ function TradeOutcomeCard({
           ? "Needs gas"
           : "Failed"
         : kind === "dry_run"
-          ? "Dry-run"
+          ? "Paper"
           : "Dismissed";
   return (
     <div

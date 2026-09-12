@@ -200,7 +200,7 @@ export function startStrategyScheduler(deps: {
               source: "strategy",
               label:
                 executed.status === "dry_run"
-                  ? `Dry-run: ${gated.decision.label}`
+                  ? `Paper: ${gated.decision.label}`
                   : executed.status === "submitted"
                     ? `Submitted: ${gated.decision.label}`
                     : executed.status === "failed"

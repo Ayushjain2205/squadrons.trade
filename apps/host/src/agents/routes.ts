@@ -1332,7 +1332,7 @@ export function registerAgentRoutes(
           executed.status === "submitted"
             ? "Trade submitted"
             : executed.status === "dry_run"
-              ? "Dry-run complete (no broadcast)"
+              ? "Paper fill (no broadcast)"
               : executed.status === "failed"
                 ? outcomeMsg.outcome.title
                 : "Allowance resolved";

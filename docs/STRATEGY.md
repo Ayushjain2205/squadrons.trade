@@ -12,6 +12,18 @@ How Squadrons turns chat into a durable, host-run loop.
 
 Arm is always a human desk action. Runtime ticks do **not** call an LLM.
 
+### Run mode (per agent)
+
+One control: **Observe → Paper → Live**.
+
+| Mode | Effect |
+| --- | --- |
+| Observe | Alerts / research only — no trade intents |
+| Paper | Trade recipes quote + record fills — never broadcast |
+| Live | Real Base txs under caps (requires host `SQUADRONS_EXECUTION_MODE=live`) |
+
+Host env is a **ceiling** (ops kill switch), not a third desk concept. New agents start in Observe; graduate Paper → Live from the desk.
+
 ## Templates
 
 Curated, chain-filtered **prefilled drafts** over built-in recipes (Squadrons-authored only).

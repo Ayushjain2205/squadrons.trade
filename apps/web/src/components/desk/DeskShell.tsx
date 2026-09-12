@@ -48,7 +48,7 @@ export function DeskShell({
     }
   }, []);
 
-  // If any agent already has spend enabled, grant host signer once (idempotent).
+  // If any agent is Live, grant host signer once (idempotent).
   useEffect(() => {
     if (catchUpTried.current) return;
     if (!status.ready || !status.configured) return;
@@ -56,7 +56,7 @@ export function DeskShell({
       catchUpTried.current = true;
       return;
     }
-    const needsSigner = agents.some((a) => a.spendMode === "spend_enabled");
+    const needsSigner = agents.some((a) => a.runMode === "live");
     if (!needsSigner) return;
     if (!status.address) return;
 

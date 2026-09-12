@@ -33,7 +33,7 @@ const IMPROVEMENT_ACTIVITY_LABELS = new Set([
 ]);
 
 export function StrategyCard({
-  spendMode = "observe",
+  runMode = "observe",
   strategy,
   agentId,
   chainId,
@@ -41,7 +41,7 @@ export function StrategyCard({
   onAction,
   onAgentUpdated,
 }: {
-  spendMode?: "observe" | "spend_enabled";
+  runMode?: "observe" | "paper" | "live";
   strategy: Strategy | null;
   agentId: string;
   chainId: SupportedChainId;
@@ -241,7 +241,11 @@ export function StrategyCard({
     ) ?? strategy.summary;
   const schedule = describeStrategySchedule(strategy.trigger);
   const spendLabel =
-    spendMode === "observe" ? "Observe only" : "Spend enabled";
+    runMode === "live"
+      ? "Live"
+      : runMode === "paper"
+        ? "Paper"
+        : "Observe";
   const actionVerb =
     strategy.action.type === "propose_trade" ? "Propose trade" : "Alert";
 
@@ -258,9 +262,11 @@ export function StrategyCard({
 
   const armHint = needsRecipe
     ? "Ask chat for a recipe-backed plan first"
-    : spendMode === "observe"
-      ? "Arms in observe mode — alerts only"
-      : "Arms with spend enabled — still policy-gated";
+    : runMode === "observe"
+      ? "Arms in observe — alerts only"
+      : runMode === "paper"
+        ? "Arms in paper — quotes fills, no broadcast"
+        : "Arms in live — real txs under caps";
 
   const proposalPreview = proposal
     ? Object.entries(proposal.patch)
@@ -337,7 +343,7 @@ export function StrategyCard({
             ))}
           </ul>
           <p className="type-meta text-[var(--muted)]">
-            Executor dry-runs by default — no broadcast until live mode
+            Paper quotes fills; Live broadcasts on Base under caps
           </p>
         </div>
       ) : null}
@@ -577,7 +583,7 @@ function intentStatusLabel(
     case "dismissed":
       return "Dismissed";
     case "dry_run":
-      return "Dry-run";
+      return "Paper";
     case "submitted":
       return "Submitted";
     case "proposed":

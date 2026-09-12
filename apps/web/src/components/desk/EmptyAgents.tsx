@@ -27,8 +27,8 @@ export function EmptyAgents() {
       <div className="max-w-md space-y-3">
         <p className="type-display">Create your first agent</p>
         <p className="type-ui text-[var(--ink-soft)]">
-          Name it, pick a face, then put it on a chain — observe by default,
-          spend only when you flip the switch.
+          Name it, pick a face, then put it on a chain — Observe by default,
+          then Paper before Live.
         </p>
       </div>
 

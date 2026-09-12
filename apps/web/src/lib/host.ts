@@ -95,6 +95,32 @@ export async function getWalletSummary(): Promise<WalletSummary> {
   };
 }
 
+export type HostMeta = {
+  executionMode: "off" | "dry_run" | "live";
+  hostAllowsLive: boolean;
+};
+
+export async function getHostMeta(): Promise<HostMeta> {
+  const response = await fetch(`${hostUrl}/v1/meta`, { cache: "no-store" });
+  const data = (await response.json()) as Partial<HostMeta> & {
+    ok?: boolean;
+    error?: string;
+  };
+  if (!response.ok) {
+    throw new Error(data.error ?? `Host meta failed (${response.status})`);
+  }
+  const executionMode =
+    data.executionMode === "off" ||
+    data.executionMode === "dry_run" ||
+    data.executionMode === "live"
+      ? data.executionMode
+      : "dry_run";
+  return {
+    executionMode,
+    hostAllowsLive: Boolean(data.hostAllowsLive),
+  };
+}
+
 export async function listAgents(): Promise<AgentWithWorkspace[]> {
   const data = await hostFetch<{ agents: AgentWithWorkspace[] }>("/v1/agents");
   return data.agents;
