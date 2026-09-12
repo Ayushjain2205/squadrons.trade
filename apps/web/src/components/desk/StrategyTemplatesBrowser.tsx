@@ -153,35 +153,14 @@ export function StrategyTemplatesBrowser({
         className="flex max-h-[min(40rem,90vh)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--panel)] shadow-[0_16px_48px_rgb(0_0_0_/_0.55)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex shrink-0 items-start justify-between gap-3 border-b border-[var(--line-soft)] px-4 py-3.5 sm:px-5">
-          <div className="flex min-w-0 items-start gap-3">
-            <span
-              className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl"
-              style={{
-                background:
-                  "color-mix(in srgb, var(--accent) 14%, transparent)",
-                boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent)",
-              }}
-            >
-              <ChainLogo chainId={chainId} size={22} className="rounded-md" />
-            </span>
-            <div className="min-w-0">
-              <h2
-                id="strategy-templates-title"
-                className="type-ui text-[var(--ink)]"
-              >
-                Strategy templates
-              </h2>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={pending}
-            className="type-meta shrink-0 cursor-pointer rounded-full px-2.5 py-1 text-[var(--muted)] transition hover:bg-[var(--panel-2)] hover:text-[var(--ink)] disabled:opacity-40"
+        <header className="flex shrink-0 items-center gap-2.5 border-b border-[var(--line-soft)] px-4 py-3.5 sm:px-5">
+          <ChainLogo chainId={chainId} size={22} className="rounded-md" />
+          <h2
+            id="strategy-templates-title"
+            className="type-ui text-[var(--ink)]"
           >
-            Close
-          </button>
+            Strategy templates
+          </h2>
         </header>
 
         {loading ? (
