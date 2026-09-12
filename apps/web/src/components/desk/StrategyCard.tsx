@@ -424,37 +424,49 @@ export function StrategyCard({
           </PrimaryButton>
         )}
 
-        {canDisarm ? (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => run("disarm")}
-            className="type-ui w-full cursor-pointer rounded-full px-4 py-2 text-[var(--muted)] transition hover:bg-[var(--panel-2)] hover:text-[var(--ink)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {pending ? "Disarming…" : "Disarm"}
-          </button>
-        ) : null}
-
-        {canBrowseTemplates ? (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => setBrowsingTemplates(true)}
-            className="type-ui w-full cursor-pointer rounded-full border border-[var(--line)] px-4 py-2 text-[var(--ink)] transition hover:bg-[var(--panel-2)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Browse templates
-          </button>
-        ) : null}
-
-        {canRemove ? (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={clearStrategy}
-            className="type-ui w-full cursor-pointer rounded-full px-4 py-2 text-[var(--muted)] transition hover:bg-[var(--panel-2)] hover:text-[var(--danger)] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {pending ? "Removing…" : "Remove strategy"}
-          </button>
+        {canDisarm || canBrowseTemplates || canRemove ? (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {canDisarm ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => run("disarm")}
+                className="type-meta cursor-pointer text-[var(--muted)] transition hover:text-[var(--ink)] disabled:opacity-40"
+              >
+                {pending ? "Disarming…" : "Disarm"}
+              </button>
+            ) : null}
+            {canDisarm && (canBrowseTemplates || canRemove) ? (
+              <span className="type-meta text-[var(--line)]" aria-hidden>
+                ·
+              </span>
+            ) : null}
+            {canBrowseTemplates ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setBrowsingTemplates(true)}
+                className="type-meta cursor-pointer text-[var(--muted)] transition hover:text-[var(--ink)] disabled:opacity-40"
+              >
+                Templates
+              </button>
+            ) : null}
+            {canBrowseTemplates && canRemove ? (
+              <span className="type-meta text-[var(--line)]" aria-hidden>
+                ·
+              </span>
+            ) : null}
+            {canRemove ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={clearStrategy}
+                className="type-meta cursor-pointer text-[var(--muted)] transition hover:text-[var(--danger)] disabled:opacity-40"
+              >
+                {pending ? "Removing…" : "Remove"}
+              </button>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
