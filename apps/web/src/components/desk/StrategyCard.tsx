@@ -13,11 +13,9 @@ import {
   approveStrategyImprovement,
   dismissStrategyImprovement,
   listStrategyImprovements,
-  listTradeIntents,
   removeStrategy,
   subscribeActivity,
   updateStrategyImprovement,
-  type TradeIntentRecord,
 } from "@/lib/host";
 import { useToast } from "@/components/Toast";
 import { StrategyTemplatesBrowser } from "./StrategyTemplatesBrowser";
@@ -57,7 +55,6 @@ export function StrategyCard({
     null,
   );
   const [proposalHighlight, setProposalHighlight] = useState(false);
-  const [intents, setIntents] = useState<TradeIntentRecord[]>([]);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [browsingTemplates, setBrowsingTemplates] = useState(false);
   const toast = useToast();
@@ -82,24 +79,10 @@ export function StrategyCard({
       });
   }
 
-  function refreshIntents() {
-    if (strategy?.action.type !== "propose_trade") {
-      setIntents([]);
-      return;
-    }
-    void listTradeIntents(agentId, 5)
-      .then((data) => setIntents(data.intents))
-      .catch(() => setIntents([]));
-  }
-
   useEffect(() => {
     refreshProposal();
     setAdvancedOpen(false);
   }, [agentId, strategy?.updatedAt, strategy?.params, strategy?.improvement?.lastRunAt]); // eslint-disable-line react-hooks/exhaustive-deps -- refresh when strategy identity/params/improve change
-
-  useEffect(() => {
-    refreshIntents();
-  }, [agentId, strategy?.action.type, strategy?.updatedAt, strategy?.lastTickAt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const unsubscribe = subscribeActivity(agentId, (event) => {
@@ -108,15 +91,9 @@ export function StrategyCard({
           highlight: event.label === "Self-improvement suggested",
         });
       }
-      if (
-        event.source === "strategy" &&
-        strategy?.action.type === "propose_trade"
-      ) {
-        refreshIntents();
-      }
     });
     return unsubscribe;
-  }, [agentId, strategy?.action.type]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [agentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!proposalHighlight) return;
@@ -240,14 +217,6 @@ export function StrategyCard({
       strategy.action.type,
     ) ?? strategy.summary;
   const schedule = describeStrategySchedule(strategy.trigger);
-  const spendLabel =
-    runMode === "live"
-      ? "Live"
-      : runMode === "paper"
-        ? "Paper"
-        : "Observe";
-  const actionVerb =
-    strategy.action.type === "propose_trade" ? "Propose trade" : "Alert";
 
   const canArm =
     !needsRecipe &&
@@ -274,9 +243,9 @@ export function StrategyCard({
         .join(" · ")
     : "";
 
+  // Run mode lives on the desk toggle above — don't repeat Paper/Live here.
   const metaBits = [
     schedule,
-    spendLabel,
     strategy.lastTickAt
       ? `Last check ${formatRelativeTime(strategy.lastTickAt)}`
       : strategy.status === "running"
@@ -294,12 +263,6 @@ export function StrategyCard({
 
       <div className="space-y-1">
         <p className="type-ui leading-snug text-[var(--ink)]">{planLine}</p>
-        {strategy.action.type === "propose_trade" || strategy.action.detail ? (
-          <p className="type-meta text-[var(--muted)]">
-            {actionVerb}
-            {strategy.action.detail ? ` — ${strategy.action.detail}` : null}
-          </p>
-        ) : null}
       </div>
 
       {needsRecipe ? (
@@ -311,41 +274,6 @@ export function StrategyCard({
 
       {metaBits.length > 0 ? (
         <p className="type-meta text-[var(--muted)]">{metaBits.join(" · ")}</p>
-      ) : null}
-
-      {strategy.action.type === "propose_trade" && intents.length > 0 ? (
-        <div className="space-y-1.5">
-          <p className="type-meta text-[var(--muted)]">Trade intents</p>
-          <ul className="space-y-1">
-            {intents.map((intent) => (
-              <li
-                key={intent.id}
-                className="flex items-start justify-between gap-2 type-meta"
-              >
-                <span className="min-w-0 truncate text-[var(--ink-soft)]">
-                  {intent.label}
-                  {intent.status === "submitted" && intent.txHash
-                    ? ` · ${intent.txHash.slice(0, 10)}…`
-                    : null}
-                </span>
-                <span
-                  className={
-                    intent.status === "blocked" || intent.status === "failed"
-                      ? "shrink-0 text-[var(--danger)]"
-                      : intent.status === "submitted"
-                        ? "shrink-0 text-[var(--ink)]"
-                        : "shrink-0 text-[var(--muted)]"
-                  }
-                >
-                  {intentStatusLabel(intent.status)}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p className="type-meta text-[var(--muted)]">
-            Paper quotes fills; Live broadcasts on Base under caps
-          </p>
-        </div>
       ) : null}
 
       {proposal ? (
@@ -568,28 +496,6 @@ export function StrategyCard({
     {templatesModal}
     </>
   );
-}
-
-function intentStatusLabel(
-  status: TradeIntentRecord["status"],
-): string {
-  switch (status) {
-    case "blocked":
-      return "Blocked";
-    case "failed":
-      return "Failed";
-    case "awaiting_allowance":
-      return "Needs approve";
-    case "dismissed":
-      return "Dismissed";
-    case "dry_run":
-      return "Paper";
-    case "submitted":
-      return "Submitted";
-    case "proposed":
-    default:
-      return "Queued";
-  }
 }
 
 function StatusPill({
