@@ -107,6 +107,30 @@ export const STRATEGY_TEMPLATES: readonly StrategyTemplate[] = [
       caps: { maxTradeUsd: 10 },
     },
   },
+  {
+    id: "eth-tp-stop",
+    name: "ETH take-profit / stop",
+    blurb: "Propose a capped ETH sell at take-profit or stop-loss.",
+    description:
+      "Long-exit watch: fires when ETH crosses above your take-profit or below your stop. Proposes a capped sell (fail-closed). Set levels around your entry before Arming; requires spend enabled.",
+    chainIds: [8453, 1],
+    tags: ["trade", "price", "propose"],
+    editableKeys: ["takeProfit", "stopLoss", "amountUsd", "side"],
+    draft: {
+      summary: "Propose sell ETH at TP $3,500 or stop $2,500 (~$10)",
+      recipeId: "take_profit_stop",
+      params: {
+        symbol: "ETH",
+        takeProfit: 3500,
+        stopLoss: 2500,
+        side: "sell",
+        amountUsd: 10,
+      },
+      trigger: { type: "event", event: "price_tp_stop", intervalSec: 60 },
+      action: { type: "propose_trade" },
+      caps: { maxTradeUsd: 10 },
+    },
+  },
 ] as const;
 
 export type StrategyTemplateId = (typeof STRATEGY_TEMPLATES)[number]["id"];
@@ -200,6 +224,18 @@ export function buildDraftFromTemplate(
           ? ` (~$${Math.round(amountUsd).toLocaleString()})`
           : "";
       summary = `Propose ${side} ETH when price crosses ${direction} $${Math.round(level).toLocaleString()}${size}`;
+    }
+  } else if (template.id === "eth-tp-stop") {
+    const takeProfit = Number(params.takeProfit);
+    const stopLoss = Number(params.stopLoss);
+    const amountUsd = Number(params.amountUsd);
+    const side = params.side === "buy" ? "buy" : "sell";
+    if (Number.isFinite(takeProfit) && Number.isFinite(stopLoss)) {
+      const size =
+        Number.isFinite(amountUsd) && amountUsd > 0
+          ? ` (~$${Math.round(amountUsd).toLocaleString()})`
+          : "";
+      summary = `Propose ${side} ETH at TP $${Math.round(takeProfit).toLocaleString()} or stop $${Math.round(stopLoss).toLocaleString()}${size}`;
     }
   }
 

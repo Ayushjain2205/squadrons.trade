@@ -60,6 +60,13 @@ export async function evaluateEventEdge(
     return evaluatePriceCrossEdge(strategy);
   }
 
+  if (
+    event === "price_tp_stop" ||
+    strategy.recipeId === "take_profit_stop"
+  ) {
+    return evaluateTakeProfitStopEdge(strategy);
+  }
+
   // Unknown events: treat like interval (always fire when due).
   return {
     kind: "fire",
@@ -114,6 +121,53 @@ async function evaluatePriceCrossEdge(
 
   const detail = `${symbol} $${prev.toFixed(2)} → $${price.toFixed(2)} (level ${level})`;
   if (crossed) return { kind: "fire", detail };
+  return { kind: "quiet", detail };
+}
+
+async function evaluateTakeProfitStopEdge(
+  strategy: Strategy,
+): Promise<EventEdgeResult> {
+  const symbol =
+    typeof strategy.params.symbol === "string"
+      ? strategy.params.symbol.toUpperCase()
+      : "ETH";
+  const takeProfit = Number(strategy.params.takeProfit);
+  const stopLoss = Number(strategy.params.stopLoss);
+
+  if (
+    !Number.isFinite(takeProfit) ||
+    !Number.isFinite(stopLoss) ||
+    takeProfit <= stopLoss
+  ) {
+    return { kind: "skip", reason: "invalid takeProfit/stopLoss" };
+  }
+
+  const price = await fetchSpotUsd(symbol);
+  if (price == null) {
+    return { kind: "skip", reason: `no spot price for ${symbol}` };
+  }
+
+  const key = strategy.agentId;
+  const prev = lastPrices.get(key);
+  lastPrices.set(key, price);
+
+  if (prev == null) {
+    return {
+      kind: "armed",
+      detail: `${symbol} $${price.toFixed(2)} — watching TP $${takeProfit} / stop $${stopLoss}`,
+    };
+  }
+
+  const hitTp = prev < takeProfit && price >= takeProfit;
+  const hitStop = prev > stopLoss && price <= stopLoss;
+  const detail = `${symbol} $${prev.toFixed(2)} → $${price.toFixed(2)} (TP $${takeProfit} / stop $${stopLoss})`;
+
+  if (hitTp || hitStop) {
+    return {
+      kind: "fire",
+      detail: hitTp ? `${detail} · TP` : `${detail} · stop`,
+    };
+  }
   return { kind: "quiet", detail };
 }
 

@@ -8,6 +8,7 @@ import {
   executePriceCrossAlert,
   executePriceCrossSwap,
 } from "./price-cross.js";
+import { executeTakeProfitStop } from "./take-profit-stop.js";
 import type { RecipeContext } from "./types.js";
 
 export type { RecipeContext } from "./types.js";
@@ -21,6 +22,7 @@ const EXECUTORS: Record<RecipeId, RecipeExecutor> = {
   price_band_alert: executePriceBandAlert,
   price_cross_alert: executePriceCrossAlert,
   price_cross_swap: executePriceCrossSwap,
+  take_profit_stop: executeTakeProfitStop,
 };
 
 export function hasRecipeExecutor(recipeId: RecipeId | null): boolean {
