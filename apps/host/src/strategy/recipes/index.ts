@@ -4,6 +4,7 @@ import type {
 } from "@squadrons/shared";
 import { executeBalanceThresholdAlert } from "./balance-threshold.js";
 import { executeInventoryRebalance } from "./inventory-rebalance.js";
+import { executePoolLiquidityShock } from "./pool-liquidity.js";
 import { executePriceBandAlert } from "./price-band.js";
 import {
   executePriceCrossAlert,
@@ -27,6 +28,7 @@ const EXECUTORS: Record<RecipeId, RecipeExecutor> = {
   take_profit_stop: executeTakeProfitStop,
   inventory_rebalance: executeInventoryRebalance,
   stable_depeg_alert: executeStableDepegAlert,
+  pool_liquidity_shock: executePoolLiquidityShock,
 };
 
 export function hasRecipeExecutor(recipeId: RecipeId | null): boolean {

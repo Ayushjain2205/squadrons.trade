@@ -69,6 +69,7 @@ export function startStrategyScheduler(deps: {
       if (strategy.trigger.type === "event") {
         const edge = await evaluateEventEdge(
           deps.strategies.get(strategy.agentId) ?? strategy,
+          agent.chainId,
         );
         if (edge.kind === "skip") {
           deps.activity.publish({

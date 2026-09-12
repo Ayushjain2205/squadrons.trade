@@ -10,12 +10,73 @@ const SPOT_IDS: Record<string, string> = {
 
 /** In-memory last samples for event-edge detection (resets on host restart). */
 const lastPrices = new Map<string, number>();
+const lastPoolReserves = new Map<string, number>();
 
 export type EventEdgeResult =
   | { kind: "skip"; reason: string }
   | { kind: "armed"; detail: string }
   | { kind: "quiet"; detail: string }
   | { kind: "fire"; detail: string };
+
+export type PoolReserveSnapshot = {
+  reserveUsd: number;
+  name: string | null;
+  prevReserveUsd: number | null;
+  dropFraction: number | null;
+};
+
+function geckoNetworkId(chainId: number): string | null {
+  if (chainId === 8453) return "base";
+  if (chainId === 1) return "eth";
+  return null;
+}
+
+/** GeckoTerminal pool reserve USD + update in-memory sample for this agent key. */
+export async function fetchPoolReserveUsd(
+  chainId: number,
+  poolAddress: string,
+  sampleKey?: string,
+): Promise<PoolReserveSnapshot | null> {
+  const network = geckoNetworkId(chainId);
+  if (!network) return null;
+  const address = poolAddress.trim().toLowerCase();
+  if (
+    !/^0x[a-f0-9]{40}$/.test(address) &&
+    !/^0x[a-f0-9]{64}$/.test(address)
+  ) {
+    return null;
+  }
+
+  const url = `https://api.geckoterminal.com/api/v2/networks/${network}/pools/${address}`;
+  const response = await fetch(url, {
+    headers: {
+      accept: "application/json",
+      "User-Agent": "squadrons-host/0.1 (pool liquidity; read-only)",
+    },
+  });
+  if (!response.ok) return null;
+  const payload = (await response.json()) as {
+    data?: { attributes?: Record<string, unknown> };
+  };
+  const attrs = payload.data?.attributes;
+  if (!attrs) return null;
+  const reserveRaw = attrs.reserve_in_usd;
+  const reserveUsd = Number(reserveRaw);
+  if (!Number.isFinite(reserveUsd)) return null;
+  const name = typeof attrs.name === "string" ? attrs.name : null;
+
+  let prevReserveUsd: number | null = null;
+  let dropFraction: number | null = null;
+  if (sampleKey) {
+    prevReserveUsd = lastPoolReserves.get(sampleKey) ?? null;
+    lastPoolReserves.set(sampleKey, reserveUsd);
+    if (prevReserveUsd != null && prevReserveUsd > 0) {
+      dropFraction = (prevReserveUsd - reserveUsd) / prevReserveUsd;
+    }
+  }
+
+  return { reserveUsd, name, prevReserveUsd, dropFraction };
+}
 
 export async function fetchSpotUsd(symbol: string): Promise<number | null> {
   const coingeckoId = SPOT_IDS[symbol.toUpperCase()];
@@ -46,6 +107,7 @@ export async function fetchSpotUsd(symbol: string): Promise<number | null> {
  */
 export async function evaluateEventEdge(
   strategy: Strategy,
+  chainId: number,
 ): Promise<EventEdgeResult> {
   const event = strategy.trigger.event?.trim() || "";
   if (!event) {
@@ -72,6 +134,13 @@ export async function evaluateEventEdge(
     strategy.recipeId === "stable_depeg_alert"
   ) {
     return evaluateStableDepegEdge(strategy);
+  }
+
+  if (
+    event === "pool_liquidity_shock" ||
+    strategy.recipeId === "pool_liquidity_shock"
+  ) {
+    return evaluatePoolLiquidityShockEdge(strategy, chainId);
   }
 
   // Unknown events: treat like interval (always fire when due).
@@ -217,6 +286,57 @@ async function evaluateStableDepegEdge(
   return { kind: "quiet", detail };
 }
 
+async function evaluatePoolLiquidityShockEdge(
+  strategy: Strategy,
+  chainId: number,
+): Promise<EventEdgeResult> {
+  const poolAddress =
+    typeof strategy.params.poolAddress === "string"
+      ? strategy.params.poolAddress.trim()
+      : "";
+  const dropPct = Number(strategy.params.dropPct);
+  const minReserveUsd = Number(strategy.params.minReserveUsd ?? 0);
+
+  if (!poolAddress || !Number.isFinite(dropPct) || dropPct <= 0) {
+    return { kind: "skip", reason: "invalid pool liquidity params" };
+  }
+
+  const snap = await fetchPoolReserveUsd(
+    chainId,
+    poolAddress,
+    strategy.agentId,
+  );
+  if (!snap) {
+    return { kind: "skip", reason: "no pool reserve" };
+  }
+
+  const label =
+    snap.name ?? `${poolAddress.slice(0, 6)}…${poolAddress.slice(-4)}`;
+
+  if (snap.prevReserveUsd == null) {
+    return {
+      kind: "armed",
+      detail: `${label} reserve $${snap.reserveUsd.toFixed(0)} — watching ≥${(dropPct * 100).toFixed(0)}% drop`,
+    };
+  }
+
+  const detail = `${label} $${snap.prevReserveUsd.toFixed(0)} → $${snap.reserveUsd.toFixed(0)}`;
+  const hitDrop =
+    snap.dropFraction != null && snap.dropFraction >= dropPct;
+  const hitFloor = minReserveUsd > 0 && snap.reserveUsd < minReserveUsd;
+
+  if (hitDrop || hitFloor) {
+    return {
+      kind: "fire",
+      detail: hitDrop
+        ? `${detail} · −${((snap.dropFraction ?? 0) * 100).toFixed(1)}%`
+        : `${detail} · below floor $${minReserveUsd}`,
+    };
+  }
+  return { kind: "quiet", detail };
+}
+
 export function clearEventEdgeState(agentId: string): void {
   lastPrices.delete(agentId);
+  lastPoolReserves.delete(agentId);
 }

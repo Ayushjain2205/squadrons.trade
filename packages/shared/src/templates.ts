@@ -171,6 +171,27 @@ export const STRATEGY_TEMPLATES: readonly StrategyTemplate[] = [
       action: { type: "alert" },
     },
   },
+  {
+    id: "base-weth-usdc-liq",
+    name: "Base WETH/USDC liquidity shock",
+    blurb: "Alert when a major Base WETH/USDC pool reserve drops ≥20%.",
+    description:
+      "Watches a large Base WETH/USDC pool via GeckoTerminal. Quiet polls until reserve USD drops by your percentage (or under an optional floor). Paste another pool address from get_trending_pools if you want a different venue.",
+    chainIds: [8453],
+    tags: ["alert", "pool", "base"],
+    editableKeys: ["poolAddress", "dropPct", "minReserveUsd"],
+    draft: {
+      summary: "Alert when Base WETH/USDC pool liquidity drops ≥20%",
+      recipeId: "pool_liquidity_shock",
+      params: {
+        poolAddress: "0x6c561b446416e1a00e8e93e221854d6ea4171372",
+        dropPct: 0.2,
+        minReserveUsd: 0,
+      },
+      trigger: { type: "event", event: "pool_liquidity_shock", intervalSec: 120 },
+      action: { type: "alert" },
+    },
+  },
 ] as const;
 
 export type StrategyTemplateId = (typeof STRATEGY_TEMPLATES)[number]["id"];
@@ -295,6 +316,11 @@ export function buildDraftFromTemplate(
     const high = Number(params.high);
     if (Number.isFinite(low) && Number.isFinite(high)) {
       summary = `Alert when USDC leaves $${low.toFixed(2)}–$${high.toFixed(2)}`;
+    }
+  } else if (template.id === "base-weth-usdc-liq") {
+    const dropPct = Number(params.dropPct);
+    if (Number.isFinite(dropPct) && dropPct > 0) {
+      summary = `Alert when Base WETH/USDC pool liquidity drops ≥${Math.round(dropPct * 100)}%`;
     }
   }
 
