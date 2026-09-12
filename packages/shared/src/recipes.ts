@@ -9,6 +9,7 @@ export const RECIPE_IDS = [
   "inventory_rebalance",
   "stable_depeg_alert",
   "pool_liquidity_shock",
+  "copy_wallet_propose",
 ] as const;
 
 export type RecipeId = (typeof RECIPE_IDS)[number];
@@ -119,6 +120,18 @@ export const RECIPE_CATALOG: Record<RecipeId, RecipeParamSchema> = {
       poolAddress: "0x6c561b446416e1a00e8e93e221854d6ea4171372",
       dropPct: 0.2,
       minReserveUsd: 0,
+    },
+  },
+  copy_wallet_propose: {
+    label: "Copy wallet",
+    description:
+      "Event-style: when a watched wallet's ETH(+WETH) and USDC move like a swap, propose a capped mirror (poll lag; not HFT).",
+    paramKeys: ["targetAddress", "amountUsd", "minUsd"],
+    defaultParams: {
+      // Demo address — replace with the wallet you want to follow.
+      targetAddress: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+      amountUsd: 10,
+      minUsd: 100,
     },
   },
 };
@@ -259,6 +272,22 @@ export function describeRecipePlan(
     return `${verb} ${pool} liquidity drops ≥${(dropPct * 100).toFixed(0)}%${floor}`;
   }
 
+  if (recipeId === "copy_wallet_propose") {
+    const target =
+      typeof params.targetAddress === "string" && params.targetAddress
+        ? shortAddress(params.targetAddress)
+        : "target";
+    const amount = Number(params.amountUsd);
+    const minUsd = Number(params.minUsd);
+    const size =
+      Number.isFinite(amount) && amount > 0 ? ` (~${formatUsd(amount)} max)` : "";
+    const floor =
+      Number.isFinite(minUsd) && minUsd > 0
+        ? ` when their ETH↔USDC move ≥ ${formatUsd(minUsd)}`
+        : " on ETH↔USDC moves";
+    return `Propose copy of ${target}${floor}${size}`;
+  }
+
   return null;
 }
 
@@ -278,6 +307,9 @@ export function describeStrategySchedule(trigger: {
     }
     if (trigger.event === "pool_liquidity_shock") {
       return "Watches for a pool liquidity shock";
+    }
+    if (trigger.event === "target_trade_seen") {
+      return "Watches a wallet for ETH↔USDC trades";
     }
     if (trigger.event) return `Watches for ${trigger.event.replace(/_/g, " ")}`;
     return "Watches for an event";
@@ -480,6 +512,29 @@ export function parseRecipeParams(
       poolAddress: poolAddress.toLowerCase(),
       dropPct,
       minReserveUsd,
+    };
+  }
+
+  if (recipeId === "copy_wallet_propose") {
+    const targetAddress =
+      typeof raw.targetAddress === "string" && raw.targetAddress.trim()
+        ? raw.targetAddress.trim()
+        : String(base.targetAddress);
+    if (!/^0x[a-fA-F0-9]{40}$/.test(targetAddress)) return null;
+    const amountUsd = Number(raw.amountUsd ?? base.amountUsd);
+    const minUsd = Number(raw.minUsd ?? base.minUsd);
+    if (
+      !Number.isFinite(amountUsd) ||
+      amountUsd <= 0 ||
+      !Number.isFinite(minUsd) ||
+      minUsd <= 0
+    ) {
+      return null;
+    }
+    return {
+      targetAddress,
+      amountUsd,
+      minUsd,
     };
   }
 

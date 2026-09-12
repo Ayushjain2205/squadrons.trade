@@ -11,6 +11,7 @@ const RECIPE_IDS = [
   "inventory_rebalance",
   "stable_depeg_alert",
   "pool_liquidity_shock",
+  "copy_wallet_propose",
 ];
 
 const RECIPE_DEFAULTS = {
@@ -42,6 +43,11 @@ const RECIPE_DEFAULTS = {
     poolAddress: "0x6c561b446416e1a00e8e93e221854d6ea4171372",
     dropPct: 0.2,
     minReserveUsd: 0,
+  },
+  copy_wallet_propose: {
+    targetAddress: "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045",
+    amountUsd: 10,
+    minUsd: 100,
   },
 };
 
@@ -227,6 +233,25 @@ function parseRecipeParams(recipeId, value) {
       dropPct,
       minReserveUsd,
     };
+  }
+
+  if (recipeId === "copy_wallet_propose") {
+    const targetAddress =
+      typeof raw.targetAddress === "string" && raw.targetAddress.trim()
+        ? raw.targetAddress.trim()
+        : defaults.targetAddress;
+    if (!/^0x[a-fA-F0-9]{40}$/.test(targetAddress)) return null;
+    const amountUsd = Number(raw.amountUsd ?? defaults.amountUsd);
+    const minUsd = Number(raw.minUsd ?? defaults.minUsd);
+    if (
+      !Number.isFinite(amountUsd) ||
+      amountUsd <= 0 ||
+      !Number.isFinite(minUsd) ||
+      minUsd <= 0
+    ) {
+      return null;
+    }
+    return { targetAddress, amountUsd, minUsd };
   }
 
   return null;

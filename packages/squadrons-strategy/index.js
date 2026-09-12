@@ -54,12 +54,13 @@ export function apply(ctx) {
             "inventory_rebalance",
             "stable_depeg_alert",
             "pool_liquidity_shock",
+            "copy_wallet_propose",
           ],
         },
         params: {
           type: "object",
           description:
-            "Recipe params. Alerts: balance/price_band/price_cross/stable_depeg/pool_liquidity_shock. Trades: price_cross_swap, take_profit_stop, inventory_rebalance. Pair event recipes with the matching trigger.event.",
+            "Recipe params. Alerts: balance/price_band/price_cross/stable_depeg/pool_liquidity_shock. Trades: price_cross_swap, take_profit_stop, inventory_rebalance, copy_wallet_propose. Pair event recipes with the matching trigger.event (copy uses target_trade_seen).",
           additionalProperties: true,
         },
         trigger: {
