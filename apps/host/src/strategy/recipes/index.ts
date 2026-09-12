@@ -3,6 +3,7 @@ import type {
   StrategyTickDecision,
 } from "@squadrons/shared";
 import { executeBalanceThresholdAlert } from "./balance-threshold.js";
+import { executeInventoryRebalance } from "./inventory-rebalance.js";
 import { executePriceBandAlert } from "./price-band.js";
 import {
   executePriceCrossAlert,
@@ -23,6 +24,7 @@ const EXECUTORS: Record<RecipeId, RecipeExecutor> = {
   price_cross_alert: executePriceCrossAlert,
   price_cross_swap: executePriceCrossSwap,
   take_profit_stop: executeTakeProfitStop,
+  inventory_rebalance: executeInventoryRebalance,
 };
 
 export function hasRecipeExecutor(recipeId: RecipeId | null): boolean {

@@ -131,6 +131,29 @@ export const STRATEGY_TEMPLATES: readonly StrategyTemplate[] = [
       caps: { maxTradeUsd: 10 },
     },
   },
+  {
+    id: "eth-usdc-rebalance",
+    name: "ETH/USDC rebalance",
+    blurb: "Propose a swap when ETH share leaves a 50% ±10% band.",
+    description:
+      "Interval check of the shared wallet’s ETH + USDC on the home chain. When ETH’s USD share drifts outside your band, proposes a capped corrective swap (fail-closed). Base and Ethereum only (needs USDC + 0x).",
+    chainIds: [8453, 1],
+    tags: ["trade", "wallet", "propose"],
+    editableKeys: ["targetEthPct", "bandPct", "amountUsd", "minPortfolioUsd"],
+    draft: {
+      summary: "Propose ETH/USDC rebalance when ETH share leaves 40–60% (~$10 max)",
+      recipeId: "inventory_rebalance",
+      params: {
+        targetEthPct: 0.5,
+        bandPct: 0.1,
+        amountUsd: 10,
+        minPortfolioUsd: 5,
+      },
+      trigger: { type: "interval", intervalSec: 300 },
+      action: { type: "propose_trade" },
+      caps: { maxTradeUsd: 10 },
+    },
+  },
 ] as const;
 
 export type StrategyTemplateId = (typeof STRATEGY_TEMPLATES)[number]["id"];
@@ -236,6 +259,19 @@ export function buildDraftFromTemplate(
           ? ` (~$${Math.round(amountUsd).toLocaleString()})`
           : "";
       summary = `Propose ${side} ETH at TP $${Math.round(takeProfit).toLocaleString()} or stop $${Math.round(stopLoss).toLocaleString()}${size}`;
+    }
+  } else if (template.id === "eth-usdc-rebalance") {
+    const target = Number(params.targetEthPct);
+    const band = Number(params.bandPct);
+    const amountUsd = Number(params.amountUsd);
+    if (Number.isFinite(target) && Number.isFinite(band)) {
+      const low = Math.round(Math.max(0, target - band) * 100);
+      const high = Math.round(Math.min(1, target + band) * 100);
+      const size =
+        Number.isFinite(amountUsd) && amountUsd > 0
+          ? ` (~$${Math.round(amountUsd).toLocaleString()} max)`
+          : "";
+      summary = `Propose ETH/USDC rebalance when ETH share leaves ${low}–${high}%${size}`;
     }
   }
 

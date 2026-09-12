@@ -43,6 +43,7 @@ One strategy per agent:
 | `price_cross_alert` | Spot USD crosses a level (pair with `event: price_cross`) |
 | `price_cross_swap` | Same cross edge → propose capped USDC↔ETH/WETH swap (`side`, `amountUsd`) |
 | `take_profit_stop` | TP above / stop below → propose exit swap (pair with `event: price_tp_stop`) |
+| `inventory_rebalance` | ETH share of ETH+USDC leaves target±band → propose corrective swap |
 
 Recipes live in `apps/host/src/strategy/recipes/`. Catalog / param schemas live in `@squadrons/shared` (`recipes.ts`).
 

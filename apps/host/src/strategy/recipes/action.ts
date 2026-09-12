@@ -16,6 +16,7 @@ export function applyStrategyAction(
   intentHints?: {
     symbol?: string;
     side?: "buy" | "sell";
+    amountUsd?: number;
   },
 ): StrategyTickDecision {
   if (decision.action !== "alert") return decision;
@@ -25,11 +26,15 @@ export function applyStrategyAction(
     ctx.strategy.caps.maxTradeUsd ?? DEFAULT_POLICY.maxTradeUsd,
     DEFAULT_POLICY.maxTradeUsd,
   );
+  const fromHint = Number(intentHints?.amountUsd);
   const fromParams = Number(ctx.strategy.params.amountUsd);
-  const amountUsd =
-    Number.isFinite(fromParams) && fromParams > 0
-      ? Math.min(fromParams, cap)
-      : cap;
+  const rawAmount =
+    Number.isFinite(fromHint) && fromHint > 0
+      ? fromHint
+      : Number.isFinite(fromParams) && fromParams > 0
+        ? fromParams
+        : cap;
+  const amountUsd = Math.min(rawAmount, cap);
 
   const intent: StrategyTradeIntent = {
     amountUsd,
