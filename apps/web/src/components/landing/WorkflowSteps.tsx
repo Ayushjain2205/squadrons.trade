@@ -185,6 +185,7 @@ const PLUGINS_LIST: MarqueeItem[] = [
 export function WorkflowSteps() {
   const [activePresetIndex, setActivePresetIndex] = useState(1); // ETH Dip Watch
   const [isFlickering, setIsFlickering] = useState(false);
+  const [strategyMode, setStrategyMode] = useState<"paper" | "live">("paper");
 
   // Auto-cycle through the presets every 2.4s with smooth transition
   useEffect(() => {
@@ -438,7 +439,311 @@ export function WorkflowSteps() {
             </div>
           </div>
         </div>
+
+        {/* =========================================================================
+            STEP 3: Arm strategy in paper mode or live mode
+            ========================================================================= */}
+        <div className="flex flex-col items-center gap-10">
+          {/* Header on Top */}
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-widest text-[#5dcea0]">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#5dcea0]/20 text-[10px]">
+                03
+              </span>
+              <span>Step 3</span>
+            </div>
+
+            <h3 className="font-[family-name:var(--font-hero)] text-4xl font-bold tracking-tight text-[#f4f4f5] sm:text-5xl md:text-6xl leading-tight">
+              Arm strategy in paper or live mode
+            </h3>
+          </div>
+
+          {/* Strategy Execution Console */}
+          <div className="w-full">
+            <div className="rounded-3xl border border-[#262626] bg-[#090a0d] p-6 sm:p-8 shadow-2xl space-y-6">
+              {/* Header Bar: Strategy & Mode Toggle */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#1f1f23] pb-5">
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      strategyMode === "paper"
+                        ? "bg-[#e0b35a] shadow-[0_0_8px_#e0b35a]"
+                        : "bg-[#5dcea0] shadow-[0_0_8px_#5dcea0]"
+                    }`}
+                  />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-lg font-bold text-[#f4f4f5]">
+                        ETH Dip Mean-Reversion
+                      </h4>
+                      <span className="rounded bg-[#1c1d24] px-2 py-0.5 font-mono text-[10px] font-semibold text-[#a1a1aa]">
+                        Base · Aerodrome CL
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#8a8a93]">
+                      {strategyMode === "paper"
+                        ? "Simulated quotes & virtual ledger · Zero onchain risk"
+                        : "Real onchain execution · $10 spend cap per cycle"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Interactive Mode Switcher */}
+                <div className="flex items-center rounded-xl border border-[#22232b] bg-[#050608] p-1">
+                  <button
+                    type="button"
+                    onClick={() => setStrategyMode("paper")}
+                    className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-mono text-xs font-semibold transition-all ${
+                      strategyMode === "paper"
+                        ? "bg-[#e0b35a]/20 text-[#e0b35a] shadow-[0_0_12px_rgba(224,179,90,0.25)] border border-[#e0b35a]/40"
+                        : "text-[#8a8a93] hover:text-[#f4f4f5]"
+                    }`}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#e0b35a]" />
+                    Paper Mode
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStrategyMode("live")}
+                    className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-mono text-xs font-semibold transition-all ${
+                      strategyMode === "live"
+                        ? "bg-[#5dcea0]/20 text-[#5dcea0] shadow-[0_0_12px_rgba(93,206,160,0.25)] border border-[#5dcea0]/40"
+                        : "text-[#8a8a93] hover:text-[#f4f4f5]"
+                    }`}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#5dcea0]" />
+                    Live Mode
+                  </button>
+                </div>
+              </div>
+
+              {/* Split Content: Strategy Logic (Left) & Telemetry (Right) */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left: Logic & Guardrails */}
+                <div className="space-y-4">
+                  {/* Trigger Rule */}
+                  <div className="rounded-xl border border-[#1f1f23] bg-[#0e0f14] p-4 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#8a8a93]">
+                        Trigger Rule
+                      </span>
+                      <span className="font-mono text-[10px] text-[#5dcea0]">
+                        Interval: 1m
+                      </span>
+                    </div>
+                    <p className="font-mono text-xs text-[#f4f4f5] leading-relaxed">
+                      WETH 1h drop &gt; 2.8% AND 15m DEX volume &gt; 2.5x
+                    </p>
+                  </div>
+
+                  {/* Action Recipe */}
+                  <div className="rounded-xl border border-[#1f1f23] bg-[#0e0f14] p-4 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#8a8a93]">
+                        Action Recipe
+                      </span>
+                      <span className="font-mono text-[10px] text-[#60a5fa]">
+                        Atomic Swap
+                      </span>
+                    </div>
+                    <p className="font-mono text-xs text-[#f4f4f5] leading-relaxed">
+                      Swap USDC &rarr; WETH on Aerodrome CL Pool (Max $10 / tick)
+                    </p>
+                  </div>
+
+                  {/* Guardrails / Safety Ladder */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-lg border border-[#1f1f23] bg-[#0e0f14] p-2.5 text-center">
+                      <span className="block font-mono text-[9px] uppercase tracking-wider text-[#8a8a93]">
+                        Spend Cap
+                      </span>
+                      <span className="font-mono text-xs font-bold text-[#f4f4f5]">
+                        $10.00 / tick
+                      </span>
+                    </div>
+                    <div className="rounded-lg border border-[#1f1f23] bg-[#0e0f14] p-2.5 text-center">
+                      <span className="block font-mono text-[9px] uppercase tracking-wider text-[#8a8a93]">
+                        Max Slippage
+                      </span>
+                      <span className="font-mono text-xs font-bold text-[#f4f4f5]">
+                        0.50%
+                      </span>
+                    </div>
+                    <div className="rounded-lg border border-[#1f1f23] bg-[#0e0f14] p-2.5 text-center">
+                      <span className="block font-mono text-[9px] uppercase tracking-wider text-[#8a8a93]">
+                        Gas Ceiling
+                      </span>
+                      <span className="font-mono text-xs font-bold text-[#f4f4f5]">
+                        15 gwei
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Mode-Specific Telemetry Log */}
+                <div className="rounded-xl border border-[#1f1f23] bg-[#050608] p-4 flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between border-b border-[#1f1f23] pb-2.5">
+                      <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#8a8a93]">
+                        {strategyMode === "paper"
+                          ? "Paper Execution Ledger"
+                          : "Live Onchain Broadcast"}
+                      </span>
+                      <span
+                        className={`font-mono text-[10px] font-bold ${
+                          strategyMode === "paper"
+                            ? "text-[#e0b35a]"
+                            : "text-[#5dcea0]"
+                        }`}
+                      >
+                        {strategyMode === "paper"
+                          ? "14 Virtual Fills"
+                          : "3 Settled Blocks"}
+                      </span>
+                    </div>
+
+                    {/* Telemetry rows */}
+                    <div className="space-y-2 font-mono text-xs">
+                      {strategyMode === "paper" ? (
+                        <>
+                          <div className="flex items-center justify-between rounded-lg bg-[#0e0f14] p-2.5">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[#8a8a93] text-[10px]">
+                                  09:42:15
+                                </span>
+                                <span className="font-semibold text-[#f4f4f5]">
+                                  Sim Buy 0.00318 WETH
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-[#8a8a93]">
+                                Quote: $3,142.20 · Slippage 0.02%
+                              </span>
+                            </div>
+                            <span className="text-[#5dcea0] font-semibold text-xs">
+                              +$3.40
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between rounded-lg bg-[#0e0f14] p-2.5">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[#8a8a93] text-[10px]">
+                                  08:15:02
+                                </span>
+                                <span className="font-semibold text-[#f4f4f5]">
+                                  Sim Buy 0.00315 WETH
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-[#8a8a93]">
+                                Quote: $3,174.50 · Slippage 0.04%
+                              </span>
+                            </div>
+                            <span className="text-[#5dcea0] font-semibold text-xs">
+                              +$5.10
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between rounded-lg bg-[#0e0f14] p-2.5">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[#8a8a93] text-[10px]">
+                                  06:30:44
+                                </span>
+                                <span className="font-semibold text-[#f4f4f5]">
+                                  Sim Buy 0.00322 WETH
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-[#8a8a93]">
+                                Quote: $3,105.00 · Slippage 0.01%
+                              </span>
+                            </div>
+                            <span className="text-[#5dcea0] font-semibold text-xs">
+                              +$8.20
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between rounded-lg bg-[#0e0f14] p-2.5">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[#8a8a93] text-[10px]">
+                                  11:20:04
+                                </span>
+                                <span className="font-semibold text-[#f4f4f5]">
+                                  Swap $10.00 USDC &rarr; WETH
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-[#5dcea0]">
+                                Tx: 0x8f4c...91a2 · Block #24819031
+                              </span>
+                            </div>
+                            <span className="text-[#5dcea0] font-semibold text-xs">
+                              +$1.24
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between rounded-lg bg-[#0e0f14] p-2.5">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[#8a8a93] text-[10px]">
+                                  09:14:22
+                                </span>
+                                <span className="font-semibold text-[#f4f4f5]">
+                                  Swap $10.00 USDC &rarr; WETH
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-[#5dcea0]">
+                                Tx: 0x3d1b...4e78 · Block #24815410
+                              </span>
+                            </div>
+                            <span className="text-[#5dcea0] font-semibold text-xs">
+                              +$1.80
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between rounded-lg bg-[#0e0f14] p-2.5">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[#8a8a93] text-[10px]">
+                                  04:02:11
+                                </span>
+                                <span className="font-semibold text-[#f4f4f5]">
+                                  Swap $10.00 USDC &rarr; WETH
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-[#5dcea0]">
+                                Tx: 0x19ae...6f04 · Block #24809223
+                              </span>
+                            </div>
+                            <span className="text-[#5dcea0] font-semibold text-xs">
+                              +$1.08
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Bottom Stats Footer */}
+                  <div className="mt-4 flex items-center justify-between border-t border-[#1f1f23] pt-3 font-mono text-xs">
+                    <span className="text-[#8a8a93]">
+                      {strategyMode === "paper"
+                        ? "Virtual Paper PnL"
+                        : "Realized Onchain PnL"}
+                    </span>
+                    <span className="text-[#5dcea0] font-bold text-sm">
+                      {strategyMode === "paper" ? "+$184.20 (+4.8%)" : "+$4.12 (+13.7%)"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   );
 }
+
