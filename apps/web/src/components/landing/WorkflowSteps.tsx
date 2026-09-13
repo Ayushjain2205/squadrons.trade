@@ -185,7 +185,7 @@ const PLUGINS_LIST: MarqueeItem[] = [
 export function WorkflowSteps() {
   const [activePresetIndex, setActivePresetIndex] = useState(1); // ETH Dip Watch
   const [isFlickering, setIsFlickering] = useState(false);
-  const [strategyMode, setStrategyMode] = useState<"paper" | "live">("paper");
+  const [step3Stage, setStep3Stage] = useState(0);
 
   // Auto-cycle through the presets every 2.4s with smooth transition
   useEffect(() => {
@@ -196,6 +196,15 @@ export function WorkflowSteps() {
         setIsFlickering(false);
       }, 140);
     }, 2400);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Auto-cycle through the 3 strategy stages (0 -> 1 -> 2)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStep3Stage((prev) => (prev + 1) % 3);
+    }, 2200);
 
     return () => clearInterval(interval);
   }, []);
@@ -441,7 +450,7 @@ export function WorkflowSteps() {
         </div>
 
         {/* =========================================================================
-            STEP 3: Arm strategy in paper mode or live mode
+            STEP 3: 3 Branched Animating Stages (Logic -> Paper Mode -> Live Mode)
             ========================================================================= */}
         <div className="flex flex-col items-center gap-10">
           {/* Header on Top */}
@@ -458,290 +467,150 @@ export function WorkflowSteps() {
             </h3>
           </div>
 
-          {/* Strategy Execution Console */}
+          {/* 3 Branched Stage Boxes */}
           <div className="w-full">
-            <div className="rounded-3xl border border-[#262626] bg-[#090a0d] p-6 sm:p-8 shadow-2xl space-y-6">
-              {/* Header Bar: Strategy & Mode Toggle */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-[#1f1f23] pb-5">
-                <div className="flex items-center gap-3">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4">
+              {/* STAGE 1: Strategy Logic */}
+              <div
+                onClick={() => setStep3Stage(0)}
+                className={`relative flex-1 w-full rounded-2xl border p-6 transition-all duration-300 cursor-pointer select-none ${
+                  step3Stage === 0
+                    ? "border-[#5dcea0] bg-[#0d1411] shadow-[0_0_25px_rgba(93,206,160,0.18)] scale-[1.02]"
+                    : "border-[#262626] bg-[#090a0d] hover:border-[#3f3f46] hover:bg-[#0e0f14]"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#8a8a93]">
+                    Stage 01
+                  </span>
                   <span
-                    className={`h-2.5 w-2.5 rounded-full ${
-                      strategyMode === "paper"
-                        ? "bg-[#e0b35a] shadow-[0_0_8px_#e0b35a]"
-                        : "bg-[#5dcea0] shadow-[0_0_8px_#5dcea0]"
+                    className={`h-2 w-2 rounded-full transition-colors ${
+                      step3Stage === 0
+                        ? "bg-[#5dcea0] shadow-[0_0_8px_#5dcea0]"
+                        : "bg-[#262626]"
                     }`}
                   />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-lg font-bold text-[#f4f4f5]">
-                        ETH Dip Mean-Reversion
-                      </h4>
-                      <span className="rounded bg-[#1c1d24] px-2 py-0.5 font-mono text-[10px] font-semibold text-[#a1a1aa]">
-                        Base · Aerodrome CL
-                      </span>
-                    </div>
-                    <p className="text-xs text-[#8a8a93]">
-                      {strategyMode === "paper"
-                        ? "Simulated quotes & virtual ledger · Zero onchain risk"
-                        : "Real onchain execution · $10 spend cap per cycle"}
-                    </p>
-                  </div>
                 </div>
-
-                {/* Interactive Mode Switcher */}
-                <div className="flex items-center rounded-xl border border-[#22232b] bg-[#050608] p-1">
-                  <button
-                    type="button"
-                    onClick={() => setStrategyMode("paper")}
-                    className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-mono text-xs font-semibold transition-all ${
-                      strategyMode === "paper"
-                        ? "bg-[#e0b35a]/20 text-[#e0b35a] shadow-[0_0_12px_rgba(224,179,90,0.25)] border border-[#e0b35a]/40"
-                        : "text-[#8a8a93] hover:text-[#f4f4f5]"
-                    }`}
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#e0b35a]" />
-                    Paper Mode
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStrategyMode("live")}
-                    className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-mono text-xs font-semibold transition-all ${
-                      strategyMode === "live"
-                        ? "bg-[#5dcea0]/20 text-[#5dcea0] shadow-[0_0_12px_rgba(93,206,160,0.25)] border border-[#5dcea0]/40"
-                        : "text-[#8a8a93] hover:text-[#f4f4f5]"
-                    }`}
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#5dcea0]" />
-                    Live Mode
-                  </button>
+                <h4 className="text-xl font-bold text-[#f4f4f5] mb-2 tracking-tight">
+                  Strategy Logic
+                </h4>
+                <p className="text-xs text-[#8a8a93] leading-relaxed mb-4">
+                  Define pool triggers, RSI thresholds, and atomic swap conditions.
+                </p>
+                <div className="inline-flex items-center gap-1.5 rounded-lg border border-[#1f1f23] bg-[#141418] px-2.5 py-1 font-mono text-[11px] font-semibold text-[#a1a1aa]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#5dcea0]" />
+                  Compiled Recipe
                 </div>
               </div>
 
-              {/* Split Content: Strategy Logic (Left) & Telemetry (Right) */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Left: Logic & Guardrails */}
-                <div className="space-y-4">
-                  {/* Trigger Rule */}
-                  <div className="rounded-xl border border-[#1f1f23] bg-[#0e0f14] p-4 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#8a8a93]">
-                        Trigger Rule
-                      </span>
-                      <span className="font-mono text-[10px] text-[#5dcea0]">
-                        Interval: 1m
-                      </span>
-                    </div>
-                    <p className="font-mono text-xs text-[#f4f4f5] leading-relaxed">
-                      WETH 1h drop &gt; 2.8% AND 15m DEX volume &gt; 2.5x
-                    </p>
-                  </div>
+              {/* Branch Connector 1 -> 2 */}
+              <div className="hidden md:flex flex-col items-center justify-center w-8 shrink-0">
+                <svg viewBox="0 0 32 16" className="w-8 h-4 overflow-visible">
+                  <path
+                    d="M 0 8 L 26 8"
+                    fill="none"
+                    stroke={step3Stage >= 1 ? "#e0b35a" : step3Stage === 0 ? "#5dcea0" : "#262626"}
+                    strokeWidth="2"
+                    strokeDasharray={step3Stage === 0 ? "3 3" : "none"}
+                    className="transition-colors duration-300"
+                  />
+                  <polygon
+                    points="24,4 32,8 24,12"
+                    fill={step3Stage >= 1 ? "#e0b35a" : step3Stage === 0 ? "#5dcea0" : "#262626"}
+                    className="transition-colors duration-300"
+                  />
+                </svg>
+              </div>
 
-                  {/* Action Recipe */}
-                  <div className="rounded-xl border border-[#1f1f23] bg-[#0e0f14] p-4 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#8a8a93]">
-                        Action Recipe
-                      </span>
-                      <span className="font-mono text-[10px] text-[#60a5fa]">
-                        Atomic Swap
-                      </span>
-                    </div>
-                    <p className="font-mono text-xs text-[#f4f4f5] leading-relaxed">
-                      Swap USDC &rarr; WETH on Aerodrome CL Pool (Max $10 / tick)
-                    </p>
-                  </div>
-
-                  {/* Guardrails / Safety Ladder */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="rounded-lg border border-[#1f1f23] bg-[#0e0f14] p-2.5 text-center">
-                      <span className="block font-mono text-[9px] uppercase tracking-wider text-[#8a8a93]">
-                        Spend Cap
-                      </span>
-                      <span className="font-mono text-xs font-bold text-[#f4f4f5]">
-                        $10.00 / tick
-                      </span>
-                    </div>
-                    <div className="rounded-lg border border-[#1f1f23] bg-[#0e0f14] p-2.5 text-center">
-                      <span className="block font-mono text-[9px] uppercase tracking-wider text-[#8a8a93]">
-                        Max Slippage
-                      </span>
-                      <span className="font-mono text-xs font-bold text-[#f4f4f5]">
-                        0.50%
-                      </span>
-                    </div>
-                    <div className="rounded-lg border border-[#1f1f23] bg-[#0e0f14] p-2.5 text-center">
-                      <span className="block font-mono text-[9px] uppercase tracking-wider text-[#8a8a93]">
-                        Gas Ceiling
-                      </span>
-                      <span className="font-mono text-xs font-bold text-[#f4f4f5]">
-                        15 gwei
-                      </span>
-                    </div>
-                  </div>
+              {/* STAGE 2: Paper Mode */}
+              <div
+                onClick={() => setStep3Stage(1)}
+                className={`relative flex-1 w-full rounded-2xl border p-6 transition-all duration-300 cursor-pointer select-none ${
+                  step3Stage === 1
+                    ? "border-[#e0b35a] bg-[#161410] shadow-[0_0_25px_rgba(224,179,90,0.18)] scale-[1.02]"
+                    : "border-[#262626] bg-[#090a0d] hover:border-[#3f3f46] hover:bg-[#0e0f14]"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#8a8a93]">
+                    Stage 02
+                  </span>
+                  <span
+                    className={`h-2 w-2 rounded-full transition-colors ${
+                      step3Stage === 1
+                        ? "bg-[#e0b35a] shadow-[0_0_8px_#e0b35a]"
+                        : "bg-[#262626]"
+                    }`}
+                  />
                 </div>
+                <h4 className="text-xl font-bold text-[#f4f4f5] mb-2 tracking-tight">
+                  Paper Mode
+                </h4>
+                <p className="text-xs text-[#8a8a93] leading-relaxed mb-4">
+                  Simulate fills in real-time, quote DEX prices, and verify edge with zero risk.
+                </p>
+                <div className="inline-flex items-center gap-1.5 rounded-lg border border-[#1f1f23] bg-[#141418] px-2.5 py-1 font-mono text-[11px] font-semibold text-[#e0b35a]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#e0b35a]" />
+                  Virtual Fills · Zero Risk
+                </div>
+              </div>
 
-                {/* Right: Mode-Specific Telemetry Log */}
-                <div className="rounded-xl border border-[#1f1f23] bg-[#050608] p-4 flex flex-col justify-between">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between border-b border-[#1f1f23] pb-2.5">
-                      <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#8a8a93]">
-                        {strategyMode === "paper"
-                          ? "Paper Execution Ledger"
-                          : "Live Onchain Broadcast"}
-                      </span>
-                      <span
-                        className={`font-mono text-[10px] font-bold ${
-                          strategyMode === "paper"
-                            ? "text-[#e0b35a]"
-                            : "text-[#5dcea0]"
-                        }`}
-                      >
-                        {strategyMode === "paper"
-                          ? "14 Virtual Fills"
-                          : "3 Settled Blocks"}
-                      </span>
-                    </div>
+              {/* Branch Connector 2 -> 3 */}
+              <div className="hidden md:flex flex-col items-center justify-center w-8 shrink-0">
+                <svg viewBox="0 0 32 16" className="w-8 h-4 overflow-visible">
+                  <path
+                    d="M 0 8 L 26 8"
+                    fill="none"
+                    stroke={step3Stage === 2 ? "#5dcea0" : step3Stage === 1 ? "#e0b35a" : "#262626"}
+                    strokeWidth="2"
+                    strokeDasharray={step3Stage <= 1 ? "3 3" : "none"}
+                    className="transition-colors duration-300"
+                  />
+                  <polygon
+                    points="24,4 32,8 24,12"
+                    fill={step3Stage === 2 ? "#5dcea0" : step3Stage === 1 ? "#e0b35a" : "#262626"}
+                    className="transition-colors duration-300"
+                  />
+                </svg>
+              </div>
 
-                    {/* Telemetry rows */}
-                    <div className="space-y-2 font-mono text-xs">
-                      {strategyMode === "paper" ? (
-                        <>
-                          <div className="flex items-center justify-between rounded-lg bg-[#0e0f14] p-2.5">
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[#8a8a93] text-[10px]">
-                                  09:42:15
-                                </span>
-                                <span className="font-semibold text-[#f4f4f5]">
-                                  Sim Buy 0.00318 WETH
-                                </span>
-                              </div>
-                              <span className="text-[10px] text-[#8a8a93]">
-                                Quote: $3,142.20 · Slippage 0.02%
-                              </span>
-                            </div>
-                            <span className="text-[#5dcea0] font-semibold text-xs">
-                              +$3.40
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between rounded-lg bg-[#0e0f14] p-2.5">
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[#8a8a93] text-[10px]">
-                                  08:15:02
-                                </span>
-                                <span className="font-semibold text-[#f4f4f5]">
-                                  Sim Buy 0.00315 WETH
-                                </span>
-                              </div>
-                              <span className="text-[10px] text-[#8a8a93]">
-                                Quote: $3,174.50 · Slippage 0.04%
-                              </span>
-                            </div>
-                            <span className="text-[#5dcea0] font-semibold text-xs">
-                              +$5.10
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between rounded-lg bg-[#0e0f14] p-2.5">
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[#8a8a93] text-[10px]">
-                                  06:30:44
-                                </span>
-                                <span className="font-semibold text-[#f4f4f5]">
-                                  Sim Buy 0.00322 WETH
-                                </span>
-                              </div>
-                              <span className="text-[10px] text-[#8a8a93]">
-                                Quote: $3,105.00 · Slippage 0.01%
-                              </span>
-                            </div>
-                            <span className="text-[#5dcea0] font-semibold text-xs">
-                              +$8.20
-                            </span>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="flex items-center justify-between rounded-lg bg-[#0e0f14] p-2.5">
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[#8a8a93] text-[10px]">
-                                  11:20:04
-                                </span>
-                                <span className="font-semibold text-[#f4f4f5]">
-                                  Swap $10.00 USDC &rarr; WETH
-                                </span>
-                              </div>
-                              <span className="text-[10px] text-[#5dcea0]">
-                                Tx: 0x8f4c...91a2 · Block #24819031
-                              </span>
-                            </div>
-                            <span className="text-[#5dcea0] font-semibold text-xs">
-                              +$1.24
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between rounded-lg bg-[#0e0f14] p-2.5">
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[#8a8a93] text-[10px]">
-                                  09:14:22
-                                </span>
-                                <span className="font-semibold text-[#f4f4f5]">
-                                  Swap $10.00 USDC &rarr; WETH
-                                </span>
-                              </div>
-                              <span className="text-[10px] text-[#5dcea0]">
-                                Tx: 0x3d1b...4e78 · Block #24815410
-                              </span>
-                            </div>
-                            <span className="text-[#5dcea0] font-semibold text-xs">
-                              +$1.80
-                            </span>
-                          </div>
-
-                          <div className="flex items-center justify-between rounded-lg bg-[#0e0f14] p-2.5">
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[#8a8a93] text-[10px]">
-                                  04:02:11
-                                </span>
-                                <span className="font-semibold text-[#f4f4f5]">
-                                  Swap $10.00 USDC &rarr; WETH
-                                </span>
-                              </div>
-                              <span className="text-[10px] text-[#5dcea0]">
-                                Tx: 0x19ae...6f04 · Block #24809223
-                              </span>
-                            </div>
-                            <span className="text-[#5dcea0] font-semibold text-xs">
-                              +$1.08
-                            </span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Bottom Stats Footer */}
-                  <div className="mt-4 flex items-center justify-between border-t border-[#1f1f23] pt-3 font-mono text-xs">
-                    <span className="text-[#8a8a93]">
-                      {strategyMode === "paper"
-                        ? "Virtual Paper PnL"
-                        : "Realized Onchain PnL"}
-                    </span>
-                    <span className="text-[#5dcea0] font-bold text-sm">
-                      {strategyMode === "paper" ? "+$184.20 (+4.8%)" : "+$4.12 (+13.7%)"}
-                    </span>
-                  </div>
+              {/* STAGE 3: Live Mode */}
+              <div
+                onClick={() => setStep3Stage(2)}
+                className={`relative flex-1 w-full rounded-2xl border p-6 transition-all duration-300 cursor-pointer select-none ${
+                  step3Stage === 2
+                    ? "border-[#5dcea0] bg-[#0d1411] shadow-[0_0_25px_rgba(93,206,160,0.18)] scale-[1.02]"
+                    : "border-[#262626] bg-[#090a0d] hover:border-[#3f3f46] hover:bg-[#0e0f14]"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#8a8a93]">
+                    Stage 03
+                  </span>
+                  <span
+                    className={`h-2 w-2 rounded-full transition-colors ${
+                      step3Stage === 2
+                        ? "bg-[#5dcea0] shadow-[0_0_8px_#5dcea0]"
+                        : "bg-[#262626]"
+                    }`}
+                  />
+                </div>
+                <h4 className="text-xl font-bold text-[#f4f4f5] mb-2 tracking-tight">
+                  Live Execution
+                </h4>
+                <p className="text-xs text-[#8a8a93] leading-relaxed mb-4">
+                  Arm the loop onchain with strict gas ceilings, slippage guardrails, and $10 spend caps.
+                </p>
+                <div className="inline-flex items-center gap-1.5 rounded-lg border border-[#1f1f23] bg-[#141418] px-2.5 py-1 font-mono text-[11px] font-semibold text-[#5dcea0]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#5dcea0]" />
+                  Safety Capped Execution
                 </div>
               </div>
             </div>
           </div>
         </div>
+
+
       </div>
     </section>
   );
