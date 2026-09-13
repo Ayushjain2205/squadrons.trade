@@ -186,6 +186,7 @@ export function WorkflowSteps() {
   const [activePresetIndex, setActivePresetIndex] = useState(1); // ETH Dip Watch
   const [isFlickering, setIsFlickering] = useState(false);
   const [step3Stage, setStep3Stage] = useState(0);
+  const [isPatchApplied, setIsPatchApplied] = useState(false);
 
   // Auto-cycle through the presets every 2.4s with smooth transition
   useEffect(() => {
@@ -611,13 +612,180 @@ export function WorkflowSteps() {
               </div>
             </div>
           </div>
-
-
         </div>
 
+        {/* =========================================================================
+            STEP 4: Continuous Autonomous Self-Improvement
+            ========================================================================= */}
+        <div className="flex flex-col items-center gap-10">
+          {/* Header on Top */}
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-widest text-[#5dcea0]">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#5dcea0]/20 text-[10px]">
+                04
+              </span>
+              <span>Step 4</span>
+            </div>
+
+            <h3 className="font-[family-name:var(--font-hero)] text-4xl font-bold tracking-tight text-[#f4f4f5] sm:text-5xl md:text-6xl leading-tight">
+              Continuous autonomous self-improvement
+            </h3>
+          </div>
+
+          {/* Self-Improvement Card */}
+          <div className="w-full">
+            <div
+              className={`rounded-3xl border bg-[#090a0d] p-6 sm:p-8 shadow-2xl transition-all duration-500 space-y-6 ${
+                isPatchApplied
+                  ? "border-[#5dcea0] shadow-[0_0_35px_rgba(93,206,160,0.15)] ring-1 ring-[#5dcea0]/30"
+                  : "border-[#262626]"
+              }`}
+            >
+              {/* Header Bar */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[#1f1f23] pb-5">
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full ${
+                      isPatchApplied
+                        ? "bg-[#5dcea0] shadow-[0_0_8px_#5dcea0]"
+                        : "bg-[#5dcea0] animate-pulse shadow-[0_0_8px_#5dcea0]"
+                    }`}
+                  />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-bold uppercase tracking-wider text-[#5dcea0]">
+                        {isPatchApplied
+                          ? "Patch Applied & Active"
+                          : "Parameter Patch Proposed"}
+                      </span>
+                      <span className="rounded bg-[#1c1d24] px-2 py-0.5 font-mono text-[10px] font-semibold text-[#a1a1aa]">
+                        v2.4 Optimization
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#8a8a93]">
+                      Tested 120 variations across 90-day pool history
+                    </p>
+                  </div>
+                </div>
+
+                <div className="font-mono text-xs text-[#8a8a93]">
+                  Strategy: <span className="text-[#f4f4f5] font-semibold">ETH Dip Mean-Reversion</span>
+                </div>
+              </div>
+
+              {/* Parameter Diff Rows */}
+              <div className="space-y-3">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#8a8a93]">
+                  Proposed Parameter Tuning
+                </span>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="rounded-xl border border-[#1f1f23] bg-[#0e0f14] p-3.5 space-y-1.5">
+                    <span className="block text-xs font-medium text-[#8a8a93]">
+                      RSI Oversold Trigger
+                    </span>
+                    <div className="flex items-center gap-2 font-mono text-sm font-bold">
+                      <span className="text-[#8a8a93] line-through">28</span>
+                      <span className="text-[#5dcea0]">&rarr; 24</span>
+                    </div>
+                    <span className="block font-mono text-[10px] text-[#5dcea0]">
+                      +12.4% win rate
+                    </span>
+                  </div>
+
+                  <div className="rounded-xl border border-[#1f1f23] bg-[#0e0f14] p-3.5 space-y-1.5">
+                    <span className="block text-xs font-medium text-[#8a8a93]">
+                      Dip Drop Threshold
+                    </span>
+                    <div className="flex items-center gap-2 font-mono text-sm font-bold">
+                      <span className="text-[#8a8a93] line-through">2.8%</span>
+                      <span className="text-[#5dcea0]">&rarr; 3.2%</span>
+                    </div>
+                    <span className="block font-mono text-[10px] text-[#5dcea0]">
+                      -34% false entries
+                    </span>
+                  </div>
+
+                  <div className="rounded-xl border border-[#1f1f23] bg-[#0e0f14] p-3.5 space-y-1.5">
+                    <span className="block text-xs font-medium text-[#8a8a93]">
+                      Cooldown Interval
+                    </span>
+                    <div className="flex items-center gap-2 font-mono text-sm font-bold">
+                      <span className="text-[#8a8a93] line-through">15m</span>
+                      <span className="text-[#5dcea0]">&rarr; 45m</span>
+                    </div>
+                    <span className="block font-mono text-[10px] text-[#5dcea0]">
+                      Prevents chop whipsaws
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Performance Impact Grid */}
+              <div className="space-y-3">
+                <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#8a8a93]">
+                  90-Day Simulation Impact
+                </span>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-xl border border-[#1f1f23] bg-[#050608] p-3.5 text-center">
+                    <span className="block font-mono text-[10px] uppercase tracking-wider text-[#8a8a93]">
+                      Win Rate
+                    </span>
+                    <div className="flex items-center justify-center gap-1.5 mt-1 font-mono text-xs sm:text-sm font-bold">
+                      <span className="text-[#8a8a93]">58.2%</span>
+                      <span className="text-[#5dcea0]">&rarr; 72.6%</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-[#1f1f23] bg-[#050608] p-3.5 text-center">
+                    <span className="block font-mono text-[10px] uppercase tracking-wider text-[#8a8a93]">
+                      Max Drawdown
+                    </span>
+                    <div className="flex items-center justify-center gap-1.5 mt-1 font-mono text-xs sm:text-sm font-bold">
+                      <span className="text-[#8a8a93]">14.2%</span>
+                      <span className="text-[#5dcea0]">&rarr; 6.8%</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-[#1f1f23] bg-[#050608] p-3.5 text-center">
+                    <span className="block font-mono text-[10px] uppercase tracking-wider text-[#8a8a93]">
+                      Sharpe Ratio
+                    </span>
+                    <div className="flex items-center justify-center gap-1.5 mt-1 font-mono text-xs sm:text-sm font-bold">
+                      <span className="text-[#8a8a93]">1.42</span>
+                      <span className="text-[#5dcea0]">&rarr; 2.31</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Footer */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-[#1f1f23] pt-5">
+                <span className="text-xs text-[#8a8a93] text-center sm:text-left">
+                  {isPatchApplied
+                    ? "Parameters updated in production. Agent loop restarted."
+                    : "Review backtest telemetry and deploy parameter tuning."}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setIsPatchApplied(!isPatchApplied)}
+                  className={`flex items-center gap-2 rounded-xl px-5 py-2.5 font-mono text-xs font-bold transition-all select-none cursor-pointer ${
+                    isPatchApplied
+                      ? "bg-[#5dcea0] text-[#000000] shadow-[0_0_20px_rgba(93,206,160,0.4)]"
+                      : "bg-[#5dcea0]/20 text-[#5dcea0] border border-[#5dcea0]/40 hover:bg-[#5dcea0] hover:text-[#000000] hover:shadow-[0_0_20px_rgba(93,206,160,0.3)]"
+                  }`}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                  {isPatchApplied ? "Patch Applied · Click to Revert" : "1-Click Apply Patch"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
 
       </div>
     </section>
   );
 }
+
 
