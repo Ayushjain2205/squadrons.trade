@@ -4,6 +4,7 @@ import { LandingHero } from "./LandingHero";
 import { HarnessComparison } from "./HarnessComparison";
 import { WorkflowSteps } from "./WorkflowSteps";
 import { AgentRosterBento } from "./AgentRosterBento";
+import { LandingFooter } from "./LandingFooter";
 
 export interface LandingPageProps {
   onLogin: () => void;
@@ -23,6 +24,9 @@ export function LandingPage({ onLogin }: LandingPageProps) {
 
       {/* Section 4: Squadron Roster Bento */}
       <AgentRosterBento />
+
+      {/* Section 5: Final CTA & Footer */}
+      <LandingFooter onLogin={onLogin} />
     </div>
   );
 }
