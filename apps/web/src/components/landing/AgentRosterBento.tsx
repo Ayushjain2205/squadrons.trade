@@ -141,7 +141,7 @@ export function AgentRosterBento() {
           </div>
 
           <h2 className="font-[family-name:var(--font-hero)] text-4xl font-bold tracking-tight text-[#f4f4f5] sm:text-5xl md:text-6xl leading-tight">
-            Deploy specialized operators out of the box
+            Deploy battle-tested recipes
           </h2>
         </div>
 
