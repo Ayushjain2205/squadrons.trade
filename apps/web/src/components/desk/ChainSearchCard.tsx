@@ -8,22 +8,17 @@ export function ChainSearchCard({
 }: {
   artifact: ChainSearchArtifact;
 }) {
-  const { title, summary, query, hits, notes, engine } = artifact;
+  const { title, summary, query, hits, notes } = artifact;
 
   return (
     <div className="mt-2 max-w-[min(100%,var(--measure-chat))] overflow-hidden rounded-2xl border border-[var(--line)] bg-[var(--panel)]">
-      <header className="flex items-start justify-between gap-2 px-3 pt-2.5 pb-1.5">
-        <div className="min-w-0">
-          <p className="type-ui truncate font-semibold leading-tight text-[var(--ink)]">
-            {title}
-          </p>
-          <p className="type-meta mt-0.5 line-clamp-2 leading-snug text-[var(--muted)]">
-            {summary}
-          </p>
-        </div>
-        <span className="type-meta shrink-0 rounded-full bg-[var(--panel-2)] px-2 py-0.5 text-[var(--ink-soft)]">
-          {engine === "the-graph" ? "The Graph" : engine}
-        </span>
+      <header className="px-3 pt-2.5 pb-1.5">
+        <p className="type-ui truncate font-semibold leading-tight text-[var(--ink)]">
+          {title}
+        </p>
+        <p className="type-meta mt-0.5 line-clamp-2 leading-snug text-[var(--muted)]">
+          {summary}
+        </p>
       </header>
 
       <p className="type-meta truncate border-y border-[var(--line-soft)] px-3 py-1 text-[var(--muted)]">
