@@ -674,14 +674,9 @@ export function WorkflowSteps() {
                   />
                 </svg>
 
-                {/* Center Core: Agent Orb with pulse aura */}
+                {/* Center Core: Agent Orb */}
                 <div className="relative z-10 flex flex-col items-center justify-center">
-                  <div className="relative">
-                    <AgentOrb id="01" colorId="green" size={68} animate={true} />
-                    <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#5dcea0] shadow-[0_0_10px_#5dcea0]">
-                      <span className="h-1.5 w-1.5 rounded-full bg-[#000000]" />
-                    </span>
-                  </div>
+                  <AgentOrb id="01" colorId="green" size={68} animate={true} />
                 </div>
 
                 {/* Node 1: Execute (Top) */}
@@ -708,15 +703,10 @@ export function WorkflowSteps() {
                   </span>
                 </div>
               </div>
-
-              {/* Bottom Subtle Caption */}
-              <div className="mt-8 flex items-center gap-2 rounded-full border border-[#1f1f23] bg-[#0e0f14] px-4 py-1.5 font-mono text-xs text-[#8a8a93]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#5dcea0] animate-pulse" />
-                <span>Continuous autonomous loop — zero manual babysitting</span>
-              </div>
             </div>
           </div>
         </div>
+
 
 
       </div>
