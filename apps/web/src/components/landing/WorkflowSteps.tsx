@@ -463,7 +463,7 @@ export function WorkflowSteps() {
             </div>
 
             <h3 className="font-[family-name:var(--font-hero)] text-4xl font-bold tracking-tight text-[#f4f4f5] sm:text-5xl md:text-6xl leading-tight">
-              Arm strategy in paper or live mode
+              Simulate in paper mode, graduate to live
             </h3>
           </div>
 
@@ -599,7 +599,7 @@ export function WorkflowSteps() {
                   Live Execution
                 </h4>
                 <p className="text-xs text-[#8a8a93] leading-relaxed mb-4">
-                  Arm the loop onchain with strict gas ceilings, slippage guardrails, and $10 spend caps.
+                  Graduate the loop onchain with strict gas ceilings, slippage guardrails, and $10 spend caps.
                 </p>
                 <div className="inline-flex items-center gap-1.5 rounded-lg border border-[#1f1f23] bg-[#141418] px-2.5 py-1 font-mono text-[11px] font-semibold text-[#5dcea0]">
                   <span className="h-1.5 w-1.5 rounded-full bg-[#5dcea0]" />
@@ -608,6 +608,7 @@ export function WorkflowSteps() {
               </div>
             </div>
           </div>
+
         </div>
 
 
