@@ -713,67 +713,87 @@ export function WorkflowSteps() {
                     strokeDasharray="5 5"
                   />
 
-                  {/* 2. Active Flowing Laser Beams */}
+                  {/* 2. Directional Flow Arrows at Midpoints */}
+                  {/* Midpoint 0 -> 1: (245, 153) rotated ~58 deg */}
+                  <polygon
+                    points="241,148 249,153 241,158"
+                    transform="rotate(58 245 153)"
+                    fill={step4Corner === 0 ? "#5dcea0" : "#2a2b36"}
+                    className="transition-colors duration-300"
+                  />
+                  {/* Midpoint 1 -> 2: (180, 260) pointing left (180 deg) */}
+                  <polygon
+                    points="184,256 176,260 184,264"
+                    fill={step4Corner === 1 ? "#e0b35a" : "#2a2b36"}
+                    className="transition-colors duration-300"
+                  />
+                  {/* Midpoint 2 -> 0: (115, 153) rotated ~302 deg */}
+                  <polygon
+                    points="111,148 119,153 111,158"
+                    transform="rotate(-58 115 153)"
+                    fill={step4Corner === 2 ? "#60a5fa" : "#2a2b36"}
+                    className="transition-colors duration-300"
+                  />
+
+                  {/* 3. Traveling Energy Comet Particles Along Active Edge */}
                   {step4Corner === 0 && (
-                    <line
-                      x1="180"
-                      y1="46"
-                      x2="310"
-                      y2="260"
-                      stroke="url(#laser0to1)"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      className="drop-shadow-[0_0_8px_rgba(93,206,160,0.8)] transition-all duration-500"
-                    />
+                    <g key="travel-0-1">
+                      <circle r="4" fill="#5dcea0" className="drop-shadow-[0_0_10px_#5dcea0]">
+                        <animateMotion
+                          path="M 180 46 L 310 260"
+                          dur="1.8s"
+                          repeatCount="indefinite"
+                        />
+                      </circle>
+                    </g>
                   )}
                   {step4Corner === 1 && (
-                    <line
-                      x1="310"
-                      y1="260"
-                      x2="50"
-                      y2="260"
-                      stroke="url(#laser1to2)"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      className="drop-shadow-[0_0_8px_rgba(224,179,90,0.8)] transition-all duration-500"
-                    />
+                    <g key="travel-1-2">
+                      <circle r="4" fill="#e0b35a" className="drop-shadow-[0_0_10px_#e0b35a]">
+                        <animateMotion
+                          path="M 310 260 L 50 260"
+                          dur="1.8s"
+                          repeatCount="indefinite"
+                        />
+                      </circle>
+                    </g>
                   )}
                   {step4Corner === 2 && (
-                    <line
-                      x1="50"
-                      y1="260"
-                      x2="180"
-                      y2="46"
-                      stroke="url(#laser2to0)"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      className="drop-shadow-[0_0_8px_rgba(96,165,250,0.8)] transition-all duration-500"
-                    />
+                    <g key="travel-2-0">
+                      <circle r="4" fill="#60a5fa" className="drop-shadow-[0_0_10px_#60a5fa]">
+                        <animateMotion
+                          path="M 50 260 L 180 46"
+                          dur="1.8s"
+                          repeatCount="indefinite"
+                        />
+                      </circle>
+                    </g>
                   )}
 
                   {/* Corner Anchor Vertex Dots */}
                   <circle
                     cx="180"
                     cy="46"
-                    r={step4Corner === 0 ? "4.5" : "3"}
+                    r={step4Corner === 0 ? "5" : "3"}
                     fill={step4Corner === 0 ? "#5dcea0" : "#262626"}
-                    className="transition-all duration-300"
+                    className="transition-all duration-300 drop-shadow-[0_0_6px_#5dcea0]"
                   />
                   <circle
                     cx="310"
                     cy="260"
-                    r={step4Corner === 1 ? "4.5" : "3"}
+                    r={step4Corner === 1 ? "5" : "3"}
                     fill={step4Corner === 1 ? "#e0b35a" : "#262626"}
-                    className="transition-all duration-300"
+                    className="transition-all duration-300 drop-shadow-[0_0_6px_#e0b35a]"
                   />
                   <circle
                     cx="50"
                     cy="260"
-                    r={step4Corner === 2 ? "4.5" : "3"}
+                    r={step4Corner === 2 ? "5" : "3"}
                     fill={step4Corner === 2 ? "#60a5fa" : "#262626"}
-                    className="transition-all duration-300"
+                    className="transition-all duration-300 drop-shadow-[0_0_6px_#60a5fa]"
                   />
                 </svg>
+
 
                 {/* Center Centroid: Active Agent Avatar */}
                 <div className="absolute left-1/2 top-[58%] -translate-x-1/2 -translate-y-1/2 z-10">
