@@ -134,6 +134,54 @@ const STEP_1_PRESETS: AgentPreset[] = [
 const CHAIN_Y_COORDS = [16, 48, 80, 112, 144, 176, 208, 240];
 const TARGET_Y = 128;
 
+interface MarqueeItem {
+  name: string;
+  desc: string;
+}
+
+const SKILLS_LIST: MarqueeItem[] = [
+  { name: "market-analyser", desc: "Trending pools, flow & operator brief" },
+  { name: "wallet-pulse", desc: "Balances, gas headroom & desk readiness" },
+  { name: "dex-radar", desc: "Real-time liquidity depth & volume spikes" },
+  { name: "arbitrage-hunter", desc: "Cross-DEX routing & price divergence" },
+  { name: "lp-scout", desc: "Fee APY, tick density & IL risk analysis" },
+  { name: "momentum-tracker", desc: "Breakout volume, RSI velocity & MACD turns" },
+  { name: "funding-rate-monitor", desc: "Perp funding skews & basis yields" },
+  { name: "token-screener", desc: "Smart money inflow & holder distribution" },
+  { name: "yield-optimizer", desc: "Vault compounding & rebalance loops" },
+  { name: "whale-watch", desc: "Large wallet transfers & accumulation zones" },
+  { name: "gas-tracker", desc: "Base fee forecasting & priority spikes" },
+];
+
+const TOOLS_LIST: MarqueeItem[] = [
+  { name: "search", desc: "Onchain subgraph & pool liquidity query" },
+  { name: "pulse", desc: "Crypto Twitter & CT social sentiment stream" },
+  { name: "backtest", desc: "90-day vector DEX simulation engine" },
+  { name: "quote", desc: "Multi-DEX aggregator route & price impact" },
+  { name: "safety", desc: "Dynamic gas limits & $10 spend cap ladder" },
+  { name: "arm", desc: "Deterministic trigger loop compilation" },
+  { name: "mempool", desc: "Pending block transaction & MEV radar" },
+  { name: "contract", desc: "Decompiled ABI, events & bytecode verification" },
+  { name: "balance", desc: "Multi-token wallet reserves & allowance audit" },
+  { name: "order", desc: "Atomic swap & order placement router" },
+];
+
+const PLUGINS_LIST: MarqueeItem[] = [
+  { name: "Uniswap v3", desc: "Concentrated liquidity AMM protocol" },
+  { name: "Aerodrome", desc: "Base native liquidity & veAERO engine" },
+  { name: "Camelot DEX", desc: "Arbitrum ecosystem AMM hub" },
+  { name: "CoinGecko API", desc: "Real-time price feeds & market data" },
+  { name: "Hyperliquid", desc: "Onchain perpetual DEX orderbook" },
+  { name: "DefiLlama", desc: "Protocol TVL, volume & yield intelligence" },
+  { name: "Twitter / X API", desc: "Live social alpha & sentiment streamer" },
+  { name: "Aave v3", desc: "Money market supply & borrow rates" },
+  { name: "The Graph", desc: "Decentralized subgraph indexing network" },
+  { name: "Birdeye", desc: "DEX token analytics & trade streams" },
+  { name: "1inch", desc: "Aggregated swap routing protocol" },
+  { name: "Alchemy", desc: "High-throughput RPC node infrastructure" },
+  { name: "Curve Finance", desc: "Deep stableswap & pegged pools" },
+];
+
 export function WorkflowSteps() {
   const [activePresetIndex, setActivePresetIndex] = useState(1); // ETH Dip Watch
   const [isFlickering, setIsFlickering] = useState(false);
@@ -292,6 +340,100 @@ export function WorkflowSteps() {
                     {currentPreset.name}
                   </h4>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* =========================================================================
+            STEP 2: Research with skills, tools and plugins (3-Row Marquee)
+            ========================================================================= */}
+        <div className="flex flex-col items-center gap-10">
+          {/* Header on Top */}
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-widest text-[#5dcea0]">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#5dcea0]/20 text-[10px]">
+                02
+              </span>
+              <span>Step 2</span>
+            </div>
+
+            <h3 className="font-[family-name:var(--font-hero)] text-4xl font-bold tracking-tight text-[#f4f4f5] sm:text-5xl md:text-6xl leading-tight">
+              Research with skills, tools and plugins
+            </h3>
+          </div>
+
+          {/* Marquee Container with edge fade masks */}
+          <div className="w-full overflow-hidden space-y-4 py-2 [mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)] [-webkit-mask-image:linear-gradient(to_right,transparent,black_6%,black_94%,transparent)]">
+            {/* ROW 1: SKILLS (Scrolls Left) */}
+            <div className="relative flex overflow-hidden">
+              <div className="animate-marquee-left flex gap-3.5 items-center">
+                {[...SKILLS_LIST, ...SKILLS_LIST, ...SKILLS_LIST].map((skill, idx) => (
+                  <div
+                    key={`skill-${skill.name}-${idx}`}
+                    className="group flex items-center gap-3.5 rounded-xl border border-[#22232b] bg-[#0c0d12] px-4 py-2.5 transition-all duration-300 hover:border-[#5dcea0]/60 hover:bg-[#11141a] hover:shadow-[0_0_20px_rgba(93,206,160,0.15)] shrink-0 select-none cursor-default"
+                  >
+                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#5dcea0]/15 font-mono text-xs font-bold text-[#5dcea0] group-hover:bg-[#5dcea0]/25 transition-colors">
+                      /
+                    </span>
+                    <div className="flex flex-col">
+                      <span className="font-mono text-xs font-semibold text-[#f4f4f5] tracking-tight group-hover:text-[#5dcea0] transition-colors">
+                        {skill.name}
+                      </span>
+                      <span className="text-[11px] text-[#8a8a93] line-clamp-1">
+                        {skill.desc}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ROW 2: TOOLS (Scrolls Right) */}
+            <div className="relative flex overflow-hidden">
+              <div className="animate-marquee-right flex gap-3.5 items-center">
+                {[...TOOLS_LIST, ...TOOLS_LIST, ...TOOLS_LIST].map((tool, idx) => (
+                  <div
+                    key={`tool-${tool.name}-${idx}`}
+                    className="group flex items-center gap-3.5 rounded-xl border border-[#22232b] bg-[#0c0d12] px-4 py-2.5 transition-all duration-300 hover:border-[#e0b35a]/60 hover:bg-[#161410] hover:shadow-[0_0_20px_rgba(224,179,90,0.15)] shrink-0 select-none cursor-default"
+                  >
+                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#e0b35a]/15 font-mono text-xs font-bold text-[#e0b35a] group-hover:bg-[#e0b35a]/25 transition-colors">
+                      @
+                    </span>
+                    <div className="flex flex-col">
+                      <span className="font-mono text-xs font-semibold text-[#f4f4f5] tracking-tight group-hover:text-[#e0b35a] transition-colors">
+                        {tool.name}
+                      </span>
+                      <span className="text-[11px] text-[#8a8a93] line-clamp-1">
+                        {tool.desc}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ROW 3: PLUGINS (Scrolls Left) */}
+            <div className="relative flex overflow-hidden">
+              <div className="animate-marquee-left flex gap-3.5 items-center">
+                {[...PLUGINS_LIST, ...PLUGINS_LIST, ...PLUGINS_LIST].map((plugin, idx) => (
+                  <div
+                    key={`plugin-${plugin.name}-${idx}`}
+                    className="group flex items-center gap-3.5 rounded-xl border border-[#22232b] bg-[#0c0d12] px-4 py-2.5 transition-all duration-300 hover:border-[#60a5fa]/60 hover:bg-[#0e131d] hover:shadow-[0_0_20px_rgba(96,165,250,0.15)] shrink-0 select-none cursor-default"
+                  >
+                    <span className="flex h-6 items-center justify-center rounded-md bg-[#60a5fa]/15 px-2 font-mono text-[10px] font-bold uppercase tracking-wider text-[#60a5fa] group-hover:bg-[#60a5fa]/25 transition-colors">
+                      MCP
+                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-semibold text-[#f4f4f5] tracking-tight group-hover:text-[#60a5fa] transition-colors">
+                        {plugin.name}
+                      </span>
+                      <span className="text-[11px] text-[#8a8a93] line-clamp-1">
+                        {plugin.desc}
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
