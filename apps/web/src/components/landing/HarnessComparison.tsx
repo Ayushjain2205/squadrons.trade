@@ -90,7 +90,7 @@ export function HarnessComparison() {
   return (
     <section
       id="primitives"
-      className="relative flex min-h-[85vh] flex-col justify-center border-t border-[#1f1f1f] bg-[#000000] px-6 py-32 md:py-40 text-[#f4f4f5]"
+      className="relative flex min-h-screen flex-col justify-center border-t border-[#1f1f1f] bg-[#000000] px-6 py-24 md:py-32 text-[#f4f4f5]"
     >
       {/* Background ambient lighting */}
       <div className="pointer-events-none absolute left-1/2 top-1/3 h-[600px] w-[1100px] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(93,206,160,0.1)_0%,rgba(168,85,247,0.06)_40%,transparent_70%)] blur-3xl" />

@@ -215,15 +215,15 @@ export function WorkflowSteps() {
   );
 
   return (
-    <section className="relative min-h-[85vh] flex flex-col justify-center border-t border-[#1f1f1f] bg-[#000000] px-6 py-36 md:py-44 text-[#f4f4f5]">
-      {/* Ambient background glow */}
-      <div className="pointer-events-none absolute left-1/3 top-1/4 h-[600px] w-[1000px] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(93,206,160,0.08)_0%,transparent_70%)] blur-3xl" />
+    <>
+      {/* =========================================================================
+          STEP 1: Choose chain, create agent
+          ========================================================================= */}
+      <section className="relative min-h-screen flex flex-col justify-center items-center border-t border-[#1f1f1f] bg-[#000000] px-6 py-24 md:py-32 text-[#f4f4f5]">
+        {/* Ambient background glow */}
+        <div className="pointer-events-none absolute left-1/3 top-1/4 h-[600px] w-[1000px] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(93,206,160,0.08)_0%,transparent_70%)] blur-3xl" />
 
-      <div className="relative z-10 mx-auto w-full max-w-5xl space-y-36">
-        {/* =========================================================================
-            STEP 1: Choose chain, create agent (Top-centered layout)
-            ========================================================================= */}
-        <div className="flex flex-col items-center gap-10">
+        <div className="relative z-10 mx-auto w-full max-w-5xl flex flex-col items-center gap-10">
           {/* Header on Top */}
           <div className="text-center space-y-3">
             <div className="inline-flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-widest text-[#5dcea0]">
@@ -354,11 +354,16 @@ export function WorkflowSteps() {
             </div>
           </div>
         </div>
+      </section>
 
-        {/* =========================================================================
-            STEP 2: Research with skills, tools and plugins (3-Row Marquee)
-            ========================================================================= */}
-        <div className="flex flex-col items-center gap-10">
+      {/* =========================================================================
+          STEP 2: Research with skills, tools and plugins
+          ========================================================================= */}
+      <section className="relative min-h-screen flex flex-col justify-center items-center border-t border-[#1f1f1f] bg-[#000000] px-6 py-24 md:py-32 text-[#f4f4f5]">
+        {/* Ambient background glow */}
+        <div className="pointer-events-none absolute left-1/2 top-1/3 h-[600px] w-[1000px] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(96,165,250,0.06)_0%,transparent_70%)] blur-3xl" />
+
+        <div className="relative z-10 mx-auto w-full max-w-5xl flex flex-col items-center gap-10">
           {/* Header on Top */}
           <div className="text-center space-y-3">
             <div className="inline-flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-widest text-[#5dcea0]">
@@ -448,11 +453,16 @@ export function WorkflowSteps() {
             </div>
           </div>
         </div>
+      </section>
 
-        {/* =========================================================================
-            STEP 3: 3 Branched Animating Stages (Logic -> Paper Mode -> Live Mode)
-            ========================================================================= */}
-        <div className="flex flex-col items-center gap-10">
+      {/* =========================================================================
+          STEP 3: Simulate in paper mode, graduate to live
+          ========================================================================= */}
+      <section className="relative min-h-screen flex flex-col justify-center items-center border-t border-[#1f1f1f] bg-[#000000] px-6 py-24 md:py-32 text-[#f4f4f5]">
+        {/* Ambient background glow */}
+        <div className="pointer-events-none absolute left-1/2 top-1/3 h-[600px] w-[1000px] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(224,179,90,0.06)_0%,transparent_70%)] blur-3xl" />
+
+        <div className="relative z-10 mx-auto w-full max-w-5xl flex flex-col items-center gap-10">
           {/* Header on Top */}
           <div className="text-center space-y-3">
             <div className="inline-flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-widest text-[#5dcea0]">
@@ -612,11 +622,16 @@ export function WorkflowSteps() {
             </div>
           </div>
         </div>
+      </section>
 
-        {/* =========================================================================
-            STEP 4: Continuous Autonomous Self-Improvement (Flywheel Illustration)
-            ========================================================================= */}
-        <div className="flex flex-col items-center gap-10">
+      {/* =========================================================================
+          STEP 4: Continuous Autonomous Self-Improvement
+          ========================================================================= */}
+      <section className="relative min-h-screen flex flex-col justify-center items-center border-t border-[#1f1f1f] bg-[#000000] px-6 py-24 md:py-32 text-[#f4f4f5]">
+        {/* Ambient background glow */}
+        <div className="pointer-events-none absolute left-1/2 top-1/3 h-[600px] w-[1000px] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(93,206,160,0.08)_0%,transparent_70%)] blur-3xl" />
+
+        <div className="relative z-10 mx-auto w-full max-w-5xl flex flex-col items-center gap-10">
           {/* Header on Top */}
           <div className="text-center space-y-3">
             <div className="inline-flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-widest text-[#5dcea0]">
@@ -706,12 +721,10 @@ export function WorkflowSteps() {
             </div>
           </div>
         </div>
-
-
-
-      </div>
-    </section>
+      </section>
+    </>
   );
 }
+
 
 
