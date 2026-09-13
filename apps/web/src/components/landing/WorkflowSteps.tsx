@@ -186,6 +186,7 @@ export function WorkflowSteps() {
   const [activePresetIndex, setActivePresetIndex] = useState(1); // ETH Dip Watch
   const [isFlickering, setIsFlickering] = useState(false);
   const [step3Stage, setStep3Stage] = useState(0);
+  const [step4Corner, setStep4Corner] = useState(0);
 
   // Auto-cycle through the presets every 2.4s with smooth transition
   useEffect(() => {
@@ -205,6 +206,15 @@ export function WorkflowSteps() {
     const interval = setInterval(() => {
       setStep3Stage((prev) => (prev + 1) % 3);
     }, 3500);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Auto-cycle through the 3 triangle corners for Step 4 (0 -> 1 -> 2)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStep4Corner((prev) => (prev + 1) % 3);
+    }, 2600);
 
     return () => clearInterval(interval);
   }, []);
@@ -646,74 +656,206 @@ export function WorkflowSteps() {
             </h3>
           </div>
 
-          {/* Simple Flywheel Illustration Container */}
-          <div className="w-full max-w-2xl">
+          {/* Dotted Triangle Cycling Illustration */}
+          <div className="w-full max-w-xl">
             <div className="relative rounded-3xl border border-[#262626] bg-[#090a0d] p-8 sm:p-12 shadow-2xl flex flex-col items-center justify-center overflow-hidden">
               {/* Center Ambient Radial Glow */}
-              <div className="pointer-events-none absolute h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(93,206,160,0.12)_0%,transparent_70%)] blur-2xl" />
+              <div className="pointer-events-none absolute h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(93,206,160,0.1)_0%,transparent_70%)] blur-2xl" />
 
-              {/* Circular Flywheel Graphic */}
-              <div className="relative h-72 w-72 sm:h-80 sm:w-80 flex items-center justify-center">
-                {/* SVG Orbit Track */}
-                <svg viewBox="0 0 300 300" className="absolute inset-0 h-full w-full">
+              {/* Triangle Canvas Container */}
+              <div className="relative h-[310px] w-[340px] sm:h-[340px] sm:w-[380px] flex items-center justify-center select-none">
+                {/* SVG Dotted Triangle & Traveling Laser Lines */}
+                <svg viewBox="0 0 360 320" className="absolute inset-0 h-full w-full overflow-visible">
                   <defs>
-                    <linearGradient id="flywheelGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <linearGradient id="laser0to1" x1="0%" y1="0%" x2="100%" y2="100%">
                       <stop offset="0%" stopColor="#5dcea0" />
-                      <stop offset="50%" stopColor="#60a5fa" />
                       <stop offset="100%" stopColor="#e0b35a" />
+                    </linearGradient>
+                    <linearGradient id="laser1to2" x1="100%" y1="0%" x2="0%" y2="0%">
+                      <stop offset="0%" stopColor="#e0b35a" />
+                      <stop offset="100%" stopColor="#60a5fa" />
+                    </linearGradient>
+                    <linearGradient id="laser2to0" x1="0%" y1="100%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#60a5fa" />
+                      <stop offset="100%" stopColor="#5dcea0" />
                     </linearGradient>
                   </defs>
 
-                  {/* Outer static dashed track */}
-                  <circle
-                    cx="150"
-                    cy="150"
-                    r="110"
-                    fill="none"
+                  {/* 1. Base Inactive Dotted Triangle Sides */}
+                  {/* Side 0 -> 1 (Top to Bottom-Right) */}
+                  <line
+                    x1="180"
+                    y1="46"
+                    x2="310"
+                    y2="260"
                     stroke="#22232b"
-                    strokeWidth="2"
-                    strokeDasharray="4 4"
+                    strokeWidth="1.8"
+                    strokeDasharray="5 5"
+                  />
+                  {/* Side 1 -> 2 (Bottom-Right to Bottom-Left) */}
+                  <line
+                    x1="310"
+                    y1="260"
+                    x2="50"
+                    y2="260"
+                    stroke="#22232b"
+                    strokeWidth="1.8"
+                    strokeDasharray="5 5"
+                  />
+                  {/* Side 2 -> 0 (Bottom-Left to Top) */}
+                  <line
+                    x1="50"
+                    y1="260"
+                    x2="180"
+                    y2="46"
+                    stroke="#22232b"
+                    strokeWidth="1.8"
+                    strokeDasharray="5 5"
                   />
 
-                  {/* Rotating Gradient Arc */}
+                  {/* 2. Active Flowing Laser Beams */}
+                  {step4Corner === 0 && (
+                    <line
+                      x1="180"
+                      y1="46"
+                      x2="310"
+                      y2="260"
+                      stroke="url(#laser0to1)"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      className="drop-shadow-[0_0_8px_rgba(93,206,160,0.8)] transition-all duration-500"
+                    />
+                  )}
+                  {step4Corner === 1 && (
+                    <line
+                      x1="310"
+                      y1="260"
+                      x2="50"
+                      y2="260"
+                      stroke="url(#laser1to2)"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      className="drop-shadow-[0_0_8px_rgba(224,179,90,0.8)] transition-all duration-500"
+                    />
+                  )}
+                  {step4Corner === 2 && (
+                    <line
+                      x1="50"
+                      y1="260"
+                      x2="180"
+                      y2="46"
+                      stroke="url(#laser2to0)"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      className="drop-shadow-[0_0_8px_rgba(96,165,250,0.8)] transition-all duration-500"
+                    />
+                  )}
+
+                  {/* Corner Anchor Vertex Dots */}
                   <circle
-                    cx="150"
-                    cy="150"
-                    r="110"
-                    fill="none"
-                    stroke="url(#flywheelGradient)"
-                    strokeWidth="3"
-                    strokeDasharray="140 360"
-                    strokeLinecap="round"
-                    className="animate-[spin_10s_linear_infinite] origin-center opacity-80"
+                    cx="180"
+                    cy="46"
+                    r={step4Corner === 0 ? "4.5" : "3"}
+                    fill={step4Corner === 0 ? "#5dcea0" : "#262626"}
+                    className="transition-all duration-300"
+                  />
+                  <circle
+                    cx="310"
+                    cy="260"
+                    r={step4Corner === 1 ? "4.5" : "3"}
+                    fill={step4Corner === 1 ? "#e0b35a" : "#262626"}
+                    className="transition-all duration-300"
+                  />
+                  <circle
+                    cx="50"
+                    cy="260"
+                    r={step4Corner === 2 ? "4.5" : "3"}
+                    fill={step4Corner === 2 ? "#60a5fa" : "#262626"}
+                    className="transition-all duration-300"
                   />
                 </svg>
 
-                {/* Center Core: Agent Orb */}
-                <div className="relative z-10 flex flex-col items-center justify-center">
-                  <AgentOrb id="01" colorId="green" size={68} animate={true} />
+                {/* Center Centroid: Active Agent Avatar */}
+                <div className="absolute left-1/2 top-[58%] -translate-x-1/2 -translate-y-1/2 z-10">
+                  <AgentOrb
+                    id={currentPreset.avatarId}
+                    colorId={currentPreset.colorId}
+                    size={68}
+                    animate={true}
+                  />
                 </div>
 
-                {/* Node 1: Execute (Top) */}
-                <div className="absolute top-0 -translate-y-1/2 flex items-center gap-2 rounded-xl border border-[#22232b] bg-[#0e0f14] px-3.5 py-1.5 shadow-xl select-none">
-                  <span className="h-2 w-2 rounded-full bg-[#5dcea0] shadow-[0_0_6px_#5dcea0]" />
-                  <span className="font-mono text-xs font-semibold text-[#f4f4f5]">
+                {/* Corner 0: Execute & Monitor (Top) */}
+                <div
+                  onClick={() => setStep4Corner(0)}
+                  className={`absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/3 flex items-center gap-2 rounded-xl border px-3.5 py-1.5 shadow-xl transition-all duration-500 cursor-pointer ${
+                    step4Corner === 0
+                      ? "border-[#5dcea0] bg-[#0d1411] shadow-[0_0_20px_rgba(93,206,160,0.25)] scale-105"
+                      : "border-[#22232b] bg-[#0e0f14] hover:border-[#3f3f46]"
+                  }`}
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full transition-colors ${
+                      step4Corner === 0
+                        ? "bg-[#5dcea0] shadow-[0_0_8px_#5dcea0]"
+                        : "bg-[#262626]"
+                    }`}
+                  />
+                  <span
+                    className={`font-mono text-xs font-semibold transition-colors ${
+                      step4Corner === 0 ? "text-[#f4f4f5]" : "text-[#8a8a93]"
+                    }`}
+                  >
                     Execute &amp; Monitor
                   </span>
                 </div>
 
-                {/* Node 2: Analyze (Bottom-Right) */}
-                <div className="absolute bottom-4 right-0 translate-x-2 flex items-center gap-2 rounded-xl border border-[#22232b] bg-[#0e0f14] px-3.5 py-1.5 shadow-xl select-none">
-                  <span className="h-2 w-2 rounded-full bg-[#e0b35a] shadow-[0_0_6px_#e0b35a]" />
-                  <span className="font-mono text-xs font-semibold text-[#f4f4f5]">
+                {/* Corner 1: Analyze Edge (Bottom-Right) */}
+                <div
+                  onClick={() => setStep4Corner(1)}
+                  className={`absolute bottom-0 right-0 translate-x-3 translate-y-1/3 flex items-center gap-2 rounded-xl border px-3.5 py-1.5 shadow-xl transition-all duration-500 cursor-pointer ${
+                    step4Corner === 1
+                      ? "border-[#e0b35a] bg-[#161410] shadow-[0_0_20px_rgba(224,179,90,0.25)] scale-105"
+                      : "border-[#22232b] bg-[#0e0f14] hover:border-[#3f3f46]"
+                  }`}
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full transition-colors ${
+                      step4Corner === 1
+                        ? "bg-[#e0b35a] shadow-[0_0_8px_#e0b35a]"
+                        : "bg-[#262626]"
+                    }`}
+                  />
+                  <span
+                    className={`font-mono text-xs font-semibold transition-colors ${
+                      step4Corner === 1 ? "text-[#f4f4f5]" : "text-[#8a8a93]"
+                    }`}
+                  >
                     Analyze Edge
                   </span>
                 </div>
 
-                {/* Node 3: Optimize (Bottom-Left) */}
-                <div className="absolute bottom-4 left-0 -translate-x-2 flex items-center gap-2 rounded-xl border border-[#22232b] bg-[#0e0f14] px-3.5 py-1.5 shadow-xl select-none">
-                  <span className="h-2 w-2 rounded-full bg-[#60a5fa] shadow-[0_0_6px_#60a5fa]" />
-                  <span className="font-mono text-xs font-semibold text-[#f4f4f5]">
+                {/* Corner 2: Auto-Tune Params (Bottom-Left) */}
+                <div
+                  onClick={() => setStep4Corner(2)}
+                  className={`absolute bottom-0 left-0 -translate-x-3 translate-y-1/3 flex items-center gap-2 rounded-xl border px-3.5 py-1.5 shadow-xl transition-all duration-500 cursor-pointer ${
+                    step4Corner === 2
+                      ? "border-[#60a5fa] bg-[#0e131d] shadow-[0_0_20px_rgba(96,165,250,0.25)] scale-105"
+                      : "border-[#22232b] bg-[#0e0f14] hover:border-[#3f3f46]"
+                  }`}
+                >
+                  <span
+                    className={`h-2 w-2 rounded-full transition-colors ${
+                      step4Corner === 2
+                        ? "bg-[#60a5fa] shadow-[0_0_8px_#60a5fa]"
+                        : "bg-[#262626]"
+                    }`}
+                  />
+                  <span
+                    className={`font-mono text-xs font-semibold transition-colors ${
+                      step4Corner === 2 ? "text-[#f4f4f5]" : "text-[#8a8a93]"
+                    }`}
+                  >
                     Auto-Tune Params
                   </span>
                 </div>
@@ -722,6 +864,7 @@ export function WorkflowSteps() {
           </div>
         </div>
       </section>
+
     </>
   );
 }
