@@ -132,14 +132,7 @@ export function AgentRosterBento() {
 
       <div className="relative z-10 mx-auto w-full max-w-6xl space-y-12">
         {/* Section Header */}
-        <div className="text-center space-y-3">
-          <div className="inline-flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-widest text-[#5dcea0]">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#5dcea0]/20 text-[10px]">
-              05
-            </span>
-            <span>Squadron Roster</span>
-          </div>
-
+        <div className="text-center">
           <h2 className="font-[family-name:var(--font-hero)] text-4xl font-bold tracking-tight text-[#f4f4f5] sm:text-5xl md:text-6xl leading-tight">
             Deploy battle-tested recipes
           </h2>
