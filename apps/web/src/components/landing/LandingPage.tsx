@@ -1,6 +1,7 @@
 "use client";
 
 import { LandingHero } from "./LandingHero";
+import { HarnessComparison } from "./HarnessComparison";
 
 export interface LandingPageProps {
   onLogin: () => void;
@@ -12,7 +13,8 @@ export function LandingPage({ onLogin }: LandingPageProps) {
       {/* Section 1: Hero */}
       <LandingHero onLogin={onLogin} />
 
-      {/* Subsequent sections will be mounted here as we build them */}
+      {/* Section 2: Missing Primitives / Harness Evolution */}
+      <HarnessComparison />
     </div>
   );
 }
