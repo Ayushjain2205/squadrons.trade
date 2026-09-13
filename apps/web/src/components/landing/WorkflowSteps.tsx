@@ -204,7 +204,7 @@ export function WorkflowSteps() {
   useEffect(() => {
     const interval = setInterval(() => {
       setStep3Stage((prev) => (prev + 1) % 3);
-    }, 2200);
+    }, 3500);
 
     return () => clearInterval(interval);
   }, []);
@@ -469,37 +469,38 @@ export function WorkflowSteps() {
 
           {/* 3 Branched Stage Boxes */}
           <div className="w-full">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4">
+            <div className="flex flex-col md:flex-row items-stretch justify-between gap-3 sm:gap-4">
               {/* STAGE 1: Strategy Logic */}
               <div
                 onClick={() => setStep3Stage(0)}
-                className={`relative flex-1 w-full rounded-2xl border p-6 transition-all duration-300 cursor-pointer select-none ${
+                className={`relative flex-1 w-full rounded-2xl border p-6 transition-all duration-500 cursor-pointer select-none flex flex-col justify-between ${
                   step3Stage === 0
                     ? "border-[#5dcea0] bg-[#0d1411] shadow-[0_0_25px_rgba(93,206,160,0.18)] scale-[1.02]"
                     : "border-[#262626] bg-[#090a0d] hover:border-[#3f3f46] hover:bg-[#0e0f14]"
                 }`}
               >
-                <div className="flex items-center justify-between mb-4">
-                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#8a8a93]">
-                    Stage 01
-                  </span>
-                  <span
-                    className={`h-2 w-2 rounded-full transition-colors ${
-                      step3Stage === 0
-                        ? "bg-[#5dcea0] shadow-[0_0_8px_#5dcea0]"
-                        : "bg-[#262626]"
-                    }`}
-                  />
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-xl font-bold text-[#f4f4f5] tracking-tight">
+                      Strategy Logic
+                    </h4>
+                    <span
+                      className={`h-2 w-2 rounded-full transition-colors duration-500 ${
+                        step3Stage === 0
+                          ? "bg-[#5dcea0] shadow-[0_0_8px_#5dcea0]"
+                          : "bg-[#262626]"
+                      }`}
+                    />
+                  </div>
+                  <p className="text-xs text-[#8a8a93] leading-relaxed mb-5">
+                    Define pool triggers, RSI thresholds, and atomic swap conditions.
+                  </p>
                 </div>
-                <h4 className="text-xl font-bold text-[#f4f4f5] mb-2 tracking-tight">
-                  Strategy Logic
-                </h4>
-                <p className="text-xs text-[#8a8a93] leading-relaxed mb-4">
-                  Define pool triggers, RSI thresholds, and atomic swap conditions.
-                </p>
-                <div className="inline-flex items-center gap-1.5 rounded-lg border border-[#1f1f23] bg-[#141418] px-2.5 py-1 font-mono text-[11px] font-semibold text-[#a1a1aa]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#5dcea0]" />
-                  Compiled Recipe
+                <div>
+                  <div className="inline-flex items-center gap-1.5 rounded-lg border border-[#1f1f23] bg-[#141418] px-2.5 py-1 font-mono text-[11px] font-semibold text-[#a1a1aa]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#5dcea0]" />
+                    Compiled Recipe
+                  </div>
                 </div>
               </div>
 
@@ -512,12 +513,12 @@ export function WorkflowSteps() {
                     stroke={step3Stage >= 1 ? "#e0b35a" : step3Stage === 0 ? "#5dcea0" : "#262626"}
                     strokeWidth="2"
                     strokeDasharray={step3Stage === 0 ? "3 3" : "none"}
-                    className="transition-colors duration-300"
+                    className="transition-colors duration-500"
                   />
                   <polygon
                     points="24,4 32,8 24,12"
                     fill={step3Stage >= 1 ? "#e0b35a" : step3Stage === 0 ? "#5dcea0" : "#262626"}
-                    className="transition-colors duration-300"
+                    className="transition-colors duration-500"
                   />
                 </svg>
               </div>
@@ -525,33 +526,34 @@ export function WorkflowSteps() {
               {/* STAGE 2: Paper Mode */}
               <div
                 onClick={() => setStep3Stage(1)}
-                className={`relative flex-1 w-full rounded-2xl border p-6 transition-all duration-300 cursor-pointer select-none ${
+                className={`relative flex-1 w-full rounded-2xl border p-6 transition-all duration-500 cursor-pointer select-none flex flex-col justify-between ${
                   step3Stage === 1
                     ? "border-[#e0b35a] bg-[#161410] shadow-[0_0_25px_rgba(224,179,90,0.18)] scale-[1.02]"
                     : "border-[#262626] bg-[#090a0d] hover:border-[#3f3f46] hover:bg-[#0e0f14]"
                 }`}
               >
-                <div className="flex items-center justify-between mb-4">
-                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#8a8a93]">
-                    Stage 02
-                  </span>
-                  <span
-                    className={`h-2 w-2 rounded-full transition-colors ${
-                      step3Stage === 1
-                        ? "bg-[#e0b35a] shadow-[0_0_8px_#e0b35a]"
-                        : "bg-[#262626]"
-                    }`}
-                  />
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-xl font-bold text-[#f4f4f5] tracking-tight">
+                      Paper Mode
+                    </h4>
+                    <span
+                      className={`h-2 w-2 rounded-full transition-colors duration-500 ${
+                        step3Stage === 1
+                          ? "bg-[#e0b35a] shadow-[0_0_8px_#e0b35a]"
+                          : "bg-[#262626]"
+                      }`}
+                    />
+                  </div>
+                  <p className="text-xs text-[#8a8a93] leading-relaxed mb-5">
+                    Simulate fills in real-time, quote DEX prices, and verify edge with zero risk.
+                  </p>
                 </div>
-                <h4 className="text-xl font-bold text-[#f4f4f5] mb-2 tracking-tight">
-                  Paper Mode
-                </h4>
-                <p className="text-xs text-[#8a8a93] leading-relaxed mb-4">
-                  Simulate fills in real-time, quote DEX prices, and verify edge with zero risk.
-                </p>
-                <div className="inline-flex items-center gap-1.5 rounded-lg border border-[#1f1f23] bg-[#141418] px-2.5 py-1 font-mono text-[11px] font-semibold text-[#e0b35a]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#e0b35a]" />
-                  Virtual Fills · Zero Risk
+                <div>
+                  <div className="inline-flex items-center gap-1.5 rounded-lg border border-[#1f1f23] bg-[#141418] px-2.5 py-1 font-mono text-[11px] font-semibold text-[#e0b35a]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#e0b35a]" />
+                    Virtual Fills · Zero Risk
+                  </div>
                 </div>
               </div>
 
@@ -564,12 +566,12 @@ export function WorkflowSteps() {
                     stroke={step3Stage === 2 ? "#5dcea0" : step3Stage === 1 ? "#e0b35a" : "#262626"}
                     strokeWidth="2"
                     strokeDasharray={step3Stage <= 1 ? "3 3" : "none"}
-                    className="transition-colors duration-300"
+                    className="transition-colors duration-500"
                   />
                   <polygon
                     points="24,4 32,8 24,12"
                     fill={step3Stage === 2 ? "#5dcea0" : step3Stage === 1 ? "#e0b35a" : "#262626"}
-                    className="transition-colors duration-300"
+                    className="transition-colors duration-500"
                   />
                 </svg>
               </div>
@@ -577,37 +579,39 @@ export function WorkflowSteps() {
               {/* STAGE 3: Live Mode */}
               <div
                 onClick={() => setStep3Stage(2)}
-                className={`relative flex-1 w-full rounded-2xl border p-6 transition-all duration-300 cursor-pointer select-none ${
+                className={`relative flex-1 w-full rounded-2xl border p-6 transition-all duration-500 cursor-pointer select-none flex flex-col justify-between ${
                   step3Stage === 2
                     ? "border-[#5dcea0] bg-[#0d1411] shadow-[0_0_25px_rgba(93,206,160,0.18)] scale-[1.02]"
                     : "border-[#262626] bg-[#090a0d] hover:border-[#3f3f46] hover:bg-[#0e0f14]"
                 }`}
               >
-                <div className="flex items-center justify-between mb-4">
-                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#8a8a93]">
-                    Stage 03
-                  </span>
-                  <span
-                    className={`h-2 w-2 rounded-full transition-colors ${
-                      step3Stage === 2
-                        ? "bg-[#5dcea0] shadow-[0_0_8px_#5dcea0]"
-                        : "bg-[#262626]"
-                    }`}
-                  />
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-xl font-bold text-[#f4f4f5] tracking-tight">
+                      Live Execution
+                    </h4>
+                    <span
+                      className={`h-2 w-2 rounded-full transition-colors duration-500 ${
+                        step3Stage === 2
+                          ? "bg-[#5dcea0] shadow-[0_0_8px_#5dcea0]"
+                          : "bg-[#262626]"
+                      }`}
+                    />
+                  </div>
+                  <p className="text-xs text-[#8a8a93] leading-relaxed mb-5">
+                    Graduate the loop onchain with strict gas ceilings, slippage guardrails, and $10 spend caps.
+                  </p>
                 </div>
-                <h4 className="text-xl font-bold text-[#f4f4f5] mb-2 tracking-tight">
-                  Live Execution
-                </h4>
-                <p className="text-xs text-[#8a8a93] leading-relaxed mb-4">
-                  Graduate the loop onchain with strict gas ceilings, slippage guardrails, and $10 spend caps.
-                </p>
-                <div className="inline-flex items-center gap-1.5 rounded-lg border border-[#1f1f23] bg-[#141418] px-2.5 py-1 font-mono text-[11px] font-semibold text-[#5dcea0]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#5dcea0]" />
-                  Safety Capped Execution
+                <div>
+                  <div className="inline-flex items-center gap-1.5 rounded-lg border border-[#1f1f23] bg-[#141418] px-2.5 py-1 font-mono text-[11px] font-semibold text-[#5dcea0]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#5dcea0]" />
+                    Safety Capped Execution
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+
 
         </div>
 
