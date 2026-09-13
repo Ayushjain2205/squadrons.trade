@@ -1,0 +1,302 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Image from "next/image";
+import type { AvatarId, OrbColorId } from "@squadrons/shared";
+import { AgentOrb } from "@/components/AgentOrb";
+
+interface StepChain {
+  chainId: number;
+  name: string;
+  shortName: string;
+  logoUrl: string;
+}
+
+const STEP_CHAINS: StepChain[] = [
+  {
+    chainId: 8453,
+    name: "Base",
+    shortName: "Base",
+    logoUrl: "/chains/base.png",
+  },
+  {
+    chainId: 1,
+    name: "Ethereum",
+    shortName: "Ethereum",
+    logoUrl: "/chains/ethereum.png",
+  },
+  {
+    chainId: 42161,
+    name: "Arbitrum One",
+    shortName: "Arbitrum",
+    logoUrl: "/chains/arbitrum.png",
+  },
+  {
+    chainId: 10,
+    name: "Optimism",
+    shortName: "Optimism",
+    logoUrl: "/chains/optimism.png",
+  },
+  {
+    chainId: 130,
+    name: "Unichain",
+    shortName: "Unichain",
+    logoUrl: "/chains/unichain.png",
+  },
+  {
+    chainId: 480,
+    name: "World Chain",
+    shortName: "World Chain",
+    logoUrl: "/chains/worldchain.png",
+  },
+  {
+    chainId: 4663,
+    name: "Robinhood Chain",
+    shortName: "Robinhood",
+    logoUrl: "/chains/robinhood.png",
+  },
+  {
+    chainId: 9991,
+    name: "Arc",
+    shortName: "Arc",
+    logoUrl: "/chains/arc.png",
+  },
+];
+
+interface AgentPreset {
+  id: string;
+  chainId: number;
+  avatarId: AvatarId;
+  colorId: OrbColorId;
+  name: string;
+}
+
+const STEP_1_PRESETS: AgentPreset[] = [
+  {
+    id: "base-lp",
+    chainId: 8453,
+    avatarId: "03",
+    colorId: "blue",
+    name: "Base LP Scout",
+  },
+  {
+    id: "eth-dip",
+    chainId: 1,
+    avatarId: "08",
+    colorId: "orange",
+    name: "ETH Dip Watch",
+  },
+  {
+    id: "arb-sentinel",
+    chainId: 42161,
+    avatarId: "06",
+    colorId: "red",
+    name: "Arbitrum Flow Watch",
+  },
+  {
+    id: "opt-pulse",
+    chainId: 10,
+    avatarId: "01",
+    colorId: "green",
+    name: "Optimism Scout",
+  },
+  {
+    id: "uni-rebalance",
+    chainId: 130,
+    avatarId: "04",
+    colorId: "yellow",
+    name: "Unichain Rebalancer",
+  },
+  {
+    id: "world-alpha",
+    chainId: 480,
+    avatarId: "07",
+    colorId: "purple",
+    name: "World Alpha Scout",
+  },
+  {
+    id: "robinhood-spot",
+    chainId: 4663,
+    avatarId: "05",
+    colorId: "pink",
+    name: "Robinhood Sentinel",
+  },
+  {
+    id: "arc-scout",
+    chainId: 9991,
+    avatarId: "02",
+    colorId: "blue",
+    name: "Arc Liquidity Sentinel",
+  },
+];
+
+// Y coordinates for each of the 8 chain rows in SVG space
+const CHAIN_Y_COORDS = [16, 48, 80, 112, 144, 176, 208, 240];
+const TARGET_Y = 128;
+
+export function WorkflowSteps() {
+  const [activePresetIndex, setActivePresetIndex] = useState(1); // ETH Dip Watch
+  const [isFlickering, setIsFlickering] = useState(false);
+
+  // Auto-cycle through the presets every 2.4s with smooth transition
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsFlickering(true);
+      setTimeout(() => {
+        setActivePresetIndex((prev) => (prev + 1) % STEP_1_PRESETS.length);
+        setIsFlickering(false);
+      }, 140);
+    }, 2400);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const currentPreset = STEP_1_PRESETS[activePresetIndex];
+  const activeChainIndex = STEP_CHAINS.findIndex(
+    (c) => c.chainId === currentPreset.chainId
+  );
+
+  return (
+    <section className="relative min-h-[85vh] flex flex-col justify-center border-t border-[#1f1f1f] bg-[#000000] px-6 py-36 md:py-44 text-[#f4f4f5]">
+      {/* Ambient background glow */}
+      <div className="pointer-events-none absolute left-1/3 top-1/4 h-[600px] w-[1000px] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(93,206,160,0.08)_0%,transparent_70%)] blur-3xl" />
+
+      <div className="relative z-10 mx-auto w-full max-w-5xl space-y-36">
+        {/* =========================================================================
+            STEP 1: Choose chain, create agent (Top-centered layout)
+            ========================================================================= */}
+        <div className="flex flex-col items-center gap-10">
+          {/* Header on Top */}
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-widest text-[#5dcea0]">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#5dcea0]/20 text-[10px]">
+                01
+              </span>
+              <span>Step 1</span>
+            </div>
+
+            <h3 className="font-[family-name:var(--font-hero)] text-4xl font-bold tracking-tight text-[#f4f4f5] sm:text-5xl md:text-6xl leading-tight">
+              Choose chain, create agent
+            </h3>
+          </div>
+
+          {/* Branching visual container centered below */}
+          <div className="w-full">
+            <div className="relative flex items-center justify-between gap-4 sm:gap-8 rounded-3xl border border-[#262626] bg-[#090a0d] p-6 sm:p-9 shadow-2xl overflow-hidden">
+              {/* 1. All Supported Chains (Left) */}
+              <div className="flex flex-col gap-2 w-44 sm:w-52 shrink-0">
+                {STEP_CHAINS.map((chain, index) => {
+                  const isActive = index === activeChainIndex;
+                  return (
+                    <div
+                      key={chain.chainId}
+                      onClick={() => {
+                        const idx = STEP_1_PRESETS.findIndex((p) => p.chainId === chain.chainId);
+                        if (idx !== -1) setActivePresetIndex(idx);
+                      }}
+                      className={`flex items-center justify-between rounded-xl border px-3.5 py-2 transition-all duration-300 cursor-pointer select-none ${
+                        isActive
+                          ? "border-[#5dcea0] bg-[#121c17] shadow-[0_0_15px_rgba(93,206,160,0.2)] ring-1 ring-[#5dcea0]/40"
+                          : "border-[#262626] bg-[#0e0f14] hover:border-[#3f3f46] hover:bg-[#14151c]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="relative h-4.5 w-4.5 overflow-hidden rounded-md bg-[#181a20]">
+                          <Image
+                            src={chain.logoUrl}
+                            alt={chain.name}
+                            width={18}
+                            height={18}
+                            className="object-cover"
+                          />
+                        </div>
+                        <span
+                          className={`text-xs font-semibold transition-colors ${
+                            isActive ? "text-[#f4f4f5]" : "text-[#a1a1aa]"
+                          }`}
+                        >
+                          {chain.shortName}
+                        </span>
+                      </div>
+                      {isActive && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#5dcea0] shadow-[0_0_6px_#5dcea0]" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* 2. Dynamic SVG Branching Connector (Center) */}
+              <div className="hidden sm:flex shrink-0 w-32 items-center justify-center">
+                <svg viewBox="0 0 100 256" className="h-64 w-full">
+                  <defs>
+                    <linearGradient id="activeBranchGrad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#5dcea0" stopOpacity="0.6" />
+                      <stop offset="100%" stopColor="#5dcea0" stopOpacity="1" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Background inactive dotted branch curves */}
+                  {CHAIN_Y_COORDS.map((startY, i) => {
+                    const isActive = i === activeChainIndex;
+                    if (isActive) return null;
+                    return (
+                      <path
+                        key={`inactive-${i}`}
+                        d={`M 0 ${startY} C 50 ${startY}, 50 ${TARGET_Y}, 100 ${TARGET_Y}`}
+                        fill="none"
+                        stroke="#262626"
+                        strokeWidth="1.2"
+                        strokeDasharray="3 3"
+                        className="transition-all duration-300"
+                      />
+                    );
+                  })}
+
+                  {/* Active Highlighted Branch Curve */}
+                  {activeChainIndex >= 0 && (
+                    <path
+                      d={`M 0 ${CHAIN_Y_COORDS[activeChainIndex]} C 55 ${CHAIN_Y_COORDS[activeChainIndex]}, 45 ${TARGET_Y}, 100 ${TARGET_Y}`}
+                      fill="none"
+                      stroke="url(#activeBranchGrad)"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      className="drop-shadow-[0_0_8px_rgba(93,206,160,0.8)] transition-all duration-300"
+                    />
+                  )}
+
+                  {/* Convergence endpoint dot */}
+                  <circle cx="100" cy={TARGET_Y} r="3.5" fill="#5dcea0" className="shadow-[0_0_8px_#5dcea0]" />
+                </svg>
+              </div>
+
+              {/* 3. Pure Avatar + Name (Spacious right container) */}
+              <div className="flex flex-1 min-w-0 items-center justify-start pl-2 sm:pl-4">
+                <div
+                  className={`flex items-center gap-4 transition-all duration-200 select-none min-w-0 ${
+                    isFlickering ? "opacity-30 scale-95" : "opacity-100 scale-100"
+                  }`}
+                >
+                  {/* Avatar Orb */}
+                  <div className="shrink-0">
+                    <AgentOrb
+                      id={currentPreset.avatarId}
+                      colorId={currentPreset.colorId}
+                      size={60}
+                      animate={true}
+                    />
+                  </div>
+
+                  {/* Agent Name */}
+                  <h4 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#f4f4f5] whitespace-nowrap">
+                    {currentPreset.name}
+                  </h4>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
